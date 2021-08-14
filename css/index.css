@@ -1912,9 +1912,6 @@ kbd {
 .post-meta-item--createtime {
   color: var(--color-gray-700);
 }
-.post-meta-item--updatetime {
-  color: #49b1f5;
-}
 .post-meta-item--wordcount {
   color: var(--color-gray-700);
 }
