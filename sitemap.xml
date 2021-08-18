@@ -9,14 +9,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/tags/index.html</loc>
+    <loc>https://plotor.github.io/about/index.html</loc>
     
     <lastmod>2021-08-18</lastmod>
     
   </url>
   
   <url>
-    <loc>https://plotor.github.io/about/index.html</loc>
+    <loc>https://plotor.github.io/tags/index.html</loc>
     
     <lastmod>2021-08-18</lastmod>
     
@@ -30,13 +30,6 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2017/05/28/spring/spring-ioc-get-bean/</loc>
-    
-    <lastmod>2021-08-18</lastmod>
-    
-  </url>
-  
-  <url>
     <loc>https://plotor.github.io/2017/07/08/spring/spring-ioc-circular-reference/</loc>
     
     <lastmod>2021-08-18</lastmod>
@@ -44,7 +37,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2017/04/30/spring/spring-ioc-container/</loc>
+    <loc>https://plotor.github.io/2017/05/28/spring/spring-ioc-get-bean/</loc>
     
     <lastmod>2021-08-18</lastmod>
     
@@ -59,6 +52,13 @@
   
   <url>
     <loc>https://plotor.github.io/2017/05/10/spring/spring-ioc-bean-factory/</loc>
+    
+    <lastmod>2021-08-18</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>https://plotor.github.io/2017/04/30/spring/spring-ioc-container/</loc>
     
     <lastmod>2021-08-18</lastmod>
     
@@ -114,13 +114,6 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2016/10/15/design-pattern/singleton/</loc>
-    
-    <lastmod>2021-08-18</lastmod>
-    
-  </url>
-  
-  <url>
     <loc>https://plotor.github.io/2018/11/18/storm/storm-nimbus/</loc>
     
     <lastmod>2021-08-18</lastmod>
@@ -128,7 +121,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/11/16/storm/storm-topology-assignment/</loc>
+    <loc>https://plotor.github.io/2016/10/15/design-pattern/singleton/</loc>
     
     <lastmod>2021-08-18</lastmod>
     
@@ -142,14 +135,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/11/15/storm/storm-topology-build/</loc>
+    <loc>https://plotor.github.io/2018/11/16/storm/storm-topology-assignment/</loc>
     
     <lastmod>2021-08-18</lastmod>
     
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/11/14/storm/storm-api/</loc>
+    <loc>https://plotor.github.io/2018/11/15/storm/storm-topology-build/</loc>
     
     <lastmod>2021-08-18</lastmod>
     
@@ -163,14 +156,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/11/19/storm/storm-supervisor/</loc>
+    <loc>https://plotor.github.io/2018/11/17/storm/storm-async-loop/</loc>
     
     <lastmod>2021-08-18</lastmod>
     
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/11/17/storm/storm-async-loop/</loc>
+    <loc>https://plotor.github.io/2018/11/14/storm/storm-api/</loc>
     
     <lastmod>2021-08-18</lastmod>
     
@@ -184,6 +177,13 @@
   </url>
   
   <url>
+    <loc>https://plotor.github.io/2018/11/19/storm/storm-supervisor/</loc>
+    
+    <lastmod>2021-08-18</lastmod>
+    
+  </url>
+  
+  <url>
     <loc>https://plotor.github.io/2017/12/17/rpc/dubbo-spi/</loc>
     
     <lastmod>2021-08-18</lastmod>
@@ -191,14 +191,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2019/06/19/kafka/kafka-consumer/</loc>
+    <loc>https://plotor.github.io/2019/06/22/kafka/kafka-log-manage/</loc>
     
     <lastmod>2021-08-18</lastmod>
     
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2019/06/22/kafka/kafka-log-manage/</loc>
+    <loc>https://plotor.github.io/2019/06/19/kafka/kafka-consumer/</loc>
     
     <lastmod>2021-08-18</lastmod>
     
@@ -261,20 +261,6 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/05/17/scala/scala-collection-seq/</loc>
-    
-    <lastmod>2021-08-18</lastmod>
-    
-  </url>
-  
-  <url>
-    <loc>https://plotor.github.io/2018/05/16/scala/scala-collection-common/</loc>
-    
-    <lastmod>2021-08-18</lastmod>
-    
-  </url>
-  
-  <url>
     <loc>https://plotor.github.io/2018/05/19/scala/scala-collection-map/</loc>
     
     <lastmod>2021-08-18</lastmod>
@@ -283,6 +269,20 @@
   
   <url>
     <loc>https://plotor.github.io/2018/05/18/scala/scala-collection-set/</loc>
+    
+    <lastmod>2021-08-18</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>https://plotor.github.io/2018/05/17/scala/scala-collection-seq/</loc>
+    
+    <lastmod>2021-08-18</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>https://plotor.github.io/2018/05/16/scala/scala-collection-common/</loc>
     
     <lastmod>2021-08-18</lastmod>
     
@@ -303,14 +303,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2020/06/01/sofa/sofa-jraft-node-startup/</loc>
+    <loc>https://plotor.github.io/2020/06/29/sofa/sofa-jraft-linearizable-read/</loc>
     
     <lastmod>2021-08-18</lastmod>
     
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2020/06/29/sofa/sofa-jraft-linearizable-read/</loc>
+    <loc>https://plotor.github.io/2020/06/01/sofa/sofa-jraft-node-startup/</loc>
     
     <lastmod>2021-08-18</lastmod>
     
@@ -324,14 +324,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2015/09/20/algorithm/binary-tree-traversal/</loc>
+    <loc>https://plotor.github.io/2018/03/25/algorithm/rb-tree/</loc>
     
     <lastmod>2021-08-18</lastmod>
     
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/03/25/algorithm/rb-tree/</loc>
+    <loc>https://plotor.github.io/2015/09/20/algorithm/binary-tree-traversal/</loc>
     
     <lastmod>2021-08-18</lastmod>
     
@@ -352,14 +352,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2017/03/04/protocol/oauth-v2-principle/</loc>
+    <loc>https://plotor.github.io/2020/01/01/protocol/raft/</loc>
     
     <lastmod>2021-08-18</lastmod>
     
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2020/01/01/protocol/raft/</loc>
+    <loc>https://plotor.github.io/2017/03/04/protocol/oauth-v2-principle/</loc>
     
     <lastmod>2021-08-18</lastmod>
     
@@ -415,6 +415,13 @@
   </url>
   
   <url>
+    <loc>https://plotor.github.io/2018/09/30/java/juc-thread-pool-executor/</loc>
+    
+    <lastmod>2021-08-18</lastmod>
+    
+  </url>
+  
+  <url>
     <loc>https://plotor.github.io/2018/08/31/java/juc-count-down-latch/</loc>
     
     <lastmod>2021-08-18</lastmod>
@@ -422,7 +429,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/09/30/java/juc-thread-pool-executor/</loc>
+    <loc>https://plotor.github.io/2018/09/04/java/juc-semaphore/</loc>
     
     <lastmod>2021-08-18</lastmod>
     
@@ -437,13 +444,6 @@
   
   <url>
     <loc>https://plotor.github.io/2020/04/23/java/theia/</loc>
-    
-    <lastmod>2021-08-18</lastmod>
-    
-  </url>
-  
-  <url>
-    <loc>https://plotor.github.io/2018/09/04/java/juc-semaphore/</loc>
     
     <lastmod>2021-08-18</lastmod>
     
@@ -611,7 +611,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2016/10/23/jvm/garbage-collection/</loc>
+    <loc>https://plotor.github.io/2016/12/12/jvm/compile-optimization/</loc>
     
     <lastmod>2021-08-18</lastmod>
     
@@ -625,6 +625,13 @@
   </url>
   
   <url>
+    <loc>https://plotor.github.io/2016/10/23/jvm/garbage-collection/</loc>
+    
+    <lastmod>2021-08-18</lastmod>
+    
+  </url>
+  
+  <url>
     <loc>https://plotor.github.io/2016/10/16/jvm/runtime-data-areas/</loc>
     
     <lastmod>2021-08-18</lastmod>
@@ -632,7 +639,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2016/12/12/jvm/compile-optimization/</loc>
+    <loc>https://plotor.github.io/2016/12/16/jvm/diagnostic-tools/</loc>
     
     <lastmod>2021-08-18</lastmod>
     
@@ -640,13 +647,6 @@
   
   <url>
     <loc>https://plotor.github.io/2016/12/10/jvm/bytecode-engine/</loc>
-    
-    <lastmod>2021-08-18</lastmod>
-    
-  </url>
-  
-  <url>
-    <loc>https://plotor.github.io/2016/12/16/jvm/diagnostic-tools/</loc>
     
     <lastmod>2021-08-18</lastmod>
     
