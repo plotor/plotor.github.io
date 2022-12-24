@@ -30,14 +30,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2017/05/28/spring/spring-ioc-get-bean/</loc>
+    <loc>https://plotor.github.io/2017/07/08/spring/spring-ioc-circular-reference/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2017/07/08/spring/spring-ioc-circular-reference/</loc>
+    <loc>https://plotor.github.io/2017/05/28/spring/spring-ioc-get-bean/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
@@ -79,13 +79,6 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2017/06/03/spring/spring-ioc-application-context/</loc>
-    
-    <lastmod>2022-12-24</lastmod>
-    
-  </url>
-  
-  <url>
     <loc>https://plotor.github.io/2017/05/18/spring/spring-ioc-default-element/</loc>
     
     <lastmod>2022-12-24</lastmod>
@@ -93,7 +86,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2017/10/23/design-pattern/reactor/</loc>
+    <loc>https://plotor.github.io/2017/06/03/spring/spring-ioc-application-context/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
@@ -121,6 +114,13 @@
   </url>
   
   <url>
+    <loc>https://plotor.github.io/2017/10/23/design-pattern/reactor/</loc>
+    
+    <lastmod>2022-12-24</lastmod>
+    
+  </url>
+  
+  <url>
     <loc>https://plotor.github.io/2018/11/18/storm/storm-nimbus/</loc>
     
     <lastmod>2022-12-24</lastmod>
@@ -135,14 +135,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/11/20/storm/storm-worker/</loc>
+    <loc>https://plotor.github.io/2018/11/13/storm/storm-architecture/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/11/13/storm/storm-architecture/</loc>
+    <loc>https://plotor.github.io/2018/11/20/storm/storm-worker/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
@@ -156,14 +156,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/11/15/storm/storm-topology-build/</loc>
+    <loc>https://plotor.github.io/2018/11/14/storm/storm-api/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/11/14/storm/storm-api/</loc>
+    <loc>https://plotor.github.io/2018/11/15/storm/storm-topology-build/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
@@ -198,13 +198,6 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2019/06/22/kafka/kafka-log-manage/</loc>
-    
-    <lastmod>2022-12-24</lastmod>
-    
-  </url>
-  
-  <url>
     <loc>https://plotor.github.io/2019/06/17/kafka/kafka-architecture/</loc>
     
     <lastmod>2022-12-24</lastmod>
@@ -212,7 +205,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2019/06/26/kafka/kafka-controller/</loc>
+    <loc>https://plotor.github.io/2019/06/22/kafka/kafka-log-manage/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
@@ -220,6 +213,13 @@
   
   <url>
     <loc>https://plotor.github.io/2019/06/21/kafka/kafka-reactor/</loc>
+    
+    <lastmod>2022-12-24</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>https://plotor.github.io/2019/06/26/kafka/kafka-controller/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
@@ -247,13 +247,6 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2019/06/20/kafka/kafka-broker/</loc>
-    
-    <lastmod>2022-12-24</lastmod>
-    
-  </url>
-  
-  <url>
     <loc>https://plotor.github.io/2019/06/18/kafka/kafka-producer/</loc>
     
     <lastmod>2022-12-24</lastmod>
@@ -261,14 +254,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/05/16/scala/scala-collection-common/</loc>
-    
-    <lastmod>2022-12-24</lastmod>
-    
-  </url>
-  
-  <url>
-    <loc>https://plotor.github.io/2018/05/18/scala/scala-collection-set/</loc>
+    <loc>https://plotor.github.io/2019/06/20/kafka/kafka-broker/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
@@ -282,6 +268,13 @@
   </url>
   
   <url>
+    <loc>https://plotor.github.io/2018/05/16/scala/scala-collection-common/</loc>
+    
+    <lastmod>2022-12-24</lastmod>
+    
+  </url>
+  
+  <url>
     <loc>https://plotor.github.io/2018/05/19/scala/scala-collection-map/</loc>
     
     <lastmod>2022-12-24</lastmod>
@@ -289,7 +282,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2020/06/22/sofa/sofa-jraft-snapshot/</loc>
+    <loc>https://plotor.github.io/2018/05/18/scala/scala-collection-set/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
@@ -303,7 +296,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2020/06/29/sofa/sofa-jraft-linearizable-read/</loc>
+    <loc>https://plotor.github.io/2020/06/22/sofa/sofa-jraft-snapshot/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
@@ -311,6 +304,13 @@
   
   <url>
     <loc>https://plotor.github.io/2020/06/01/sofa/sofa-jraft-node-startup/</loc>
+    
+    <lastmod>2022-12-24</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>https://plotor.github.io/2020/06/29/sofa/sofa-jraft-linearizable-read/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
@@ -359,13 +359,6 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2020/01/01/protocol/raft/</loc>
-    
-    <lastmod>2022-12-24</lastmod>
-    
-  </url>
-  
-  <url>
     <loc>https://plotor.github.io/2017/03/11/protocol/oauth-v2-token/</loc>
     
     <lastmod>2022-12-24</lastmod>
@@ -373,7 +366,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/03/04/protocol/oauth-v2-protocol/</loc>
+    <loc>https://plotor.github.io/2020/01/01/protocol/raft/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
@@ -394,6 +387,13 @@
   </url>
   
   <url>
+    <loc>https://plotor.github.io/2018/03/04/protocol/oauth-v2-protocol/</loc>
+    
+    <lastmod>2022-12-24</lastmod>
+    
+  </url>
+  
+  <url>
     <loc>https://plotor.github.io/2016/08/24/solution/distributed-id/</loc>
     
     <lastmod>2022-12-24</lastmod>
@@ -408,13 +408,6 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/09/21/java/juc-linked-transfer-queue/</loc>
-    
-    <lastmod>2022-12-24</lastmod>
-    
-  </url>
-  
-  <url>
     <loc>https://plotor.github.io/2018/08/31/java/juc-count-down-latch/</loc>
     
     <lastmod>2022-12-24</lastmod>
@@ -422,7 +415,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/09/30/java/juc-thread-pool-executor/</loc>
+    <loc>https://plotor.github.io/2018/09/21/java/juc-linked-transfer-queue/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
@@ -443,7 +436,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2020/04/23/java/theia/</loc>
+    <loc>https://plotor.github.io/2018/09/30/java/juc-thread-pool-executor/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
@@ -457,7 +450,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/09/18/java/juc-synchronous-queue/</loc>
+    <loc>https://plotor.github.io/2020/04/23/java/theia/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
@@ -471,7 +464,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2017/08/18/java/threadlocal/</loc>
+    <loc>https://plotor.github.io/2018/09/18/java/juc-synchronous-queue/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
@@ -479,6 +472,20 @@
   
   <url>
     <loc>https://plotor.github.io/2016/10/06/java/java8-stream/</loc>
+    
+    <lastmod>2022-12-24</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>https://plotor.github.io/2017/08/18/java/threadlocal/</loc>
+    
+    <lastmod>2022-12-24</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>https://plotor.github.io/2018/09/03/java/juc-cyclic-barrier/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
@@ -493,13 +500,6 @@
   
   <url>
     <loc>https://plotor.github.io/2018/09/14/java/juc-delay-queue/</loc>
-    
-    <lastmod>2022-12-24</lastmod>
-    
-  </url>
-  
-  <url>
-    <loc>https://plotor.github.io/2018/09/03/java/juc-cyclic-barrier/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
@@ -541,6 +541,13 @@
   </url>
   
   <url>
+    <loc>https://plotor.github.io/2018/08/03/java/juc-synchronized/</loc>
+    
+    <lastmod>2022-12-24</lastmod>
+    
+  </url>
+  
+  <url>
     <loc>https://plotor.github.io/2018/08/24/java/juc-aqs/</loc>
     
     <lastmod>2022-12-24</lastmod>
@@ -555,28 +562,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/08/03/java/juc-synchronized/</loc>
-    
-    <lastmod>2022-12-24</lastmod>
-    
-  </url>
-  
-  <url>
-    <loc>https://plotor.github.io/2018/09/13/java/juc-priority-blocking-queue/</loc>
-    
-    <lastmod>2022-12-24</lastmod>
-    
-  </url>
-  
-  <url>
     <loc>https://plotor.github.io/2018/08/31/java/juc-reentrant-read-write-lock/</loc>
-    
-    <lastmod>2022-12-24</lastmod>
-    
-  </url>
-  
-  <url>
-    <loc>https://plotor.github.io/2019/01/31/java/cas-based-concurrent-hashmap/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
@@ -590,14 +576,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2015/11/05/java/latch-and-barrier/</loc>
+    <loc>https://plotor.github.io/2018/09/13/java/juc-priority-blocking-queue/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2019/01/01/java/cglib-guide/</loc>
+    <loc>https://plotor.github.io/2015/11/05/java/latch-and-barrier/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
@@ -611,14 +597,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2016/10/23/jvm/garbage-collection/</loc>
+    <loc>https://plotor.github.io/2019/01/31/java/cas-based-concurrent-hashmap/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2016/12/04/jvm/class-loading/</loc>
+    <loc>https://plotor.github.io/2019/01/01/java/cglib-guide/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
@@ -632,7 +618,21 @@
   </url>
   
   <url>
+    <loc>https://plotor.github.io/2016/10/23/jvm/garbage-collection/</loc>
+    
+    <lastmod>2022-12-24</lastmod>
+    
+  </url>
+  
+  <url>
     <loc>https://plotor.github.io/2016/12/12/jvm/compile-optimization/</loc>
+    
+    <lastmod>2022-12-24</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>https://plotor.github.io/2016/12/04/jvm/class-loading/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
@@ -667,14 +667,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2017/10/15/mybatis/mybatis-execute-sql/</loc>
+    <loc>https://plotor.github.io/2017/10/12/mybatis/mybatis-config/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2017/10/12/mybatis/mybatis-config/</loc>
+    <loc>https://plotor.github.io/2017/10/15/mybatis/mybatis-execute-sql/</loc>
     
     <lastmod>2022-12-24</lastmod>
     
@@ -718,6 +718,13 @@
   </url>
   
   <url>
+    <loc>https://plotor.github.io/tags/JVM/</loc>
+    <lastmod>2022-12-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
     <loc>https://plotor.github.io/tags/Java/</loc>
     <lastmod>2022-12-24</lastmod>
     <changefreq>daily</changefreq>
@@ -732,7 +739,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/tags/JVM/</loc>
+    <loc>https://plotor.github.io/tags/MyBatis/</loc>
     <lastmod>2022-12-24</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
@@ -768,13 +775,6 @@
   
   <url>
     <loc>https://plotor.github.io/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/</loc>
-    <lastmod>2022-12-24</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
-  
-  <url>
-    <loc>https://plotor.github.io/tags/MyBatis/</loc>
     <lastmod>2022-12-24</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
@@ -909,14 +909,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/categories/protocol/</loc>
+    <loc>https://plotor.github.io/categories/mybatis/</loc>
     <lastmod>2022-12-24</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
   </url>
   
   <url>
-    <loc>https://plotor.github.io/categories/mybatis/</loc>
+    <loc>https://plotor.github.io/categories/protocol/</loc>
     <lastmod>2022-12-24</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
