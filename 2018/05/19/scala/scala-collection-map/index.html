@@ -1,0 +1,565 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="Map 定义了键值对的特质类型，区分可变与不可变，间接继承了偏函数 PartialFunction 特质，所以一个 Map 本质上也是一个偏函数，其定义如下： 1trait Map[K, +V] extends Iterable[(K, V)] with GenMap[K, V] with MapLike[K, V, Map[K, V]] 其伴生对象提供了构造 Map 对象的简单方式，示例： 12">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Scala 集合：Map API">
+<meta property="og:url" content="https://plotor.github.io/2018/05/19/scala/scala-collection-map/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="Map 定义了键值对的特质类型，区分可变与不可变，间接继承了偏函数 PartialFunction 特质，所以一个 Map 本质上也是一个偏函数，其定义如下： 1trait Map[K, +V] extends Iterable[(K, V)] with GenMap[K, V] with MapLike[K, V, Map[K, V]] 其伴生对象提供了构造 Map 对象的简单方式，示例： 12">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2018-05-19T07:16:18.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.974Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Scala">
+<meta name="twitter:card" content="summary"><title>Scala 集合：Map API | 指  间</title><link ref="canonical" href="https://plotor.github.io/2018/05/19/scala/scala-collection-map/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">Scala 集合：Map API</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2018-05-19</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">2.1k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">11分</span></span></div></header><div class="post-body"><p>Map 定义了键值对的特质类型，区分可变与不可变，间接继承了偏函数 PartialFunction 特质，所以一个 Map 本质上也是一个偏函数，其定义如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">trait</span> <span class="title">Map</span>[<span class="type">K</span>, +<span class="type">V</span>] <span class="keyword">extends</span> <span class="title">Iterable</span>[(<span class="type">K</span>, <span class="type">V</span>)] <span class="keyword">with</span> <span class="title">GenMap</span>[<span class="type">K</span>, <span class="type">V</span>] <span class="keyword">with</span> <span class="title">MapLike</span>[<span class="type">K</span>, <span class="type">V</span>, <span class="type">Map</span>[<span class="type">K</span>, <span class="type">V</span>]]</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>其伴生对象提供了构造 Map 对象的简单方式，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> map1 = <span class="type">Map</span>(<span class="string">"name"</span> -&gt; <span class="string">"zhenchao"</span>, <span class="string">"age"</span> -&gt; <span class="number">28</span>)</span><br><span class="line"><span class="keyword">val</span> map2 = <span class="type">Map</span>((<span class="string">"name"</span>, <span class="string">"zhenchao"</span>), (<span class="string">"age"</span>, <span class="number">28</span>))</span><br></pre></td></tr></tbody></table></div></figure>
+<a id="more"></a>
+
+<p>可变 Map 与不可变 Map 的相互转换：</p>
+<ul>
+<li><strong>可变 -&gt; 不可变</strong></li>
+</ul>
+<p>将可变 Map 转换成不可变 Map 的最简单方式就是调用 toMap 函数，但是如果希望转换成特定类型的不可变 Map 类型，则需要借助 <code>++</code> 函数，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> mmap = mutable.<span class="type">Map</span>(<span class="string">"name"</span> -&gt; <span class="string">"zhenchao"</span>, <span class="string">"age"</span> -&gt; <span class="number">28</span>)</span><br><span class="line"><span class="keyword">val</span> map = mmap.toMap</span><br><span class="line">map <span class="comment">// 输出：Map(age -&gt; 28, name -&gt; zhenchao)</span></span><br><span class="line"><span class="keyword">val</span> tmap = mutable.<span class="type">TreeMap</span>.empty[<span class="type">String</span>, <span class="type">AnyVal</span>] ++ mmap</span><br><span class="line">tmap <span class="comment">// 输出：TreeMap(age -&gt; 28, name -&gt; zhenchao)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<ul>
+<li><strong>不可变 -&gt; 可变</strong></li>
+</ul>
+<p>不可变 Map 转换成可变 Map 也需要借助 <code>++</code> 函数实现，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> map = <span class="type">Map</span>(<span class="string">"name"</span> -&gt; <span class="string">"zhenchao"</span>, <span class="string">"age"</span> -&gt; <span class="number">28</span>)</span><br><span class="line"><span class="keyword">val</span> mmap = mutable.<span class="type">Map</span>.empty[<span class="type">String</span>, <span class="type">AnyVal</span>] ++ map</span><br><span class="line">mmap <span class="comment">// 输出：Map(name -&gt; zhenchao, age -&gt; 28)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="一-查询操作">
+          <a href="#一-查询操作" class="heading-link"><i class="fas fa-link"></i></a>一. 查询操作</h3>
+      
+        <h4 id="1-1-get-amp-getOrElse-amp-apply">
+          <a href="#1-1-get-amp-getOrElse-amp-apply" class="heading-link"><i class="fas fa-link"></i></a>1.1 get &amp; getOrElse &amp; apply</h4>
+      <p>函数 get、getOrElse 和 apply 均用于从 Map 对象中获取元素，区别在于 get 操作返回 Option 类型，getOrElse 允许在对应 key 不命中时返回默认的 value，而 apply 同样是返回指定的 key 对应的 value，但是在 key 不命中时默认抛出 NoSuchElementException 异常。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> map = <span class="type">Map</span>(<span class="string">"name"</span> -&gt; <span class="string">"zhenchao"</span>, <span class="string">"age"</span> -&gt; <span class="number">28</span>)</span><br><span class="line">map.get(<span class="string">"name"</span>) <span class="comment">// 输出：zhenchao</span></span><br><span class="line">map.getOrElse(<span class="string">"school"</span>, <span class="string">"WHU"</span>) <span class="comment">// 输出：WHU</span></span><br><span class="line">map.apply(<span class="string">"age"</span>) <span class="comment">// 输出：28</span></span><br><span class="line">map(<span class="string">"age"</span>) <span class="comment">// 输出：28</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>函数 apply 同样可以使用 <code>()</code> 表达式简写。</p>
+
+        <h4 id="1-2-withDefault-amp-withDefaultValue">
+          <a href="#1-2-withDefault-amp-withDefaultValue" class="heading-link"><i class="fas fa-link"></i></a>1.2 withDefault &amp; withDefaultValue</h4>
+      <p>上面在使用 apply 函数时，在 key 不命中的情况下默认会抛出 NoSuchElementException，如果希望改变这种行为，我们可以使用 withDefault 或 withDefaultValue 函数自定义默认行为，其中 withDefault 接收一个函数（入参是 key），而 withDefaultValue 则接收一个默认值。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> map = <span class="type">Map</span>(<span class="string">"name"</span> -&gt; <span class="string">"zhenchao"</span>, <span class="string">"age"</span> -&gt; <span class="number">28</span>)</span><br><span class="line"><span class="keyword">val</span> map1 = map.withDefault(key =&gt; <span class="string">"invalid key: "</span> + key)</span><br><span class="line"><span class="keyword">val</span> map2 = map.withDefaultValue(<span class="string">"unknown"</span>)</span><br><span class="line">map1(<span class="string">"school"</span>) <span class="comment">// 输出：invalid key: school</span></span><br><span class="line">map2(<span class="string">"school"</span>) <span class="comment">// 输出：unknown</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="1-3-getOrElseUpdate">
+          <a href="#1-3-getOrElseUpdate" class="heading-link"><i class="fas fa-link"></i></a>1.3 getOrElseUpdate</h4>
+      <p>对于可变集合来说，可以使用 getOrElseUpdate 函数（定义如下），该函数允许提供一个 op 操作，如果对应的 key 存在则返回对应的 value，否则会计算 op 得到一个 value，并更新 Map 对象，同时返回该 value。</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">getOrElseUpdate</span></span>(key: <span class="type">K</span>, op: =&gt; <span class="type">V</span>): <span class="type">V</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> mmap = mutable.<span class="type">Map</span>(<span class="string">"name"</span> -&gt; <span class="string">"zhenchao"</span>, <span class="string">"age"</span> -&gt; <span class="number">28</span>)</span><br><span class="line">mmap.getOrElseUpdate(<span class="string">"school"</span>, <span class="string">"WHU"</span>) <span class="comment">// 输出：WHU</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="二-插入操作">
+          <a href="#二-插入操作" class="heading-link"><i class="fas fa-link"></i></a>二. 插入操作</h3>
+      <p>插入操作允许 value 为 null，但不允许 key 为 null，此外对于已经存在的 key，插入操作相当于更新操作。</p>
+
+        <h4 id="2-1">
+          <a href="#2-1" class="heading-link"><i class="fas fa-link"></i></a>2.1 +</h4>
+      <p>函数 <code>+</code> 用于往 Map 对象中添加一个或多个键值对，函数定义如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">+</span> </span>[<span class="type">V1</span> &gt;: <span class="type">V</span>](kv: (<span class="type">K</span>, <span class="type">V1</span>)): <span class="type">Map</span>[<span class="type">K</span>, <span class="type">V1</span>]</span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">+</span> </span>[<span class="type">V1</span> &gt;: <span class="type">V</span>] (elem1: (<span class="type">K</span>, <span class="type">V1</span>), elem2: (<span class="type">K</span>, <span class="type">V1</span>), elems: (<span class="type">K</span>, <span class="type">V1</span>) *): immutable.<span class="type">Map</span>[<span class="type">K</span>, <span class="type">V1</span>]</span><br></pre></td></tr></tbody></table></div></figure>
+<p>示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> map = <span class="type">Map</span>(<span class="string">"name"</span> -&gt; <span class="string">"zhenchao"</span>, <span class="string">"age"</span> -&gt; <span class="number">28</span>)</span><br><span class="line">map + (<span class="string">"school"</span> -&gt; <span class="string">"WHU"</span>) <span class="comment">// 输出：Map(name -&gt; zhenchao, age -&gt; 28, school -&gt; WHU)</span></span><br><span class="line">map + (<span class="string">"school"</span> -&gt; <span class="string">"CMU"</span>, <span class="string">"gender"</span> -&gt; <span class="string">"M"</span>) <span class="comment">// 输出：Map(name -&gt; zhenchao, age -&gt; 28, school -&gt; CMU, gender -&gt; M)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="2-2-amp">
+          <a href="#2-2-amp" class="heading-link"><i class="fas fa-link"></i></a>2.2 ++ &amp; ++:</h4>
+      <p>函数 <code>++</code> 接收一个 GenTraversableOnce 类型的参数，只要是继承 GenTraversableOnce 的集合都可以作为参数，函数会将参数中所包含的元素添加到原 Map 对象中，并创建一个新的 Map 返回。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> map = <span class="type">Map</span>(<span class="string">"name"</span> -&gt; <span class="string">"zhenchao"</span>, <span class="string">"age"</span> -&gt; <span class="number">28</span>)</span><br><span class="line">map ++ <span class="type">Seq</span>(<span class="string">"school"</span> -&gt; <span class="string">"CMU"</span>, <span class="string">"gender"</span> -&gt; <span class="string">"M"</span>) <span class="comment">// 输出：Map(name -&gt; zhenchao, age -&gt; 28, school -&gt; CMU, gender -&gt; M)</span></span><br><span class="line">map ++: <span class="type">Seq</span>(<span class="string">"school"</span> -&gt; <span class="string">"CMU"</span>, <span class="string">"gender"</span> -&gt; <span class="string">"M"</span>) <span class="comment">// 输出：List((name,zhenchao), (age,28), (school,CMU), (gender,M))</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>函数 <code>++:</code> 是 <code>++</code> 的右结合版本。</p>
+
+        <h4 id="2-3-amp-amp-put">
+          <a href="#2-3-amp-amp-put" class="heading-link"><i class="fas fa-link"></i></a>2.3 += &amp; ++= &amp; put</h4>
+      <p>对于可变集合而言，可以实现原地插入，函数 <code>+=</code> 对标 <code>+</code>，函数 <code>++=</code> 对标 <code>++</code>，函数 put 用于插入单个键值对，并返回一个 Option 类型，表示插入操作之前对应的 value。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> mmap = mutable.<span class="type">Map</span>(<span class="string">"name"</span> -&gt; <span class="string">"zhenchao"</span>, <span class="string">"age"</span> -&gt; <span class="number">28</span>)</span><br><span class="line">mmap += (<span class="string">"school"</span> -&gt; <span class="string">"WHU"</span>)</span><br><span class="line">mmap += (<span class="string">"school"</span> -&gt; <span class="string">"CMU"</span>, <span class="string">"gender"</span> -&gt; <span class="string">"M"</span>)</span><br><span class="line">mmap <span class="comment">// 输出：Map(school -&gt; CMU, age -&gt; 28, name -&gt; zhenchao, gender -&gt; M)</span></span><br><span class="line">mmap ++= <span class="type">Seq</span>(<span class="string">"age"</span> -&gt; <span class="number">29</span>, <span class="string">"gender"</span> -&gt; <span class="string">"M"</span>)</span><br><span class="line">mmap <span class="comment">// 输出：Map(school -&gt; CMU, age -&gt; 29, name -&gt; zhenchao, gender -&gt; M)</span></span><br><span class="line">mmap.put(<span class="string">"country"</span>, <span class="string">"China"</span>)</span><br><span class="line">mmap <span class="comment">// 输出：Map(school -&gt; CMU, country -&gt; China, age -&gt; 29, name -&gt; zhenchao, gender -&gt; M)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="三-更新操作">
+          <a href="#三-更新操作" class="heading-link"><i class="fas fa-link"></i></a>三. 更新操作</h3>
+      
+        <h4 id="3-1-updated">
+          <a href="#3-1-updated" class="heading-link"><i class="fas fa-link"></i></a>3.1 updated</h4>
+      <p>函数 updated 用于更新 Map 对象中指定的 key 和 value，如果不存在则添加，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> map = <span class="type">Map</span>(<span class="string">"name"</span> -&gt; <span class="string">"zhenchao"</span>, <span class="string">"age"</span> -&gt; <span class="number">28</span>)</span><br><span class="line">map.updated(<span class="string">"age"</span>, <span class="number">29</span>) <span class="comment">// 输出：Map(name -&gt; zhenchao, age -&gt; 29)</span></span><br><span class="line">map.updated(<span class="string">"school"</span>, <span class="string">"WHU"</span>) <span class="comment">// 输出：Map(name -&gt; zhenchao, age -&gt; 28, school -&gt; WHU)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="3-2-update-amp-put">
+          <a href="#3-2-update-amp-put" class="heading-link"><i class="fas fa-link"></i></a>3.2 update &amp; put</h4>
+      <p>对于可变集合而言，可以实现原地更新操作，函数 update 用于更新一个可变 Map 中的 key 和 value，如果不存在则会添加，效果上等价于 put，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> mmap = mutable.<span class="type">Map</span>(<span class="string">"name"</span> -&gt; <span class="string">"zhenchao"</span>, <span class="string">"age"</span> -&gt; <span class="number">28</span>)</span><br><span class="line">mmap.update(<span class="string">"age"</span>, <span class="number">29</span>)</span><br><span class="line">mmap.update(<span class="string">"school"</span>, <span class="string">"WHU"</span>)</span><br><span class="line">mmap(<span class="string">"school"</span>) = <span class="string">"CMU"</span></span><br><span class="line">mmap <span class="comment">// 输出：Map(school -&gt; CMU, age -&gt; 29, name -&gt; zhenchao)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>函数 update 同样可以简写为 <code>()</code> 表达式。</p>
+
+        <h3 id="四-删除操作">
+          <a href="#四-删除操作" class="heading-link"><i class="fas fa-link"></i></a>四. 删除操作</h3>
+      
+        <h4 id="4-1-amp">
+          <a href="#4-1-amp" class="heading-link"><i class="fas fa-link"></i></a>4.1 - &amp; --</h4>
+      <p>函数 <code>-</code> 用于删除指定的一个或多个 key，而函数 <code>--</code> 则接收一个 GenTraversableOnce 类型参数，用于批量删除给定集合中包含的所有 key，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> map = <span class="type">Map</span>(<span class="string">"name"</span> -&gt; <span class="string">"zhenchao"</span>, <span class="string">"age"</span> -&gt; <span class="number">28</span>)</span><br><span class="line">map - <span class="string">"name"</span> <span class="comment">// 输出：Map(age -&gt; 28)</span></span><br><span class="line">map -- <span class="type">Set</span>(<span class="string">"age"</span>, <span class="string">"school"</span>) <span class="comment">// 输出：Map(name -&gt; zhenchao)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="4-2-amp-amp-remove-amp-clear">
+          <a href="#4-2-amp-amp-remove-amp-clear" class="heading-link"><i class="fas fa-link"></i></a>4.2 -= &amp; --= &amp; remove &amp; clear</h4>
+      <p>对于可变集合而言，可以实现原地删除，函数 <code>-=</code> 对标 <code>-</code>，函数 <code>--=</code> 对标 <code>--</code>，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> mmap = mutable.<span class="type">Map</span>(<span class="string">"name"</span> -&gt; <span class="string">"zhenchao"</span>, <span class="string">"age"</span> -&gt; <span class="number">28</span>)</span><br><span class="line">mmap -= <span class="string">"name"</span></span><br><span class="line">mmap --= <span class="type">Set</span>(<span class="string">"age"</span>, <span class="string">"school"</span>)</span><br><span class="line">mmap <span class="comment">// 输出：Map()</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>函数 remove 用于从可变 Map 对象中删除给定的 key，并返回 key 对应的 value，Option 类型。函数 clear 用于清空整个 Map 对象。</p>
+
+        <h3 id="五-包含检查">
+          <a href="#五-包含检查" class="heading-link"><i class="fas fa-link"></i></a>五. 包含检查</h3>
+      
+        <h4 id="5-1-contains-amp-isDefinedAt">
+          <a href="#5-1-contains-amp-isDefinedAt" class="heading-link"><i class="fas fa-link"></i></a>5.1 contains &amp; isDefinedAt</h4>
+      <p>函数 contains 和 isDefinedAt 均用于检查 Map 对象中是否包含指定的 key，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> map = <span class="type">Map</span>(<span class="string">"name"</span> -&gt; <span class="string">"zhenchao"</span>, <span class="string">"age"</span> -&gt; <span class="number">28</span>)</span><br><span class="line">map.contains(<span class="string">"name"</span>) <span class="comment">// 输出：true</span></span><br><span class="line">map.isDefinedAt(<span class="string">"school"</span>) <span class="comment">// 输出：false</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>其中 isDefinedAt 继承自偏函数。</p>
+
+        <h3 id="六-获取键或值的集合">
+          <a href="#六-获取键或值的集合" class="heading-link"><i class="fas fa-link"></i></a>六. 获取键或值的集合</h3>
+      
+        <h4 id="6-1-keys-amp-keySet-amp-keysIterator">
+          <a href="#6-1-keys-amp-keySet-amp-keysIterator" class="heading-link"><i class="fas fa-link"></i></a>6.1 keys &amp; keySet &amp; keysIterator</h4>
+      <p>函数 keys、keySet 和 keysIterator 均用于获取 Map 对象键的集合，区别在于函数 keys 返回的是 <code>Iterable[K]</code> 类型对象；函数 keySet 返回的是 <code>Set[K]</code> 类型对象；而函数 keysIterator 返回一个 <code>Iterator[K]</code> 类型对象。</p>
+
+        <h4 id="6-2-values-amp-valuesIterator">
+          <a href="#6-2-values-amp-valuesIterator" class="heading-link"><i class="fas fa-link"></i></a>6.2 values &amp; valuesIterator</h4>
+      <p>函数 values 和 valuesIterator 均用于获取 Map 对象值的集合，区别在于函数 values 返回的是 <code>Iterable[V]</code> 类型，而函数 valuesIterator 返回的是 <code>Iterator[V]</code> 类型。</p>
+
+        <h3 id="七-转换操作">
+          <a href="#七-转换操作" class="heading-link"><i class="fas fa-link"></i></a>七. 转换操作</h3>
+      <p>Map 对象考虑其特性，增加了 filterKeys、mapValues 和 transform 函数。</p>
+
+        <h4 id="7-1-filterKeys">
+          <a href="#7-1-filterKeys" class="heading-link"><i class="fas fa-link"></i></a>7.1 filterKeys</h4>
+      <p>函数 filterKeys 对 Map 对象中的 key 进行筛选，并保留满足条件的元素，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> map = <span class="type">Map</span>(<span class="number">1</span> -&gt; <span class="string">"zhangsan"</span>, <span class="number">2</span> -&gt; <span class="string">"lisi"</span>, <span class="number">3</span> -&gt; <span class="string">"wanger"</span>)</span><br><span class="line">map.filterKeys(_ % <span class="number">2</span> == <span class="number">0</span>) <span class="comment">// 输出：Map(2 -&gt; lisi)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="7-2-mapValues-amp-transform">
+          <a href="#7-2-mapValues-amp-transform" class="heading-link"><i class="fas fa-link"></i></a>7.2 mapValues &amp; transform</h4>
+      <p>函数 mapValues 和 transform 均用于对 Map 对象的值进行转换，区别在于函数 mapValues 的入参只有 value，而 transform 的入参除了 value，还包含 key，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> map = <span class="type">Map</span>(<span class="number">1</span> -&gt; <span class="string">"zhangsan"</span>, <span class="number">2</span> -&gt; <span class="string">"lisi"</span>, <span class="number">3</span> -&gt; <span class="string">"wanger"</span>)</span><br><span class="line">map.mapValues(_.reverse) <span class="comment">// 输出：Map(1 -&gt; nasgnahz, 2 -&gt; isil, 3 -&gt; regnaw)</span></span><br><span class="line">map.transform((k, v) =&gt; v + k) <span class="comment">// 输出：Map(1 -&gt; zhangsan1, 2 -&gt; lisi2, 3 -&gt; wanger3)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>对于可变 Map 而言，因为是原地转换，所以要求 transform 操作输出的 value 类型与输入的类型相同。</p>
+
+        <h3 id="八-反转操作">
+          <a href="#八-反转操作" class="heading-link"><i class="fas fa-link"></i></a>八. 反转操作</h3>
+      <p>对于给定的 Map 集合，我们可以使用 map 函数很容易将 key 和 value 反转，但是如果 value 存在重复，那么这个时候我们可能希望反转之后的 value 是一个集合类型，这种需求该如何实现？</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// value 不重复</span></span><br><span class="line"><span class="keyword">val</span> map = <span class="type">Map</span>(<span class="number">1</span> -&gt; <span class="string">"zhangsan"</span>, <span class="number">2</span> -&gt; <span class="string">"lisi"</span>, <span class="number">3</span> -&gt; <span class="string">"wanger"</span>)</span><br><span class="line">map.map(t =&gt; (t._2, t._1)) <span class="comment">// 输出：Map(zhangsan -&gt; 1, lisi -&gt; 2, wanger -&gt; 3)</span></span><br><span class="line">map.map { <span class="keyword">case</span> (x, y) =&gt; (y, x) } <span class="comment">// 输出：Map(zhangsan -&gt; 1, lisi -&gt; 2, wanger -&gt; 3)</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// value 重复</span></span><br><span class="line"><span class="keyword">val</span> map2 = <span class="type">Map</span>(<span class="string">"a"</span> -&gt; <span class="number">1</span>, <span class="string">"b"</span> -&gt; <span class="number">2</span>, <span class="string">"c"</span> -&gt; <span class="number">2</span>, <span class="string">"d"</span> -&gt; <span class="number">3</span>, <span class="string">"e"</span> -&gt; <span class="number">1</span>)</span><br><span class="line">map2.groupBy(_._2).mapValues(_.keys.toList) <span class="comment">// 输出：Map(2 -&gt; List(b, c), 1 -&gt; List(e, a), 3 -&gt; List(d))</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述示例中重复 value 的反转执行流程如下：</p>
+<ol>
+<li>对包含重复 value 的 Map 执行 groupBy 操作：<code>Map(2 -&gt; Map(b -&gt; 2, c -&gt; 2), 1 -&gt; Map(e -&gt; 1, a -&gt; 1), 3 -&gt; Map(d -&gt; 3))</code>；</li>
+<li>对步骤 1 的结果执行 mapValues 操作，提取 key，并封装成 List 集合。</li>
+</ol>
+
+        <h3 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h3>
+      <ul>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://docs.scala-lang.org/">Scala Documentation</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/26819038/">Scala 集合技术手册</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+</ul>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2018/05/19/scala/scala-collection-map/">https://plotor.github.io/2018/05/19/scala/scala-collection-map/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Scala/">Scala</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2018/08/03/java/juc-synchronized/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">深入理解 JUC：synchronized 关键字</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2018/05/18/scala/scala-collection-set/"><span class="paginator-prev__text">Scala 集合：Set API</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%80-%E6%9F%A5%E8%AF%A2%E6%93%8D%E4%BD%9C"><span class="toc-number">1.</span> <span class="toc-text">
+          一. 查询操作</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#1-1-get-amp-getOrElse-amp-apply"><span class="toc-number">1.1.</span> <span class="toc-text">
+          1.1 get &amp; getOrElse &amp; apply</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#1-2-withDefault-amp-withDefaultValue"><span class="toc-number">1.2.</span> <span class="toc-text">
+          1.2 withDefault &amp; withDefaultValue</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#1-3-getOrElseUpdate"><span class="toc-number">1.3.</span> <span class="toc-text">
+          1.3 getOrElseUpdate</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BA%8C-%E6%8F%92%E5%85%A5%E6%93%8D%E4%BD%9C"><span class="toc-number">2.</span> <span class="toc-text">
+          二. 插入操作</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#2-1"><span class="toc-number">2.1.</span> <span class="toc-text">
+          2.1 +</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-2-amp"><span class="toc-number">2.2.</span> <span class="toc-text">
+          2.2 ++ &amp; ++:</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-3-amp-amp-put"><span class="toc-number">2.3.</span> <span class="toc-text">
+          2.3 +&#x3D; &amp; ++&#x3D; &amp; put</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%89-%E6%9B%B4%E6%96%B0%E6%93%8D%E4%BD%9C"><span class="toc-number">3.</span> <span class="toc-text">
+          三. 更新操作</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#3-1-updated"><span class="toc-number">3.1.</span> <span class="toc-text">
+          3.1 updated</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#3-2-update-amp-put"><span class="toc-number">3.2.</span> <span class="toc-text">
+          3.2 update &amp; put</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9B%9B-%E5%88%A0%E9%99%A4%E6%93%8D%E4%BD%9C"><span class="toc-number">4.</span> <span class="toc-text">
+          四. 删除操作</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#4-1-amp"><span class="toc-number">4.1.</span> <span class="toc-text">
+          4.1 - &amp; --</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#4-2-amp-amp-remove-amp-clear"><span class="toc-number">4.2.</span> <span class="toc-text">
+          4.2 -&#x3D; &amp; --&#x3D; &amp; remove &amp; clear</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BA%94-%E5%8C%85%E5%90%AB%E6%A3%80%E6%9F%A5"><span class="toc-number">5.</span> <span class="toc-text">
+          五. 包含检查</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#5-1-contains-amp-isDefinedAt"><span class="toc-number">5.1.</span> <span class="toc-text">
+          5.1 contains &amp; isDefinedAt</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%85%AD-%E8%8E%B7%E5%8F%96%E9%94%AE%E6%88%96%E5%80%BC%E7%9A%84%E9%9B%86%E5%90%88"><span class="toc-number">6.</span> <span class="toc-text">
+          六. 获取键或值的集合</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#6-1-keys-amp-keySet-amp-keysIterator"><span class="toc-number">6.1.</span> <span class="toc-text">
+          6.1 keys &amp; keySet &amp; keysIterator</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#6-2-values-amp-valuesIterator"><span class="toc-number">6.2.</span> <span class="toc-text">
+          6.2 values &amp; valuesIterator</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%83-%E8%BD%AC%E6%8D%A2%E6%93%8D%E4%BD%9C"><span class="toc-number">7.</span> <span class="toc-text">
+          七. 转换操作</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#7-1-filterKeys"><span class="toc-number">7.1.</span> <span class="toc-text">
+          7.1 filterKeys</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#7-2-mapValues-amp-transform"><span class="toc-number">7.2.</span> <span class="toc-text">
+          7.2 mapValues &amp; transform</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%85%AB-%E5%8F%8D%E8%BD%AC%E6%93%8D%E4%BD%9C"><span class="toc-number">8.</span> <span class="toc-text">
+          八. 反转操作</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">9.</span> <span class="toc-text">
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

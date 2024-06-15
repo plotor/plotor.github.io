@@ -1,0 +1,478 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="延迟队列 DelayQueue 用于存放具有过期属性的元素，被添加到 DelayQueue 中的元素只有在到达过期时间之后才会出队列，常用于延迟任务调度。DelayQueue 本质上是一个无界的阻塞队列，底层依赖于优先级队列 PriorityQueue 作为存储结构，并使用 ReentrantLock 锁保证线程安全。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="深入理解 JUC：DelayQueue">
+<meta property="og:url" content="https://plotor.github.io/2018/09/14/java/juc-delay-queue/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="延迟队列 DelayQueue 用于存放具有过期属性的元素，被添加到 DelayQueue 中的元素只有在到达过期时间之后才会出队列，常用于延迟任务调度。DelayQueue 本质上是一个无界的阻塞队列，底层依赖于优先级队列 PriorityQueue 作为存储结构，并使用 ReentrantLock 锁保证线程安全。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2018-09-14T04:03:04.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.961Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="并发编程">
+<meta name="twitter:card" content="summary"><title>深入理解 JUC：DelayQueue | 指  间</title><link ref="canonical" href="https://plotor.github.io/2018/09/14/java/juc-delay-queue/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">深入理解 JUC：DelayQueue</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2018-09-14</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">2.8k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">11分</span></span></div></header><div class="post-body"><p>延迟队列 DelayQueue 用于存放具有过期属性的元素，被添加到 DelayQueue 中的元素只有在到达过期时间之后才会出队列，常用于延迟任务调度。DelayQueue 本质上是一个无界的阻塞队列，底层依赖于优先级队列 PriorityQueue 作为存储结构，并使用 ReentrantLock 锁保证线程安全。<a id="more"></a></p>
+<p>DelayQueue 的字段定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">DelayQueue</span>&lt;<span class="title">E</span> <span class="keyword">extends</span> <span class="title">Delayed</span>&gt; <span class="keyword">extends</span> <span class="title">AbstractQueue</span>&lt;<span class="title">E</span>&gt; <span class="keyword">implements</span> <span class="title">BlockingQueue</span>&lt;<span class="title">E</span>&gt; </span>{</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 保证线程安全的可重入独占锁 */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">transient</span> ReentrantLock lock = <span class="keyword">new</span> ReentrantLock();</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 底层存储结构，优先级队列 */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> PriorityQueue&lt;E&gt; q = <span class="keyword">new</span> PriorityQueue&lt;E&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** Leader-Follower 模式，用于记录角色为 leader 的线程对象 */</span></span><br><span class="line">    <span class="keyword">private</span> Thread leader = <span class="keyword">null</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 因为队列为空，或元素未到期而阻塞的线程 */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> Condition available = lock.newCondition();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// ... 省略方法定义</span></span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>重点分析一下 <code>DelayQueue#leader</code> 字段设置的意图，该字段用于记录当前角色为 leader 的线程对象。当执行出队列操作（<code>DelayQueue#take</code> 和 <code>DelayQueue#poll(long, TimeUnit)</code> 方法）时，如果 <code>DelayQueue#leader</code> 字段为 null，即不存在 leader 线程，且有未到期的延迟元素，则会将当前线程设置成 leader 角色，并等待该元素到期，以减少不必要的等待时间，保证延迟元素能够在到期时及时被响应。</p>
+<p>设想如果不这样设计，那么线程在遇到队列中没有到期的延迟元素时应该怎么办呢？可以采取以下 3 种策略：</p>
+<ol>
+<li>进入忙循环轮询。</li>
+<li>进入条件队列等待，并稍后由其它线程唤醒。</li>
+<li>先退出当前方法，等待后续再次执行出队列操作。</li>
+</ol>
+<p>可以看出，这些策略要么是消耗 CPU 资源，要么就是无法对队列中的元素在到期时及时出队列，而引入 leader 角色正好能够避免了这些问题。在某个线程以 leader 的身份等待优先级最高的延迟元素到期时，其它线程在发现队列中没有到期的元素时会以 follower 角色无限期等待。而在 leader 线程从等待状态退出时，它会主动放弃自己的 leader 角色，并唤醒一个正在处于等待状态的 follower 线程，该线程将有机会晋升成为新的 leader。</p>
+<p>在 leader 线程等待期间，有可能会插入优先级更高的元素，这个时候就需要剥夺该线程的 leader 角色，以提供其它线程成为 leader 的机会，继而保证刚刚新插入的元素能够在到期时及时被响应。否则就需要等到当前 leader 线程退出等待状态之后或者有新的线程请求获取元素时才有机会出队列，这样可能存在较大的延迟。</p>
+
+        <h3 id="核心方法实现">
+          <a href="#核心方法实现" class="heading-link"><i class="fas fa-link"></i></a>核心方法实现</h3>
+      <p>DelayQueue 实现自 BlockingQueue 接口，下面针对核心方法的实现逐一进行分析。不过在开始分析之前，我们先来介绍一下 <code>java.util.concurrent.Delayed</code> 接口，DelayQueue 要求添加到其中的元素必须实现该接口。Delayed 接口定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">Delayed</span> <span class="keyword">extends</span> <span class="title">Comparable</span>&lt;<span class="title">Delayed</span>&gt; </span>{</span><br><span class="line">    <span class="function"><span class="keyword">long</span> <span class="title">getDelay</span><span class="params">(TimeUnit unit)</span></span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>该接口继承自 Comparable 接口，所以添加到 DelayQueue 中的元素都是可比较的。方法 <code>Delayed#getDelay</code> 接收一个 TimeUnit 类型的单位值，用于返回当前延迟元素的剩余到期时间，如果小于等于 0 则说明该元素已经到期。</p>
+
+        <h4 id="添加元素：offer-amp-add-amp-put">
+          <a href="#添加元素：offer-amp-add-amp-put" class="heading-link"><i class="fas fa-link"></i></a>添加元素：offer &amp; add &amp; put</h4>
+      <p>针对添加元素的操作，DelayQueue 实现了 <code>DelayQueue#offer</code>、<code>DelayQueue#add</code> 和 <code>DelayQueue#put</code> 方法，不过后两者都是直接调用了 <code>DelayQueue#offer</code> 方法。</p>
+<p>此外，该方法的超时版本 <code>DelayQueue#offer(E, long, TimeUnit)</code> 也是直接委托给 <code>DelayQueue#offer</code> 方法执行，并没有真正实现超时等待机制。这主要是因为 DelayQueue 是无界的，所有的添加操作都能够被立即响应，而不会阻塞。</p>
+<p>下面展开分析一下 <code>DelayQueue#offer</code> 方法的实现，如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">offer</span><span class="params">(E e)</span> </span>{</span><br><span class="line">    <span class="keyword">final</span> ReentrantLock lock = <span class="keyword">this</span>.lock;</span><br><span class="line">    <span class="comment">// 加锁</span></span><br><span class="line">    lock.lock();</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="comment">// 往队列中添加元素</span></span><br><span class="line">        q.offer(e);</span><br><span class="line">        <span class="comment">// 当前添加的元素是队列中最先过期的</span></span><br><span class="line">        <span class="keyword">if</span> (q.peek() == e) {</span><br><span class="line">            <span class="comment">// 清空 leader，保证该元素能够及时出队列</span></span><br><span class="line">            leader = <span class="keyword">null</span>;</span><br><span class="line">            <span class="comment">// 唤醒因元素均为到期或队列为空而等待的线程</span></span><br><span class="line">            available.signal();</span><br><span class="line">        }</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">    } <span class="keyword">finally</span> {</span><br><span class="line">        <span class="comment">// 释放锁</span></span><br><span class="line">        lock.unlock();</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>DelayQueue 不允许向其中添加值为 null 的元素，这主要由优先级队列 PriorityQueue 保证。如果待添加的元素值合法，则执行：</p>
+<ol>
+<li>加锁，保证同一时间只有一个线程在操作队列；</li>
+<li>将待添加元素插入到 DelayQueue 中；</li>
+<li>检查 DelayQueue 中优先级最高的的元素是否是刚刚新加入的元素；</li>
+<li>如果是则剥夺当前 leader 线程的 leader 角色，并唤醒一个之前因为队列中的元素均未到期或队列为空而等待的线程；</li>
+<li>释放锁并返回。</li>
+</ol>
+<p>为什么当队列中插入了一个优先级最高的元素时需要剥夺当前 leader 线程的 leader 角色，并唤醒一个处于等待的 follower 线程呢？</p>
+<p>其实在前面也有所提及，假设现在 DelayQueue 中最先过期的元素还有 10 秒到期，则 leader 线程会等待 10 秒后再次尝试出队列，其它 follower 线程因为检测到当前已有线程成为 leader，所以在发现没有已到期的元素时会等待。假设现在有一个还有 5 秒到期的元素插入了进来，如果在该元素到期之后没有新的线程来请求出队列，则该元素将不能及时被响应，直到 leader 线程退出等待，即使此时有相当数量的 follower 线程在等待元素到期。</p>
+
+        <h4 id="获取元素：poll-amp-peek-amp-take">
+          <a href="#获取元素：poll-amp-peek-amp-take" class="heading-link"><i class="fas fa-link"></i></a>获取元素：poll &amp; peek &amp; take</h4>
+      <p>针对获取元素的操作，DelayQueue 实现了 <code>DelayQueue#poll</code>、<code>DelayQueue#peek</code> 和 <code>DelayQueue#take</code> 方法。其中 <code>DelayQueue#peek</code> 方法在获取到锁的基础上直接调用了 <code>PriorityQueue#peek</code> 方法，仅获取 DelayQueue 中最先到期的元素（获取时可能还未到期），而不移除该元素，实现上比较简单。</p>
+<p>方法 <code>DelayQueue#take</code> 相对于 <code>DelayQueue#poll</code> 的区别在于，当队列为空或没有到期的元素时该方法会无限期阻塞，直到有元素到期或该线程被中断，而 <code>DelayQueue#poll</code> 方法在相同场景下则会立即返回 null。</p>
+<p>下面分别展开分析这两个方法的实现，首先来看一下 <code>DelayQueue#poll</code> 方法，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> E <span class="title">poll</span><span class="params">()</span> </span>{</span><br><span class="line">    <span class="keyword">final</span> ReentrantLock lock = <span class="keyword">this</span>.lock;</span><br><span class="line">    <span class="comment">// 获取锁</span></span><br><span class="line">    lock.lock();</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="comment">// 获取队列中最先过期的元素</span></span><br><span class="line">        E first = q.peek();</span><br><span class="line">        <span class="comment">// 队列为空，或者元素还未到期，立即返回 null</span></span><br><span class="line">        <span class="keyword">if</span> (first == <span class="keyword">null</span> || first.getDelay(NANOSECONDS) &gt; <span class="number">0</span>) {</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">        }</span><br><span class="line">        <span class="comment">// 当前元素已过期，移除并返回</span></span><br><span class="line">        <span class="keyword">else</span> {</span><br><span class="line">            <span class="keyword">return</span> q.poll();</span><br><span class="line">        }</span><br><span class="line">    } <span class="keyword">finally</span> {</span><br><span class="line">        <span class="comment">// 释放锁</span></span><br><span class="line">        lock.unlock();</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述方法会检查 DelayQueue 中是否有已经到期的元素，如果有则将该元素出队列并返回，否则，如果队列为空或没有已经到期的元素，则立即返回 null。针对 <code>DelayQueue#poll</code> 方法，DelayQueue 还提供了超时版本 <code>DelayQueue#poll(long, TimeUnit)</code>，当队列为空或没有已经到期的元素时等待指定时间。</p>
+<p>再来看一下 <code>DelayQueue#take</code> 方法的实现，如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> E <span class="title">take</span><span class="params">()</span> <span class="keyword">throws</span> InterruptedException </span>{</span><br><span class="line">    <span class="keyword">final</span> ReentrantLock lock = <span class="keyword">this</span>.lock;</span><br><span class="line">    <span class="comment">// 获取锁，支持响应中断</span></span><br><span class="line">    lock.lockInterruptibly();</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="keyword">for</span> (; ; ) {</span><br><span class="line">            <span class="comment">// 获取最先过期的元素</span></span><br><span class="line">            E first = q.peek();</span><br><span class="line">            <span class="comment">// 队列为空，则等待</span></span><br><span class="line">            <span class="keyword">if</span> (first == <span class="keyword">null</span>) {</span><br><span class="line">                available.await();</span><br><span class="line">            }</span><br><span class="line">            <span class="comment">// 队列非空</span></span><br><span class="line">            <span class="keyword">else</span> {</span><br><span class="line">                <span class="comment">// 如果当前元素已经过期，则出队列</span></span><br><span class="line">                <span class="keyword">long</span> delay = first.getDelay(NANOSECONDS);</span><br><span class="line">                <span class="keyword">if</span> (delay &lt;= <span class="number">0</span>) {</span><br><span class="line">                    <span class="keyword">return</span> q.poll();</span><br><span class="line">                }</span><br><span class="line"></span><br><span class="line">                <span class="comment">/* 当前元素还未过期 */</span></span><br><span class="line"></span><br><span class="line">                first = <span class="keyword">null</span>; <span class="comment">// don't retain ref while waiting</span></span><br><span class="line"></span><br><span class="line">                <span class="comment">// 已经有其它线程成为 leader，则等待</span></span><br><span class="line">                <span class="keyword">if</span> (leader != <span class="keyword">null</span>) {</span><br><span class="line">                    available.await();</span><br><span class="line">                }</span><br><span class="line">                <span class="comment">// 没有 leader 线程，将自己设置为 leader 角色</span></span><br><span class="line">                <span class="keyword">else</span> {</span><br><span class="line">                    Thread thisThread = Thread.currentThread();</span><br><span class="line">                    leader = thisThread;</span><br><span class="line">                    <span class="keyword">try</span> {</span><br><span class="line">                        <span class="comment">// 等待 delay 纳秒</span></span><br><span class="line">                        available.awaitNanos(delay);</span><br><span class="line">                    } <span class="keyword">finally</span> {</span><br><span class="line">                        <span class="comment">// 如果等待期间自己的 leader 角色未被剥夺，则在等待完成之后主动放弃</span></span><br><span class="line">                        <span class="keyword">if</span> (leader == thisThread) {</span><br><span class="line">                            leader = <span class="keyword">null</span>;</span><br><span class="line">                        }</span><br><span class="line">                    }</span><br><span class="line">                }</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">    } <span class="keyword">finally</span> {</span><br><span class="line">        <span class="comment">// 如果队列不为空，则唤醒一个之前因为队列为空而等待的线程</span></span><br><span class="line">        <span class="keyword">if</span> (leader == <span class="keyword">null</span> &amp;&amp; q.peek() != <span class="keyword">null</span>) {</span><br><span class="line">            available.signal();</span><br><span class="line">        }</span><br><span class="line">        <span class="comment">// 释放锁</span></span><br><span class="line">        lock.unlock();</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>方法 <code>DelayQueue#take</code> 在获取到锁之后会先检查队列是否为空，如果为空则等待，否则执行：</p>
+<ol>
+<li>如果 DelayQueue 中优先级最高的元素已经到期，则出队列并返回该元素；</li>
+<li>否则，如果当前已经有 leader 线程，则等待；</li>
+<li>如果当前没有 leader 线程，则将自己设置为 leader 角色，并等待队列中优先级最高的元素到期。</li>
+</ol>
+<p>如果 DelayQueue 中优先级最高的元素到期，或者等待期间被中断，则当前 leader 线程会主动放弃自己的 leader 角色，以给其它 follower 线程机会。当然在等待期间，当前线程的 leader 角色也可能会被剥夺，前面我们在分析 <code>DelayQueue#offer</code> 方法时已经介绍过，当等待期间有其它优先级更高的元素插入进来时，执行插入的线程会剥夺当前 leader 线程的 leader 角色，以便让刚刚插入的优先级更高的元素能够在到期时及时出队列。</p>
+<p>在整个 <code>DelayQueue#take</code> 方法执行的最后，如果 DelayQueue 非空，且当前没有线程成为 leader，则会唤醒一个之前因为队列为空而阻塞的 follower 线程。这里限制 <code>leader == null</code> 主要是防止在有 leader 存在的前提下，被唤醒的线程会因为队列中没有到期的元素而再次等待。</p>
+
+        <h4 id="移除元素：remove">
+          <a href="#移除元素：remove" class="heading-link"><i class="fas fa-link"></i></a>移除元素：remove</h4>
+      <p>针对移除元素的操作，DelayQueue 实现了 <code>DelayQueue#remove</code> 方法，并提供了有参和无参的版本，其中无参版本实际上是委托给 <code>DelayQueue#poll</code> 方法执行的。下面来分析一下有参版本的实现，如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">remove</span><span class="params">(Object o)</span> </span>{</span><br><span class="line">    <span class="keyword">final</span> ReentrantLock lock = <span class="keyword">this</span>.lock;</span><br><span class="line">    <span class="comment">// 加锁</span></span><br><span class="line">    lock.lock();</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="comment">// 从优先级队列中移除元素</span></span><br><span class="line">        <span class="keyword">return</span> q.remove(o);</span><br><span class="line">    } <span class="keyword">finally</span> {</span><br><span class="line">        <span class="comment">// 释放锁</span></span><br><span class="line">        lock.unlock();</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>DelayQueue 移除指定元素的操作在获取到锁的前提下，交由 PriorityQueue 执行，实现上比较简单。</p>
+<p>DelayQueue 的 <code>DelayQueue#size</code> 方法在实现上与 <code>DelayQueue#remove</code> 方法思路相同，不再展开。但需要注意的一点是，方法 <code>DelayQueue#size</code> 所返回的值并不仅仅包含那些未到期的元素，也可能包含一些已经到期而未被从队列中移除的元素，一种可能是这些元素未被及时响应，另外一种可能就是线程仅获取了元素值，而没有移除对应的结点，例如调用了 <code>DelayQueue#peek</code> 方法。</p>
+
+        <h3 id="总结">
+          <a href="#总结" class="heading-link"><i class="fas fa-link"></i></a>总结</h3>
+      <p>本文分析了 DelayQueue 的设计与实现。DelayQueue 相对于前面介绍的队列的特别之处在于引入了时间属性，只有在元素到期时才会被出队列。在实现上，DelayQueue 底层依赖于优先级队列 PriorityQueue 作为存储结构，并基于 ReentrantLock 锁保证线程安全，同时巧妙设计了 Leader-Follower 模式来保证延迟元素在到期时能够及时被响应。</p>
+
+        <h3 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h3>
+      <ol>
+<li>JDK 1.8 源码</li>
+</ol>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2018/09/14/java/juc-delay-queue/">https://plotor.github.io/2018/09/14/java/juc-delay-queue/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Java/">Java</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/">并发编程</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2018/09/18/java/juc-synchronous-queue/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">深入理解 JUC：SynchronousQueue</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2018/09/13/java/juc-priority-blocking-queue/"><span class="paginator-prev__text">深入理解 JUC：PriorityBlockingQueue</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E6%96%B9%E6%B3%95%E5%AE%9E%E7%8E%B0"><span class="toc-number">1.</span> <span class="toc-text">
+          核心方法实现</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%B7%BB%E5%8A%A0%E5%85%83%E7%B4%A0%EF%BC%9Aoffer-amp-add-amp-put"><span class="toc-number">1.1.</span> <span class="toc-text">
+          添加元素：offer &amp; add &amp; put</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%8E%B7%E5%8F%96%E5%85%83%E7%B4%A0%EF%BC%9Apoll-amp-peek-amp-take"><span class="toc-number">1.2.</span> <span class="toc-text">
+          获取元素：poll &amp; peek &amp; take</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%A7%BB%E9%99%A4%E5%85%83%E7%B4%A0%EF%BC%9Aremove"><span class="toc-number">1.3.</span> <span class="toc-text">
+          移除元素：remove</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">2.</span> <span class="toc-text">
+          总结</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">3.</span> <span class="toc-text">
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

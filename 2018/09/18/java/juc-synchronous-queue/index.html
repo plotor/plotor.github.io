@@ -1,0 +1,582 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="本文我们一起来分析一下 SynchronousQueue 的设计与实现。不同于前面介绍的一系列线程安全队列，SynchronousQueue 从真正意义上来说并不能算是一个队列，而将其理解为一个用于线程之间通信的组件更为恰当。SynchronousQueue 没有容量的概念，一个线程在执行完入队列操作之后，必须等待另外一个线程与之匹配完成出队列后方可继续再次入队列，反之亦然。此外，有别于我们通常理">
+<meta property="og:type" content="article">
+<meta property="og:title" content="深入理解 JUC：SynchronousQueue">
+<meta property="og:url" content="https://plotor.github.io/2018/09/18/java/juc-synchronous-queue/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="本文我们一起来分析一下 SynchronousQueue 的设计与实现。不同于前面介绍的一系列线程安全队列，SynchronousQueue 从真正意义上来说并不能算是一个队列，而将其理解为一个用于线程之间通信的组件更为恰当。SynchronousQueue 没有容量的概念，一个线程在执行完入队列操作之后，必须等待另外一个线程与之匹配完成出队列后方可继续再次入队列，反之亦然。此外，有别于我们通常理">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://plotor.github.io/images/2018/juc-synchronous-queue-ds-transfer-1.png">
+<meta property="og:image" content="https://plotor.github.io/images/2018/juc-synchronous-queue-ds-transfer-2.png">
+<meta property="og:image" content="https://plotor.github.io/images/2018/juc-synchronous-queue-dq-transfer-1.png">
+<meta property="og:image" content="https://plotor.github.io/images/2018/juc-synchronous-queue-dq-transfer-2.png">
+<meta property="article:published_time" content="2018-09-18T09:25:39.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.963Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="并发编程">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://plotor.github.io/images/2018/juc-synchronous-queue-ds-transfer-1.png"><title>深入理解 JUC：SynchronousQueue | 指  间</title><link ref="canonical" href="https://plotor.github.io/2018/09/18/java/juc-synchronous-queue/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">深入理解 JUC：SynchronousQueue</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2018-09-18</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">8.8k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">39分</span></span></div></header><div class="post-body"><p>本文我们一起来分析一下 SynchronousQueue 的设计与实现。不同于前面介绍的一系列线程安全队列，SynchronousQueue 从真正意义上来说并不能算是一个队列，而将其理解为一个用于线程之间通信的组件更为恰当。SynchronousQueue 没有容量的概念，一个线程在执行完入队列操作之后，必须等待另外一个线程与之匹配完成出队列后方可继续再次入队列，反之亦然。此外，有别于我们通常理解的队列中的结点只承载元素，SynchronousQueue 中的结点还需要附着对应的操作线程，这些线程在对应的结点上等待被匹配（fulfill）。<a id="more"></a></p>
+<p>SynchronousQueue 实现自 BlockingQueue 接口，底层基于 <a href="/2018/08/24/java/juc-aqs/">LockSupport 工具类</a> 实现线程的阻塞和唤醒操作，并依赖 CAS 保证线程安全。在构造 SynchronousQueue 对象时，允许通过参数指定是否启用公平模式。SynchronousQueue 基于 <strong>Dual Stack</strong> 数据结构实现非公平的线程通信，基于 <strong>Dual Queue</strong> 数据结构实现公平的线程通信。SynchronousQueue 的公平模式因为减少了线程之间的冲突，在竞争频繁的场景下反而具备更高的性能，而非公平模式能够更好的维持线程局部性（thread locality），减少线程上下文切换的开销。</p>
+
+        <h3 id="SynchronousQueue-示例">
+          <a href="#SynchronousQueue-示例" class="heading-link"><i class="fas fa-link"></i></a>SynchronousQueue 示例</h3>
+      <p>本小节我们以“生产者-消费者”示例演示 SynchronousQueue 的基本使用，在示例中我们设置了一个生产者和两个消费者，以展示 SynchronousQueue 公平性特征。示例实现如下（省略了异常处理）：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> BlockingQueue&lt;Integer&gt; queue = <span class="keyword">new</span> SynchronousQueue&lt;&gt;(<span class="keyword">true</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="class"><span class="keyword">class</span> <span class="title">Producer</span> <span class="keyword">implements</span> <span class="title">Runnable</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>{</span><br><span class="line">        <span class="keyword">int</span> count = <span class="number">0</span>;</span><br><span class="line">        <span class="keyword">while</span> (count &lt; <span class="number">10</span>) {</span><br><span class="line">            <span class="keyword">int</span> val = count++;</span><br><span class="line">            System.out.println(<span class="string">"Producer produce: "</span> + val);</span><br><span class="line">            queue.put(val);</span><br><span class="line">            TimeUnit.SECONDS.sleep(<span class="number">1</span>);</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="class"><span class="keyword">class</span> <span class="title">Consumer</span> <span class="keyword">implements</span> <span class="title">Runnable</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>{</span><br><span class="line">        <span class="keyword">while</span> (!Thread.currentThread().isInterrupted()) {</span><br><span class="line">            System.out.println(<span class="string">"Consumer "</span> + Thread.currentThread().getName() + <span class="string">" consume: "</span> + queue.take());</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>{</span><br><span class="line">    Thread producer = <span class="keyword">new</span> Thread(<span class="keyword">new</span> Producer());</span><br><span class="line">    Thread consumer1 = <span class="keyword">new</span> Thread(<span class="keyword">new</span> Consumer());</span><br><span class="line">    Thread consumer2 = <span class="keyword">new</span> Thread(<span class="keyword">new</span> Consumer());</span><br><span class="line">    consumer1.setName(<span class="string">"A"</span>);</span><br><span class="line">    consumer2.setName(<span class="string">"B"</span>);</span><br><span class="line"></span><br><span class="line">    producer.start();</span><br><span class="line">    consumer1.start();</span><br><span class="line">    consumer2.start();</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>运行输出如下：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">Producer produce: 0</span><br><span class="line">Consumer A consume: 0</span><br><span class="line">Producer produce: 1</span><br><span class="line">Consumer A consume: 1</span><br><span class="line">Producer produce: 2</span><br><span class="line">Consumer B consume: 2</span><br><span class="line">Producer produce: 3</span><br><span class="line">Consumer A consume: 3</span><br><span class="line">Producer produce: 4</span><br><span class="line">Consumer B consume: 4</span><br><span class="line">Producer produce: 5</span><br><span class="line">Consumer A consume: 5</span><br><span class="line">Producer produce: 6</span><br><span class="line">Consumer B consume: 6</span><br><span class="line">Producer produce: 7</span><br><span class="line">Consumer A consume: 7</span><br><span class="line">Producer produce: 8</span><br><span class="line">Consumer B consume: 8</span><br><span class="line">Producer produce: 9</span><br><span class="line">Consumer A consume: 9</span><br></pre></td></tr></tbody></table></div></figure>
+<p>可以看到，当生产者往 SynchronousQueue 中插入一个元素之后，生产者线程会等待消费者完成消费，而消费者线程在完成消费之后会等待生产者生产。SynchronousQueue 的公平性特性尽可能保证了消费者 A 和 B 能够交替执行消费操作。</p>
+<p>在上述示例中，如果我们将 Producer 入队列的方法由 put 改为 offer，那么在 Consumer 入队列成功之前，Producer 始终不能入队列成功，这对于一般的队列而言显得有些奇怪。实际上，这里说的不能成功入队列不够准确，要知道 offer 是一类带有超时机制的方法，也就是说当 Producer 在将某个元素执行入队列之后，它希望有一个 Consumer 能够在自己期望的时间内与该元素进行匹配，否则就只能返回 false，从表象上来看就是没有入队列成功。实际应用中我们需要考虑此类表象是否符合自己的业务场景，如果不满足则可以考虑使用 put 方法执行入队列操作。</p>
+
+        <h3 id="核心方法实现">
+          <a href="#核心方法实现" class="heading-link"><i class="fas fa-link"></i></a>核心方法实现</h3>
+      <p>SynchronousQueue 实现自 BlockingQueue 接口，但并未对接口中声明的方法全部支持，例如 SynchronousQueue 的 <code>SynchronousQueue#peek</code> 方法就始终返回 null，在使用时推荐先阅读 API 文档，避免影响程序的正确性。本文主要分析 SynchronousQueue 的实现机制，所以下面重点来看一下 SynchronousQueue 已实现的出队列和入队列操作。</p>
+<p>前面我们提及到 SynchronousQueue 内部基于 Dual Stack 和 Dual Queue 数据结构实现，在 SynchronousQueue 中定义了一个 Transferer 抽象类，该类抽象了 Dual Stack 和 Dual Queue 数据结构的实现，定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">abstract</span> <span class="keyword">static</span> <span class="class"><span class="keyword">class</span> <span class="title">Transferer</span>&lt;<span class="title">E</span>&gt; </span>{</span><br><span class="line">    <span class="function"><span class="keyword">abstract</span> E <span class="title">transfer</span><span class="params">(E e, <span class="keyword">boolean</span> timed, <span class="keyword">long</span> nanos)</span></span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>SynchronousQueue 的出队列和入队列操作均委托给 <code>Transferer#transfer</code> 方法执行（如下），该方法接收 3 个参数，其中参数 e 表示待添加到队列中的元素值，对于出队列操作来说，e 始终等于 null；参数 timed 用于设置当前操作是否具备超时策略，如果是则需要使用参数 nanos 参数指定超时时间。</p>
+<ul>
+<li><code>SynchronousQueue#put(E e)</code> -&gt; <code>transferer.transfer(e, false, 0)</code></li>
+<li><code>SynchronousQueue#offer(E)</code> -&gt; <code>transferer.transfer(e, true, 0)</code></li>
+<li><code>SynchronousQueue#offer(E, long, TimeUnit)</code> -&gt; <code>transferer.transfer(e, true, unit.toNanos(timeout))</code></li>
+<li><code>SynchronousQueue#take</code> -&gt; <code>transferer.transfer(null, false, 0)</code></li>
+<li><code>SynchronousQueue#poll()</code> -&gt; <code>transferer.transfer(null, true, 0)</code></li>
+<li><code>SynchronousQueue#poll(long, TimeUnit)</code> -&gt; <code>transferer.transfer(null, true, unit.toNanos(timeout))</code></li>
+</ul>
+<p>针对 Dual Stack 和 Dual Queue 数据结构，SynchronousQueue 分别定义了 TransferStack 和 TransferQueue 实现类，下面的小节将针对这两个类的实现机制展开分析。</p>
+<p>在开始之前，我们先对 <strong>匹配</strong> 一词在 SynchronousQueue 中的含义进行解释，在下面的章节中将多次提及匹配的概念。我们大致已经了解到 SynchronousQueue 在内部基于栈或队列实现线程间的交互，以“生产者-消费者”为例，如果使用的是栈结构（队列亦如此），当生产者往 SynchronousQueue 中插入一个元素时，该生产者线程在插入成功之后并不会立即返回，而是等待消费者前来消费。当消费者执行消费时发现栈上正好有生产者在等待，于是执行消费逻辑，也称为开始执行匹配（fulfill）进程，将当前消费者与生产者匹配成一对儿纷纷出栈。</p>
+
+        <h4 id="Dual-Stack">
+          <a href="#Dual-Stack" class="heading-link"><i class="fas fa-link"></i></a>Dual Stack</h4>
+      <p>针对 Dual Stack 数据结构，SynchronousQueue 实现了 TransferStack 类。TransferStack 继承自 Transferer 抽象类，并定义了 SNode 类描述栈上的结点。针对结点的运行模式，TransferStack 定义了 3 个 int 类型的常量字段予以描述，如下：</p>
+<ol>
+<li>REQUEST：标识未匹配的消费者结点。</li>
+<li>DATA：标识未匹配的生产者结点。</li>
+<li>FULFILLING：标识结点正在执行匹配操作。</li>
+</ol>
+<p>栈在运行期间要么为空，要么存放着一个或多个未匹配的消费者结点或生产者结点，对应的消费者或生产者线程依附在具体的结点上等待。一个栈上不可能同时共存未匹配的消费者结点和未匹配的生产者结点，也就是说同一时间栈上所有结点的运行模式（即 <code>SNode#mode</code> 字段值）都应该是一致的，除了栈顶结点可能会因为正在执行匹配进程而附加 FULFILLING 状态。</p>
+<p>SNode 类的字段定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="keyword">final</span> <span class="class"><span class="keyword">class</span> <span class="title">SNode</span> </span>{</span><br><span class="line">    <span class="comment">/** 后继指针 */</span></span><br><span class="line">    <span class="keyword">volatile</span> SNode next;        <span class="comment">// next node in stack</span></span><br><span class="line">    <span class="comment">/** 记录匹配的结点，如果当前结点被取消，则指向自己 */</span></span><br><span class="line">    <span class="keyword">volatile</span> SNode match;       <span class="comment">// the node matched to this</span></span><br><span class="line">    <span class="comment">/** 在当前结点上等待的线程对象 */</span></span><br><span class="line">    <span class="keyword">volatile</span> Thread waiter;     <span class="comment">// to control park/unpark</span></span><br><span class="line">    <span class="comment">/** 结点元素值，如果是消费者结点则为 null */</span></span><br><span class="line">    Object item;                <span class="comment">// data; or null for REQUESTs</span></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 结点运行模式：</span></span><br><span class="line"><span class="comment">     * - 0：代表消费者结点</span></span><br><span class="line"><span class="comment">     * - 1：代表生产者结点</span></span><br><span class="line"><span class="comment">     * - (2 | 0) or (2 | 1)：代表结点正在或已被匹配</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">int</span> mode;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// ... 省略方法实现</span></span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>各字段的含义如代码注释，我们将在下面分析 <code>TransferStack#transfer</code> 方法实现时一并分析 SNode 中定义的方法，并对各个字段的含义结合具体场景做进一步介绍。</p>
+<p>前面在介绍 Transferer 抽象类时，我们知道该抽象类仅声明了一个方法，即 <code>Transferer#transfer</code> 方法，该方法也是整个 SynchronousQueue 中最核心的实现。在开始分析 TransferStack 之于该方法的实现之前，我们先从整体出发，感知一下 TransferStack 的运行流程。</p>
+<p>以“生产者-消费者”为例，假设当前有 3 个生产者依次执行往 SynchronousQueue 中插入元素，执行的顺序为 <code>1 -&gt; 2 -&gt; 3</code>，则入栈之后得到的栈结构如下：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"> 3 -&gt; 2 -&gt; 1 -&gt; null</span><br><span class="line"> ↓</span><br><span class="line">head</span><br></pre></td></tr></tbody></table></div></figure>
+<p>入栈后的 3 个生产者线程将在栈对应结点上等待。如果来了一个消费者执行出队列操作，此时消费者将与 head 结点上的生产者进行匹配，匹配成功之后得到的栈结构如下：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"> 2 -&gt; 1 -&gt; null</span><br><span class="line"> ↓</span><br><span class="line">head</span><br></pre></td></tr></tbody></table></div></figure>
+<p>此时剩下的生产者线程将继续等待，期间可以允许新的消费者出队列，也可以允许新的生产者入队列。</p>
+<p>上述过程就是 <code>TransferStack#transfer</code> 方法的核心执行逻辑，对此有了一个大概的感知之后，下面来深入分析 <code>TransferStack#transfer</code> 方法的具体实现。实际上在 <code>TransferStack#transfer</code> 方法的开头，作者已经对整个方法的运行流程给出了直观的概括，摘录如下：</p>
+<blockquote>
+<ol>
+<li><p>If apparently empty or already containing nodes of same mode, try to push node on stack and wait for a match, returning it, or null if cancelled.</p>
+</li>
+<li><p>If apparently containing node of complementary mode, try to push a fulfilling node on to stack, match with corresponding waiting node, pop both from stack, and return matched item. The matching or unlinking might not actually be necessary because of other threads performing action 3:</p>
+</li>
+<li><p>If top of stack already holds another fulfilling node, help it out by doing its match and/or pop operations, and then continue. The code for helping is essentially the same as for fulfilling, except that it doesn’t return the item.</p>
+</li>
+</ol>
+</blockquote>
+<p>方法 <code>TransferStack#transfer</code> 实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">E <span class="title">transfer</span><span class="params">(E e, <span class="keyword">boolean</span> timed, <span class="keyword">long</span> nanos)</span> </span>{</span><br><span class="line">    SNode s = <span class="keyword">null</span>; <span class="comment">// constructed/reused as needed</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 操作模式判定，如果为 null 则说明当前是出队列操作，否则说明是入队列操作</span></span><br><span class="line">    <span class="keyword">int</span> mode = (e == <span class="keyword">null</span>) ? REQUEST : DATA;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (; ; ) {</span><br><span class="line">        SNode h = head;</span><br><span class="line">        <span class="comment">// 1. 如果栈为空，或者包含相同模式的结点，将结点入栈等待匹配</span></span><br><span class="line">        <span class="keyword">if</span> (h == <span class="keyword">null</span> || h.mode == mode) {   <span class="comment">// empty or same-mode</span></span><br><span class="line">            <span class="comment">// 如果设置超时且到期</span></span><br><span class="line">            <span class="keyword">if</span> (timed &amp;&amp; nanos &lt;= <span class="number">0</span>) {       <span class="comment">// can't wait</span></span><br><span class="line">                <span class="comment">// 如果 head 结点被取消，则后移 head 指针</span></span><br><span class="line">                <span class="keyword">if</span> (h != <span class="keyword">null</span> &amp;&amp; h.isCancelled()) {</span><br><span class="line">                    <span class="keyword">this</span>.casHead(h, h.next); <span class="comment">// pop cancelled node</span></span><br><span class="line">                } <span class="keyword">else</span> {</span><br><span class="line">                    <span class="comment">// 否则返回 null</span></span><br><span class="line">                    <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">                }</span><br><span class="line">            }</span><br><span class="line">            <span class="comment">// 否则，说明当前线程需要在栈上等待，先创建一个结点入栈，之后对应的线程会在该结点上等待</span></span><br><span class="line">            <span class="keyword">else</span> <span class="keyword">if</span> (<span class="keyword">this</span>.casHead(h, s = snode(s, e, h, mode))) {</span><br><span class="line">                <span class="comment">// 等待结点被匹配或取消，返回的是与当前结点匹配的结点，或者结点自己（即结点被取消）</span></span><br><span class="line">                SNode m = <span class="keyword">this</span>.awaitFulfill(s, timed, nanos);</span><br><span class="line">                <span class="comment">// 如果返回的是结点自己，则说明是被取消了</span></span><br><span class="line">                <span class="keyword">if</span> (m == s) {               <span class="comment">// wait was cancelled</span></span><br><span class="line">                    <span class="comment">// 清理无效结点</span></span><br><span class="line">                    <span class="keyword">this</span>.clean(s);</span><br><span class="line">                    <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">                }</span><br><span class="line"></span><br><span class="line">                <span class="comment">/* 当前结点被匹配了 */</span></span><br><span class="line"></span><br><span class="line">                <span class="comment">// 与 s 匹配的结点就是 head 结点，将 s 和 m 出栈，这里只是一个优化，不影响程序执行的正确性</span></span><br><span class="line">                <span class="keyword">if</span> ((h = head) != <span class="keyword">null</span> &amp;&amp; h.next == s) {</span><br><span class="line">                    <span class="keyword">this</span>.casHead(h, s.next); <span class="comment">// help s's fulfiller</span></span><br><span class="line">                }</span><br><span class="line"></span><br><span class="line">                <span class="comment">// 如果是出队列则返回匹配结点的元素值，如果是入队列则返回新添加的结点元素值</span></span><br><span class="line">                <span class="keyword">return</span> (E) ((mode == REQUEST) ? m.item : s.item);</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">        <span class="comment">// 2. 栈中包含互补模式的结点，且 head 结点不处于 FULFILLING 状态，执行匹配操作</span></span><br><span class="line">        <span class="keyword">else</span> <span class="keyword">if</span> (!isFulfilling(h.mode)) {  <span class="comment">// try to fulfill</span></span><br><span class="line">            <span class="comment">// 头结点已经被取消，则后移 head 指针后重试</span></span><br><span class="line">            <span class="keyword">if</span> (h.isCancelled()) {         <span class="comment">// already cancelled</span></span><br><span class="line">                <span class="keyword">this</span>.casHead(h, h.next);   <span class="comment">// pop and retry</span></span><br><span class="line">            }</span><br><span class="line">            <span class="comment">// 入队一个带有 FULFILLING 标志的新结点 s，同一时间栈中最多只有一个带有 FULFILLING 标志的结点，且该结点一定是 head 结点</span></span><br><span class="line">            <span class="keyword">else</span> <span class="keyword">if</span> (<span class="keyword">this</span>.casHead(h, s = snode(s, e, h, FULFILLING | mode))) {</span><br><span class="line">                <span class="keyword">for</span> (; ; ) {               <span class="comment">// loop until matched or waiters disappear</span></span><br><span class="line">                    <span class="comment">// 获取本次与 s 结点执行匹配的结点，也就是 s 的 next 结点</span></span><br><span class="line">                    SNode m = s.next;      <span class="comment">// m is s's match</span></span><br><span class="line">                    <span class="comment">// 如果待匹配的结点为 null，说明已经被其它线程取消</span></span><br><span class="line">                    <span class="keyword">if</span> (m == <span class="keyword">null</span>) {       <span class="comment">// all waiters are gone</span></span><br><span class="line">                        <span class="comment">// 将结点 s 出队列，并退出循环</span></span><br><span class="line">                        <span class="keyword">this</span>.casHead(s, <span class="keyword">null</span>);   <span class="comment">// pop fulfill node</span></span><br><span class="line">                        s = <span class="keyword">null</span>;                <span class="comment">// use new node next time</span></span><br><span class="line">                        <span class="keyword">break</span>;                   <span class="comment">// restart main loop</span></span><br><span class="line">                    }</span><br><span class="line">                    <span class="comment">// 如果待匹配的结点不为 null，则尝试执行匹配</span></span><br><span class="line">                    SNode mn = m.next;</span><br><span class="line">                    <span class="keyword">if</span> (m.tryMatch(s)) { <span class="comment">// 尝试将结点 m 的 match 指针指向结点 s</span></span><br><span class="line">                        <span class="comment">// 匹配成功，修改头结点为已匹配结点 m 的 next 结点</span></span><br><span class="line">                        <span class="keyword">this</span>.casHead(s, mn);     <span class="comment">// pop both s and m</span></span><br><span class="line">                        <span class="comment">// 如果是出队列则返回已匹配结点的元素值，如果是入队列则返回新添加的结点元素值</span></span><br><span class="line">                        <span class="keyword">return</span> (E) ((mode == REQUEST) ? m.item : s.item);</span><br><span class="line">                    } <span class="keyword">else</span> {                <span class="comment">// lost match</span></span><br><span class="line">                        <span class="comment">// 匹配失败，说明结点 m 被取消，继续尝试匹配 m 的 next 结点</span></span><br><span class="line">                        s.casNext(m, mn);   <span class="comment">// help unlink</span></span><br><span class="line">                    }</span><br><span class="line">                }</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">        <span class="comment">// 3. 栈中包含互补模式的结点，且 head 结点处于 FULFILLING 状态</span></span><br><span class="line">        <span class="keyword">else</span> {                            <span class="comment">// help a fulfiller</span></span><br><span class="line">            SNode m = h.next;             <span class="comment">// m is h's match</span></span><br><span class="line">            <span class="keyword">if</span> (m == <span class="keyword">null</span>) {              <span class="comment">// waiter is gone</span></span><br><span class="line">                <span class="keyword">this</span>.casHead(h, <span class="keyword">null</span>);    <span class="comment">// pop fulfilling node</span></span><br><span class="line">            } <span class="keyword">else</span> {</span><br><span class="line">                SNode mn = m.next;</span><br><span class="line">                <span class="keyword">if</span> (m.tryMatch(h)) {      <span class="comment">// help match</span></span><br><span class="line">                    <span class="keyword">this</span>.casHead(h, mn);  <span class="comment">// pop both h and m</span></span><br><span class="line">                } <span class="keyword">else</span> {                  <span class="comment">// lost match</span></span><br><span class="line">                    h.casNext(m, mn);     <span class="comment">// help unlink</span></span><br><span class="line">                }</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述实现中 for 循环内部的 <code>if ... else if ... else</code> 控制结构分别对应作者给出的 3 段注释（已在代码中标出），其中场景 3 主要是对场景 2 的辅助，下面重点分析场景 1 和场景 2 的实现和执行流程。</p>
+<p>首先来看一下 <strong>场景 1</strong> ，此时栈为空，或者栈中等待的线程运行模式与当前线程的运行模式相同，此时需要将结点入栈，并让当前线程在结点上等待。执行流程可以概括为：</p>
+<ol>
+<li>如果设置了超时且已经到期，则顺带判断 head 结点是否被取消，如果是则后移 head 指针并进入下一轮循环，否则返回 null；</li>
+<li>否则新建一个包含待添加元素 e 的结点入栈，并执行 <code>TransferStack#awaitFulfill</code> 方法让当前线程在该结点上等待匹配（或被取消）；</li>
+<li>如果在等待期间被取消，则清理栈上的无效结点，并返回 null；</li>
+<li>否则说明结点被成功匹配，如果当前线程是消费者线程则返回匹配结点的元素值，如果当前线程是生产者线程则返回刚刚添加的元素值。</li>
+</ol>
+<p>下面利用图示演示上述执行流程。假设当前操作线程是一个生产者，期望将元素 3 插入到 SynchronousQueue 中，并且当前栈中已经包含两个处于等待状态的生产者（如下图 1 所示）。因为当前线程与栈中等待的线程模式相同（均为 DATA），所以新建一个元素值为 3 的结点入栈（如下图 2 所示），并让当前线程在结点上等待。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/juc-synchronous-queue-ds-transfer-1.png" alt="image">
+      </p>
+<p>继续分析让线程等待的 <code>TransferStack#awaitFulfill</code> 方法，线程会阻塞（或自旋）在该方法上等待被匹配，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">SNode <span class="title">awaitFulfill</span><span class="params">(SNode s, <span class="keyword">boolean</span> timed, <span class="keyword">long</span> nanos)</span> </span>{</span><br><span class="line">    <span class="comment">// 如果设置了超时，则计算到期时间</span></span><br><span class="line">    <span class="keyword">final</span> <span class="keyword">long</span> deadline = timed ? System.nanoTime() + nanos : <span class="number">0L</span>;</span><br><span class="line">    Thread w = Thread.currentThread();</span><br><span class="line">    <span class="comment">// 计算自旋的次数</span></span><br><span class="line">    <span class="keyword">int</span> spins = (<span class="keyword">this</span>.shouldSpin(s) ? (timed ? maxTimedSpins : maxUntimedSpins) : <span class="number">0</span>);</span><br><span class="line">    <span class="keyword">for</span> (; ; ) {</span><br><span class="line">        <span class="comment">// 从阻塞中醒来，先检查期间是否被中断</span></span><br><span class="line">        <span class="keyword">if</span> (w.isInterrupted()) {</span><br><span class="line">            <span class="comment">// 如果被中断，则将结点的 match 指针指向自己，表示结点被取消</span></span><br><span class="line">            s.tryCancel();</span><br><span class="line">        }</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 获取与当前结点匹配的结点，要么是结点自己，要么就是某个与之匹配的结点，只要不为 null 就返回</span></span><br><span class="line">        SNode m = s.match;</span><br><span class="line">        <span class="keyword">if</span> (m != <span class="keyword">null</span>) {</span><br><span class="line">            <span class="keyword">return</span> m;</span><br><span class="line">        }</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* 结点未被匹配或取消 */</span></span><br><span class="line"></span><br><span class="line">        <span class="comment">// 如果设置了超时且已经到期，则取消结点</span></span><br><span class="line">        <span class="keyword">if</span> (timed) {</span><br><span class="line">            nanos = deadline - System.nanoTime();</span><br><span class="line">            <span class="keyword">if</span> (nanos &lt;= <span class="number">0L</span>) {</span><br><span class="line">                s.tryCancel();</span><br><span class="line">                <span class="keyword">continue</span>;</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 在阻塞之前先自旋几次，如果 Producer 和 Consumer 之间交互频繁，自旋相对于阻塞性能更高</span></span><br><span class="line">        <span class="keyword">if</span> (spins &gt; <span class="number">0</span>) {</span><br><span class="line">            spins = <span class="keyword">this</span>.shouldSpin(s) ? (spins - <span class="number">1</span>) : <span class="number">0</span>;</span><br><span class="line">        }</span><br><span class="line">        <span class="comment">// 如果结点的 waiter 为空，则设置为当前线程对象</span></span><br><span class="line">        <span class="keyword">else</span> <span class="keyword">if</span> (s.waiter == <span class="keyword">null</span>) {</span><br><span class="line">            s.waiter = w; <span class="comment">// establish waiter so can park next iter</span></span><br><span class="line">        }</span><br><span class="line">        <span class="comment">// 未设置超时，则无限期等待</span></span><br><span class="line">        <span class="keyword">else</span> <span class="keyword">if</span> (!timed) {</span><br><span class="line">            LockSupport.park(<span class="keyword">this</span>);</span><br><span class="line">        }</span><br><span class="line">        <span class="comment">// 设置了超时，则超时等待</span></span><br><span class="line">        <span class="keyword">else</span> <span class="keyword">if</span> (nanos &gt; spinForTimeoutThreshold) {</span><br><span class="line">            LockSupport.parkNanos(<span class="keyword">this</span>, nanos);</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述方法首先会依据是否设置超时来计算剩余的到期时间和自旋次数，然后执行：</p>
+<ol>
+<li>判断等待期间是否被中断，如果是则取消当前结点，即将结点的 match 指针指向自己；</li>
+<li>判断结点的 match 指针是否指向 null，只要不为 null 就说明当前结点被成功匹配或取消（此时 match 指针指向结点自己），返回 match 指针指向的结点；</li>
+<li>否则，说明结点未被匹配或取消，如果设置了超时且已经到期，则取消当前结点，并在下一轮循环中返回；</li>
+<li>在进入阻塞之前，先尝试自旋几次；</li>
+<li>如果自旋几次之后仍然未完成匹配则阻塞等待，依据是否设置超时来决定是无限期等待还是超时等待，并在等待之前判断当前结点上是否有绑定线程，如果未绑定则将当前线程绑定到该结点上。</li>
+</ol>
+<p>由上述实现可以看到，等待的线程并没有立即阻塞，而是先尝试自旋了几次，这主要是考虑生产者和消费者频繁交互的情况。这类场景下当生产者执行入队列操作之后马上会有消费者前来执行出队列，此时生产者线程无需被阻塞，只需要自旋几次即被匹配成功，从而避免线程阻塞和唤醒所带来的性能开销。如果生产者和消费者交互并不频繁，因为自旋的次数并不多，所以不会造成太多的 CPU 开销，几乎可以忽略。</p>
+<p>如果结点在等待期间被取消，则上述方法会将结点的 match 指针指向自己，后续流程会基于该特征识别被取消的结点，并调用 <code>TransferStack#clean</code> 方法执行清理工作，该方法实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">clean</span><span class="params">(SNode s)</span> </span>{</span><br><span class="line">    s.item = <span class="keyword">null</span>;   <span class="comment">// forget item</span></span><br><span class="line">    s.waiter = <span class="keyword">null</span>; <span class="comment">// forget thread</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 寻找 s 的最近一个后继有效（未被取消）结点，作为本次遍历的哨兵（sentinel）结点</span></span><br><span class="line">    SNode past = s.next;</span><br><span class="line">    <span class="keyword">if</span> (past != <span class="keyword">null</span> &amp;&amp; past.isCancelled()) {</span><br><span class="line">        past = past.next;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 从头开始遍历，将 head 指针指向第一个有效（未被取消）结点</span></span><br><span class="line">    SNode p;</span><br><span class="line">    <span class="keyword">while</span> ((p = head) != <span class="keyword">null</span> &amp;&amp; p != past &amp;&amp; p.isCancelled()) {</span><br><span class="line">        <span class="keyword">this</span>.casHead(p, p.next);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 从当前有效的头结点开始遍历，直到遇到哨兵结点，移除期间遇到的无效结点</span></span><br><span class="line">    <span class="keyword">while</span> (p != <span class="keyword">null</span> &amp;&amp; p != past) {</span><br><span class="line">        SNode n = p.next;</span><br><span class="line">        <span class="keyword">if</span> (n != <span class="keyword">null</span> &amp;&amp; n.isCancelled()) {</span><br><span class="line">            p.casNext(n, n.next);</span><br><span class="line">        } <span class="keyword">else</span> {</span><br><span class="line">            p = n;</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>清理的过程首先会确立一个哨兵（sentinel）结点，该结点是位于结点 s 之后最近一个有效（未被取消）的结点，然后从栈顶开始遍历清除那些已经被取消的结点。至于为什么需要设置一个哨兵结点，考虑在并发场景下结点 s 可能已经被其它线程移除，设置哨兵结点能够避免对整个栈进行遍历。</p>
+<p>接着来看一下 <strong>场景 2</strong> ，此时栈中正在等待的线程运行模式与当前线程互补（可以简单理解为栈中等待的线程都是生产者，而当前线程是消费者），并且此时没有线程正在执行匹配操作，所以进入匹配进程。本次与当前线程匹配的是 head 结点上的线程，所以首先需要从上至下在栈上找到第一个有效（未被取消）的 head 结点，然后执行：</p>
+<ol>
+<li>创建一个结点元素为 e，附加 FULFILLING 标志的结点 s，并将结点入栈；</li>
+<li>获取本次待与 s 匹配的结点 m，如果 m 为 null 则说明栈上已经没有处于等待的结点，需要退出匹配进程并继续判定接下去进入哪个场景；</li>
+<li>否则，调用 <code>SNode#tryMatch</code> 方法执行匹配操作；</li>
+<li>如果匹配成功则后移 head 指针，并返回（如果当前线程是消费者线程则返回匹配结点的元素值，如果当前线程是生产者线程则返回刚刚添加的元素值）；</li>
+<li>如果匹配失败，说明结点 m 已经被取消，尝试继续匹配 m 的后继结点。</li>
+</ol>
+<p>下面利用图示演示上述执行流程。如下图 1 所示，假设当前操作线程是一个消费者（图中黄色结点），期望对 SynchronousQueue 执行出队列操作，并且当前栈中已经包含两个处于等待状态的生产者（图中青色结点）。因为当前线程与栈中等待的线程模式互补，所以新建一个元素值为 null 的结点入栈（如下图 2 所示），并附加 FULFILLING 标志（图中红色结点）。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/juc-synchronous-queue-ds-transfer-2.png" alt="image">
+      </p>
+<p>然后开始执行匹配进程，设置 m 和 mn 指针，如上图 3 所示。在成功执行完 <code>SNode#tryMatch</code> 方法之后会将结点 m 的 match 指针指向结点 s，表示结点 m 和 s 匹配成功，如上图 4 所示。</p>
+<p>继续来分析一下执行匹配进程的 <code>SNode#tryMatch</code> 方法，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">boolean</span> <span class="title">tryMatch</span><span class="params">(SNode s)</span> </span>{</span><br><span class="line">    <span class="comment">// 基于 CAS 将当前结点的 match 字段设置为 s 结点</span></span><br><span class="line">    <span class="keyword">if</span> (match == <span class="keyword">null</span> &amp;&amp; UNSAFE.compareAndSwapObject(<span class="keyword">this</span>, matchOffset, <span class="keyword">null</span>, s)) {</span><br><span class="line">        Thread w = waiter;</span><br><span class="line">        <span class="keyword">if</span> (w != <span class="keyword">null</span>) {    <span class="comment">// waiters need at most one unpark</span></span><br><span class="line">            waiter = <span class="keyword">null</span>;</span><br><span class="line">            <span class="comment">// 唤醒阻塞在当前结点上的线程</span></span><br><span class="line">            LockSupport.unpark(w);</span><br><span class="line">        }</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">return</span> match == s;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>匹配的过程核心在于将待匹配结点的 match 指针指向当前操作线程对应的结点。</p>
+<p>关于 Dual Stack 的运行机制就介绍这么多，受栈 FILO 特性的约束，基于 Dual Stack 的 SynchronousQueue 始终在栈顶执行入队列和出队列操作，后入队的线程会先被匹配，这也解释了为什么基于 Dual Stack 的 SynchronousQueue 是非公平的。基于 Dual Stack 的 SynchronousQueue 潜在的一个问题是可能导致先入队的线程长期得不到匹配而饥饿，而优点在于能够更好的维持线程局部性（thread locality），减少线程上下文切换的开销。</p>
+
+        <h4 id="Dual-Queue">
+          <a href="#Dual-Queue" class="heading-link"><i class="fas fa-link"></i></a>Dual Queue</h4>
+      <p>针对 Dual Queue 数据结构，SynchronousQueue 实现了 TransferQueue 类，TransferQueue 同样继承自 Transferer 抽象类，并定义了 QNode 类描述队列上的结点。TransferQueue 定义了 <code>TransferQueue#head</code> 和 <code>TransferQueue#tail</code> 指针字段，分别指向队列的头结点和尾结点。</p>
+<p>QNode 类的字段定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="keyword">final</span> <span class="class"><span class="keyword">class</span> <span class="title">QNode</span> </span>{</span><br><span class="line">    <span class="comment">/** 后继指针 */</span></span><br><span class="line">    <span class="keyword">volatile</span> QNode next;          <span class="comment">// next node in queue</span></span><br><span class="line">    <span class="comment">/** 结点元素值，如果等于结点自己则说明被取消 */</span></span><br><span class="line">    <span class="keyword">volatile</span> Object item;         <span class="comment">// CAS'ed to or from null</span></span><br><span class="line">    <span class="comment">/** 在当前结点上等待的线程对象 */</span></span><br><span class="line">    <span class="keyword">volatile</span> Thread waiter;       <span class="comment">// to control park/unpark</span></span><br><span class="line">    <span class="comment">/** 标识当前是消费者结点，还是生产者结点 */</span></span><br><span class="line">    <span class="keyword">final</span> <span class="keyword">boolean</span> isData;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// ... 省略方法定义</span></span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>各字段的含义如代码注释，其中 <code>QNode#isData</code> 字段用于标识对应结点是生产者结点还是消费者结点。不同于 TransferStack 的 SNode 需要使用 <code>SNode#mode</code> 字段描述结点是未匹配的生产者、未匹配的消费者，或者是正在匹配中等状态，TransferQueue 因为出队列和入队列分别在 head 和 tail 结点上执行，所以无需定义专门的字段描述结点的运行模式。我们将在下面分析 <code>TransferQueue#transfer</code> 方法实现时一并分析 QNode 中定义的方法，并对各个字段的含义结合具体场景做进一步介绍。</p>
+<p>在开始分析 TransferQueue 之于 <code>Transferer#transfer</code> 方法的实现之前，我们还是先从整体出发，感知一下 TransferQueue 的运行流程。同样以“生产者-消费者”为例，假设当前有 3 个生产者依次执行往 SynchronousQueue 中插入元素，执行的顺序为 <code>1 -&gt; 2 -&gt; 3</code>，则入队列之后得到的队列结构如下：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"> 1 -&gt; 2 -&gt; 3 -&gt; null</span><br><span class="line"> ↓         ↓</span><br><span class="line">head      tail</span><br></pre></td></tr></tbody></table></div></figure>
+<p>入队列后的 3 个生产者线程将在队列对应结点上等待。如果来了一个消费者执行出队列操作，此时消费者将与 head 结点上的生产者进行匹配，匹配成功之后得到的队列结构如下：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"> 2 -&gt; 3 -&gt; null</span><br><span class="line"> ↓    ↓</span><br><span class="line">head tail</span><br></pre></td></tr></tbody></table></div></figure>
+<p>此时剩下的生产者线程将继续等待，期间可以允许新的消费者出队列，也可以允许新的生产者入队列。</p>
+<p>上述过程就是 <code>TransferQueue#transfer</code> 方法的核心执行逻辑，对此有了一个大概的感知之后，下面来深入分析 <code>TransferQueue#transfer</code> 方法的具体实现。实际上在 <code>TransferQueue#transfer</code> 方法的开头，作者同样已经对整个方法的运行流程给出了直观的概括，摘录如下：</p>
+<blockquote>
+<ol>
+<li><p>If queue apparently empty or holding same-mode nodes, try to add node to queue of waiters, wait to be fulfilled (or cancelled) and return matching item.</p>
+</li>
+<li><p>If queue apparently contains waiting items, and this call is of complementary mode, try to fulfill by CAS’ing item field of waiting node and dequeuing it, and then returning matching item.</p>
+</li>
+</ol>
+</blockquote>
+<p>方法 <code>TransferQueue#transfer</code> 实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">E <span class="title">transfer</span><span class="params">(E e, <span class="keyword">boolean</span> timed, <span class="keyword">long</span> nanos)</span> </span>{</span><br><span class="line">    QNode s = <span class="keyword">null</span>;                         <span class="comment">// constructed/reused as needed</span></span><br><span class="line">    <span class="comment">// 标识当前是生产模式还是消费模式</span></span><br><span class="line">    <span class="keyword">boolean</span> isData = (e != <span class="keyword">null</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (; ; ) {</span><br><span class="line">        QNode t = tail;</span><br><span class="line">        QNode h = head;</span><br><span class="line">        <span class="keyword">if</span> (t == <span class="keyword">null</span> || h == <span class="keyword">null</span>) {       <span class="comment">// saw uninitialized value</span></span><br><span class="line">            <span class="keyword">continue</span>;                       <span class="comment">// spin</span></span><br><span class="line">        }</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 1. 队列为空，或者包含相同模式的结点，将结点入队列等待匹配</span></span><br><span class="line">        <span class="keyword">if</span> (h == t || t.isData == isData) { <span class="comment">// empty or same-mode</span></span><br><span class="line">            QNode tn = t.next;</span><br><span class="line">            <span class="comment">// 期间有其它线程入队列，进入下一轮循环重新获取 tail</span></span><br><span class="line">            <span class="keyword">if</span> (t != tail) {                <span class="comment">// inconsistent read</span></span><br><span class="line">                <span class="keyword">continue</span>;</span><br><span class="line">            }</span><br><span class="line">            <span class="comment">// t 不是队列尾结点，尝试后移 tail 指针</span></span><br><span class="line">            <span class="keyword">if</span> (tn != <span class="keyword">null</span>) {               <span class="comment">// lagging tail</span></span><br><span class="line">                <span class="keyword">this</span>.advanceTail(t, tn);</span><br><span class="line">                <span class="keyword">continue</span>;</span><br><span class="line">            }</span><br><span class="line">            <span class="comment">// 设置超时且已到期，则返回 null</span></span><br><span class="line">            <span class="keyword">if</span> (timed &amp;&amp; nanos &lt;= <span class="number">0</span>) {      <span class="comment">// can't wait</span></span><br><span class="line">                <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">            }</span><br><span class="line">            <span class="keyword">if</span> (s == <span class="keyword">null</span>) {</span><br><span class="line">                s = <span class="keyword">new</span> QNode(e, isData);</span><br><span class="line">            }</span><br><span class="line">            <span class="comment">// 基于 CAS 将结点 s 添加到队列末端</span></span><br><span class="line">            <span class="keyword">if</span> (!t.casNext(<span class="keyword">null</span>, s)) {      <span class="comment">// failed to link in</span></span><br><span class="line">                <span class="comment">// 添加失败则重试</span></span><br><span class="line">                <span class="keyword">continue</span>;</span><br><span class="line">            }</span><br><span class="line"></span><br><span class="line">            <span class="comment">/* 将 s 结点入队列成功 */</span></span><br><span class="line"></span><br><span class="line">            <span class="comment">// 后移 tail 指针</span></span><br><span class="line">            <span class="keyword">this</span>.advanceTail(t, s);         <span class="comment">// swing tail and wait</span></span><br><span class="line">            <span class="comment">// 等待结点被匹配或取消，返回已匹配的结点元素值，或者结点自己（表示已取消）</span></span><br><span class="line">            Object x = <span class="keyword">this</span>.awaitFulfill(s, e, timed, nanos);</span><br><span class="line">            <span class="comment">// 结点已经被取消</span></span><br><span class="line">            <span class="keyword">if</span> (x == s) {                   <span class="comment">// wait was cancelled</span></span><br><span class="line">                <span class="comment">// 执行清理工作</span></span><br><span class="line">                <span class="keyword">this</span>.clean(t, s);</span><br><span class="line">                <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">            }</span><br><span class="line"></span><br><span class="line">            <span class="comment">/* 结点被匹配 */</span></span><br><span class="line"></span><br><span class="line">            <span class="comment">// 结点 s 的 next 指针未指向自己，表示结点 s 未出队列</span></span><br><span class="line">            <span class="keyword">if</span> (!s.isOffList()) {           <span class="comment">// not already unlinked</span></span><br><span class="line">                <span class="comment">// t 当前是 s 的前驱结点，也是当前的 head 结点，</span></span><br><span class="line">                <span class="comment">// 因为 s 已经匹配，说明 s 前面的结点都已经被匹配</span></span><br><span class="line">                <span class="keyword">this</span>.advanceHead(t, s);     <span class="comment">// unlink if head</span></span><br><span class="line">                <span class="comment">// 将 s 的 item 指向自己，说明结点被取消</span></span><br><span class="line">                <span class="keyword">if</span> (x != <span class="keyword">null</span>) {            <span class="comment">// and forget fields</span></span><br><span class="line">                    s.item = s;</span><br><span class="line">                }</span><br><span class="line">                s.waiter = <span class="keyword">null</span>;</span><br><span class="line">            }</span><br><span class="line">            <span class="comment">// 如果是出队列则返回匹配结点的元素值，如果是入队列则返回新添加的结点元素值</span></span><br><span class="line">            <span class="keyword">return</span> (x != <span class="keyword">null</span>) ? (E) x : e;</span><br><span class="line">        }</span><br><span class="line">        <span class="comment">// 2. 队列中存在互补模式的结点</span></span><br><span class="line">        <span class="keyword">else</span> {                             <span class="comment">// complementary-mode</span></span><br><span class="line">            QNode m = h.next;              <span class="comment">// node to fulfill</span></span><br><span class="line">            <span class="comment">// 期间有入队或出队操作，或者待匹配的结点 m 为 null，则进入下一轮循环</span></span><br><span class="line">            <span class="keyword">if</span> (t != tail || m == <span class="keyword">null</span> || h != head) {</span><br><span class="line">                <span class="keyword">continue</span>;                  <span class="comment">// inconsistent read</span></span><br><span class="line">            }</span><br><span class="line"></span><br><span class="line">            <span class="comment">// 获取结点 m 的元素值</span></span><br><span class="line">            Object x = m.item;</span><br><span class="line">            <span class="comment">// 如果 isData = true，则说明当前操作线程为生产者，期望 m 为消费者，即 x == null</span></span><br><span class="line">            <span class="comment">// 如果 isData = false，则说明当前操作线程为消费者，期望 m 为生产者，即 x != null</span></span><br><span class="line">            <span class="keyword">if</span> (isData == (x != <span class="keyword">null</span>)      <span class="comment">// m already fulfilled</span></span><br><span class="line">                    <span class="comment">// 结点 m 已经被取消</span></span><br><span class="line">                    || x == m              <span class="comment">// m cancelled</span></span><br><span class="line">                    <span class="comment">// 尝试修改结点 m 的元素值为 e 失败</span></span><br><span class="line">                    || !m.casItem(x, e)) { <span class="comment">// lost CAS</span></span><br><span class="line">                <span class="comment">// 结点 m 已经被匹配，或被取消，或已经被其它线程匹配，则后移 head 指针继续</span></span><br><span class="line">                <span class="keyword">this</span>.advanceHead(h, m);    <span class="comment">// dequeue and retry</span></span><br><span class="line">                <span class="keyword">continue</span>;</span><br><span class="line">            }</span><br><span class="line"></span><br><span class="line">            <span class="comment">// 匹配成功，后移 head 指针</span></span><br><span class="line">            <span class="keyword">this</span>.advanceHead(h, m);        <span class="comment">// successfully fulfilled</span></span><br><span class="line">            <span class="comment">// 唤醒阻塞在匹配结点 m 上的线程</span></span><br><span class="line">            LockSupport.unpark(m.waiter);</span><br><span class="line">            <span class="comment">// 如果是出队列则返回匹配结点的元素值，如果是入队列则返回新添加的结点元素值</span></span><br><span class="line">            <span class="keyword">return</span> (x != <span class="keyword">null</span>) ? (E) x : e;</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述实现中 for 循环内部的 <code>if ... else</code> 控制结构分别对应作者给出的 2 段注释（已在代码中标出），在 for 循环的一开始会判断 head 或 tail 指针是否为 null，但是在 SynchronousQueue 运行期间正常是不会出现 head 或 tail 指针为 null 的情况，作者在注释中给出的解释如下：</p>
+<blockquote>
+<p>The loop starts off with a null check guarding against seeing uninitialized head or tail values. This never happens in current SynchronousQueue, but could if callers held non-volatile/final ref to the transferer. The check is here anyway because it places null checks at top of loop, which is usually faster than having them implicitly interspersed.</p>
+</blockquote>
+<p>下面展开分析场景 1 和场景 2 的实现和执行流程。首先来看一下 <strong>场景 1</strong> ，此时队列为空，或者队列中等待的线程运行模式与当前线程的运行模式相同，此时需要将结点入队列，并让当前线程在结点上等待。执行流程可以概括为：</p>
+<ol>
+<li>因为要入队列操作，所以要保证 tail 指向队列真正的尾结点；</li>
+<li>如果设置了超时且已到期，则返回 null；</li>
+<li>否则新建一个包含待添加元素 e 的结点入队列，如果失败进入下一轮循环重试，否则后移 tail 指针并调用 <code>TransferQueue#awaitFulfill</code> 方法让当前线程在该结点上等待匹配（或被取消）；</li>
+<li>如果在等待期间被取消，则清理队列上的无效结点，并返回 null；</li>
+<li>否则说明结点被成功匹配，更新 head 指针，如果当前线程是消费者线程则返回匹配结点的元素值，如果当前线程是生产者线程则返回刚刚添加的元素值。</li>
+</ol>
+<p>下面利用图示演示上述执行流程。假设当前操作线程是一个生产者，期望将元素 3 插入到 SynchronousQueue 中，并且当前栈中已经包含了两个处于等待状态的生产者（如下图 1 所示）。因为当前线程与队列中等待的线程模式相同（即 <code>isData=true</code>），所以新建一个元素值为 3 的结点入队列（如下图 2 所示），并让当前线程在结点上等待。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/juc-synchronous-queue-dq-transfer-1.png" alt="image">
+      </p>
+<p>TransferQueue 实现的让线程等待的方法 <code>TransferQueue#awaitFulfill</code> 与 TransferStack 中实现的 <code>TransferStack#awaitFulfill</code> 方法在设计和实现思路上相同，这里不再重复介绍。下面来分析一下执行清理工作的 <code>TransferQueue#clean</code> 方法，实现如下（其中 s 是待清理的结点，pred 是 s 的前驱结点）：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">clean</span><span class="params">(QNode pred, QNode s)</span> </span>{</span><br><span class="line">    s.waiter = <span class="keyword">null</span>; <span class="comment">// forget thread</span></span><br><span class="line">    <span class="keyword">while</span> (pred.next == s) { <span class="comment">// Return early if already unlinked</span></span><br><span class="line">        QNode h = head;</span><br><span class="line">        QNode hn = h.next;   <span class="comment">// Absorb cancelled first node as head</span></span><br><span class="line">        <span class="comment">// 从头开始，将 head 指针指向有效（未被取消）的头结点</span></span><br><span class="line">        <span class="keyword">if</span> (hn != <span class="keyword">null</span> &amp;&amp; hn.isCancelled()) {</span><br><span class="line">            <span class="keyword">this</span>.advanceHead(h, hn);</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        }</span><br><span class="line">        QNode t = tail;      <span class="comment">// Ensure consistent read for tail</span></span><br><span class="line">        <span class="comment">// 队列已经为空，返回</span></span><br><span class="line">        <span class="keyword">if</span> (t == h) {</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        }</span><br><span class="line">        QNode tn = t.next;</span><br><span class="line">        <span class="comment">// t 不是最新的 tail 结点</span></span><br><span class="line">        <span class="keyword">if</span> (t != tail) {</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        }</span><br><span class="line">        <span class="comment">// tail 指针未指向最新的尾结点</span></span><br><span class="line">        <span class="keyword">if</span> (tn != <span class="keyword">null</span>) {</span><br><span class="line">            <span class="keyword">this</span>.advanceTail(t, tn);</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        }</span><br><span class="line">        <span class="comment">// 如果待删除的 s 结点不是 tail 结点，直接清理</span></span><br><span class="line">        <span class="keyword">if</span> (s != t) {        <span class="comment">// If not tail, try to unsplice</span></span><br><span class="line">            QNode sn = s.next;</span><br><span class="line">            <span class="keyword">if</span> (sn == s || pred.casNext(s, sn)) {</span><br><span class="line">                <span class="keyword">return</span>;</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* 当前待删除的 s 结点是 tail 结点 */</span></span><br><span class="line"></span><br><span class="line">        QNode dp = cleanMe;</span><br><span class="line">        <span class="comment">// cleanMe 非空，此时该 cleanMe 的 next 指针一定不是 tail 结点，清理 cleanMe.next</span></span><br><span class="line">        <span class="keyword">if</span> (dp != <span class="keyword">null</span>) {      <span class="comment">// Try unlinking previous cancelled node</span></span><br><span class="line">            QNode d = dp.next; <span class="comment">// d 是需要清理的结点</span></span><br><span class="line">            QNode dn;          <span class="comment">// d 的 next 结点</span></span><br><span class="line">            <span class="keyword">if</span> (d == <span class="keyword">null</span>      <span class="comment">// d is gone or</span></span><br><span class="line">                    || d == dp <span class="comment">// d is off list or</span></span><br><span class="line">                    || !d.isCancelled() <span class="comment">// d not cancelled or</span></span><br><span class="line">                    || (d != t <span class="comment">// d not tail and</span></span><br><span class="line">                    &amp;&amp; (dn = d.next) != <span class="keyword">null</span>  <span class="comment">//   has successor</span></span><br><span class="line">                    &amp;&amp; dn != d <span class="comment">// that is on list</span></span><br><span class="line">                    &amp;&amp; dp.casNext(d, dn))) { <span class="comment">// d unspliced</span></span><br><span class="line">                <span class="comment">// 将 cleanMe 设置为 null</span></span><br><span class="line">                <span class="keyword">this</span>.casCleanMe(dp, <span class="keyword">null</span>);</span><br><span class="line">            }</span><br><span class="line">            <span class="keyword">if</span> (dp == pred) {</span><br><span class="line">                <span class="keyword">return</span>;      <span class="comment">// s is already saved node</span></span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">        <span class="comment">// cleanMe 为空，需要将 s 结点的 pred 标记为 cleanMe，以后再清理 s 结点</span></span><br><span class="line">        <span class="keyword">else</span> <span class="keyword">if</span> (<span class="keyword">this</span>.casCleanMe(<span class="keyword">null</span>, pred)) {</span><br><span class="line">            <span class="keyword">return</span>;          <span class="comment">// Postpone cleaning s</span></span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>如果待删除结点 s 不是 tail 结点，则只需要简单移除 s 即可，否则暂时不能移除 s 结点，会导致 tail 为 null，影响后续入队列操作。针对这种场景，作者设计了一个 cleanMe 结点，该结点的 next 指针指向需要被移除的 s 结点（此时 s 为 tail 结点），当结点 s 后续不再是 tail 结点时，延后删除。</p>
+<p>接着来看一下 <strong>场景 2</strong> ，此时队列中正在等待的线程运行模式与当前线程互补，所以进入匹配进程。本次与当前线程匹配的是 head 结点的后继结点上的线程，所以首先需要从前往后在队列上找到第一个有效（未被取消）的 head 后继结点，然后执行：</p>
+<ol>
+<li>获取 head 结点的后继结点 m；</li>
+<li>如果结点 m 已经被匹配，或被取消，则后移 head 指针后进入下一轮循环重试；</li>
+<li>否则，基于 CAS 尝试将结点 m 的元素值替换为 e，如果失败则说明结点 m 已经被其它线程匹配，继续后移 head 指针后进入下一轮循环重试；</li>
+<li>否则，说明匹配成功，后移 head 指针，并唤醒在匹配结点 m 上等待的线程，如果当前线程是消费者线程则返回匹配结点的元素值，如果当前线程是生产者线程则返回刚刚添加的元素值。</li>
+</ol>
+<p>下面利用图示演示上述执行流程。如下图 1 所示，假设当前操作线程是一个消费者（图中黄色结点），期望对 SynchronousQueue 执行出队列操作，并且当前队列中已经包含两个处于等待状态的生产者（图中青色结点）。因为当前线程与队列中等待的线程模式互补，所以获取 head 结点的 next 结点 m 作为待匹配结点（如下图 2 所示）。基于 CAS 尝试将结点 m 的元素值修改为 null，如下图 3 所示，然后后移 head 指针指向 m 结点，并唤醒在结点 m 上等待的线程，如下图 4 所示。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/juc-synchronous-queue-dq-transfer-2.png" alt="image">
+      </p>
+<p>关于 Dual Queue 的运行机制就介绍这么多，受队列 FIFO 特性的约束，基于 Dual Queue 的 SynchronousQueue 在队头执行出队列操作，并在队尾执行入队列操作，先入队的线程通常会先被匹配，这也解释了为什么基于 Dual Queue 的 SynchronousQueue 是公平的。基于 Dual Queue 的 SynchronousQueue 因为入队和出队的冲突相对较小，所以在竞争频繁的场景下相对于非公平模式反而具有更好的性能。</p>
+
+        <h3 id="总结">
+          <a href="#总结" class="heading-link"><i class="fas fa-link"></i></a>总结</h3>
+      <p>本文我们分析了 SynchronousQueue 的设计与实现，相对于之前文章中介绍的一系列线程安全队列而言，SynchronousQueue 在实现和使用上有其特别之处。SynchronousQueue 没有容量的概念，入队列的线程在完成入队列操作之后会在队列上等待出队列的线程前来执行出队列操作，反之亦然。SynchronousQueue 中的结点除了承载结点元素之外，还附着着相应的操作线程，这些线程在对应的结点上等待被匹配。此外，SynchronousQueue 区分公平和非公平模式，其中公平模式基于 Dual Queue 数据结构实现，非公平模式基于 Dual Stack 数据结构实现。理解 SynchronousQueue 的核心在于理解 Dual Stack 和 Dual Queue 的设计思想。</p>
+
+        <h3 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h3>
+      <ol>
+<li>JDK 1.8 源码</li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="http://www.it.uu.se/katalog/aleji304/ConcurrentDS/Non-blocking-Concurrent-Data-Structures-with-Condition-Synchronization">Nonblocking Concurrent Data Structureswith Condition Synchronization</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://gist.github.com/ylgrgyq/95782a0c0dbabf54d9999acfa079fe4b">SynchronousQueue 的一些理解</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+</ol>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2018/09/18/java/juc-synchronous-queue/">https://plotor.github.io/2018/09/18/java/juc-synchronous-queue/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Java/">Java</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/">并发编程</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2018/09/21/java/juc-linked-transfer-queue/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">深入理解 JUC：LinkedTransferQueue</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2018/09/14/java/juc-delay-queue/"><span class="paginator-prev__text">深入理解 JUC：DelayQueue</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#SynchronousQueue-%E7%A4%BA%E4%BE%8B"><span class="toc-number">1.</span> <span class="toc-text">
+          SynchronousQueue 示例</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E6%96%B9%E6%B3%95%E5%AE%9E%E7%8E%B0"><span class="toc-number">2.</span> <span class="toc-text">
+          核心方法实现</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#Dual-Stack"><span class="toc-number">2.1.</span> <span class="toc-text">
+          Dual Stack</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#Dual-Queue"><span class="toc-number">2.2.</span> <span class="toc-text">
+          Dual Queue</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">3.</span> <span class="toc-text">
+          总结</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">4.</span> <span class="toc-text">
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

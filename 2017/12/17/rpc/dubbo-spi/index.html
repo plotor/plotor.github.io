@@ -1,0 +1,503 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="SPI (Service Provider Interfaces) 是 JDK 1.5 引入的一种服务扩展内置机制。在面向接口编程的范畴下，SPI 能够基于配置的方式声明应用的具体扩展接口实现。之前在写接口限流器时曾遇到过这样一个场景，针对服务端的限流策略一般需要从多个维度进行控制，比如具体接口、IP、用户、设备，以及调用方等等，假设限流器接口 org.zhenchao.spi.ApiRateLi">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Dubbo 之于 SPI 扩展机制的实现分析">
+<meta property="og:url" content="https://plotor.github.io/2017/12/17/rpc/dubbo-spi/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="SPI (Service Provider Interfaces) 是 JDK 1.5 引入的一种服务扩展内置机制。在面向接口编程的范畴下，SPI 能够基于配置的方式声明应用的具体扩展接口实现。之前在写接口限流器时曾遇到过这样一个场景，针对服务端的限流策略一般需要从多个维度进行控制，比如具体接口、IP、用户、设备，以及调用方等等，假设限流器接口 org.zhenchao.spi.ApiRateLi">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2017-12-16T16:05:28.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.980Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="RPC">
+<meta property="article:tag" content="Dubbo">
+<meta name="twitter:card" content="summary"><title>Dubbo 之于 SPI 扩展机制的实现分析 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2017/12/17/rpc/dubbo-spi/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">Dubbo 之于 SPI 扩展机制的实现分析</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2017-12-17</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">6.1k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">27分</span></span></div></header><div class="post-body"><p><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://docs.oracle.com/javase/tutorial/sound/SPI-intro.html">SPI (Service Provider Interfaces)</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 是 JDK 1.5 引入的一种服务扩展内置机制。在面向接口编程的范畴下，SPI 能够基于配置的方式声明应用的具体扩展接口实现。之前在写接口限流器时曾遇到过这样一个场景，针对服务端的限流策略一般需要从多个维度进行控制，比如具体接口、IP、用户、设备，以及调用方等等，假设限流器接口 <code>org.zhenchao.spi.ApiRateLimiter</code> 定义为：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">RateLimiter</span> </span>{</span><br><span class="line">    <span class="function"><span class="keyword">boolean</span> <span class="title">reject</span><span class="params">()</span></span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<a id="more"></a>
+
+<p>针对该接口在各个维度的实现类定义如下：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">org.zhenchao.spi.RateLimiter</span><br><span class="line">+- org.zhenchao.spi.ApiRateLimiter # 接口维度</span><br><span class="line">+- org.zhenchao.spi.IpRateLimiter # IP 维度</span><br><span class="line">+- org.zhenchao.spi.UserRateLimiter # 用户维度</span><br><span class="line">+- org.zhenchao.spi.DeviceRateLimiter # 设备维度</span><br><span class="line">+- org.zhenchao.spi.ClientRateLimiter # 调用方维度</span><br></pre></td></tr></tbody></table></div></figure>
+<p>现在的问题是，不同业务所需要的限流维度可能不同，一些业务甚至还需要扩展实现属于自身特有维度的限流策略，如何能够对限流策略进行组合、定制，并站在更高的层次上对这些限流策略进行统一调度？这个时候正是 SPI 机制发挥其作用的时候。</p>
+<p>SPI 扩展机制虽然早已存在，但是你可能对其并不熟悉，因为其应用场景更多的是用来编写框架、插件，以及基础组件等，比如 commons-logging、JDBC 中都有 SPI 的身影，但是了解这一机制有时候能够让你在 coding 时多一种思路，从而写出更加优雅的代码。</p>
+<p>曾经在阅读一个遗留项目源码时，之前的开发者曾将一个接口部分实现类的 simple name 写在配置文件中，并在程序中读取该配置，循环以包名前缀拼接相应实现类 simple name 的方式得到类的限定名，然后反射创建类对象进行调用，这样的实现除了不够优雅，也阉割了程序的可扩展性，是一种程序设计的坏味道。</p>
+<p>SPI 扩展机制除了 JDK 内置的实现外，<span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://dubbo.apache.org/">Dubbo</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> RPC 框架也提供了相应的实现版本，并在功能上进行了增强，接下来将分别介绍 JDK SPI 和 Dubbo  SPI 的使用方式，并对 Dubbo 之于 SPI 扩展机制的实现内幕进行分析。</p>
+
+        <h3 id="JDK-SPI">
+          <a href="#JDK-SPI" class="heading-link"><i class="fas fa-link"></i></a>JDK SPI</h3>
+      <p>继续前面给出的例子，如果我们的业务只希望从接口、IP，以及用户 3 个维度实施限流，基于 JDK 内置的 SPI 该如何实现呢？我们首先需要在 <code>/META-INF/services</code> 目录下面新建一个与接口同名的名为 <code>org.zhenchao.spi.RateLimiter</code> 的文件，内容为：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">org.zhenchao.spi.ApiRateLimiter</span><br><span class="line">org.zhenchao.spi.IpRateLimiter</span><br><span class="line">org.zhenchao.spi.UserRateLimiter</span><br></pre></td></tr></tbody></table></div></figure>
+<p>然后基于 <code>java.util.ServiceLoader</code> 加载 SPI 扩展实现类，具体如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">ServiceLoader&lt;RateLimiter&gt; rateLimiters = ServiceLoader.load(RateLimiter.class);</span><br><span class="line"><span class="keyword">for</span> (<span class="keyword">final</span> RateLimiter limiter : rateLimiters) {</span><br><span class="line">    limiter.reject();</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>到此，我们就完成了基于 JDK SPI 实现对限流策略的定制化。我们可以在 SPI 配置文件中定义任意维度限流策略的组合，如果已有的策略实现无法满足业务需求，我们也可以实现 RateLimiter 接口定义自己的限流策略，只需要将新增实现类限定名配置到 <code>META-INF/services/org.zhenchao.spi.RateLimiter</code> 中即可。</p>
+
+        <h3 id="Dubbo-SPI">
+          <a href="#Dubbo-SPI" class="heading-link"><i class="fas fa-link"></i></a>Dubbo SPI</h3>
+      <p>Dubbo RPC 框架在设计和实现上采用“微内核 + 插件”的方式，具备良好的定制性和可扩展性，整体架构非常简单、精美，即使你工作中不使用它，也建议你阅读一下其源码以学习其中的设计思想。Dubbo 的可扩展性基于 SPI 扩展机制实现，不过它并没有采用 JDK 内置的 SPI，而是自己另起炉灶实现了一套，之所以这样“重复造轮子”，官方给出的理由如下：</p>
+<ol>
+<li>JDK 标准的 SPI 会一次性实例化扩展点所有实现，如果有扩展实现初始化很耗时，但如果没用上也加载，会很浪费资源。</li>
+<li>如果扩展点加载失败，连扩展点的名称都拿不到了。比如：JDK 标准的 ScriptEngine，通过 <code>ScriptEngine#getName</code> 获取脚本类型的名称，但如果 RubyScriptEngine 因为所依赖的 <code>jruby.jar</code> 不存在，导致 RubyScriptEngine 类加载失败，这个失败原因被吃掉了，和 ruby 对应不起来，当用户执行 ruby 脚本时，会报不支持 ruby，而不是真正失败的原因。</li>
+<li>增加了对扩展点 IoC 和 AOP 的支持，一个扩展点可以直接 setter 注入其它扩展点。</li>
+</ol>
+<p>下面继续就前面的例子给出基于 Dubbo SPI 的实现，和 JDK SPI 类似，我们首先需要在 <code>/META-INF/dubbo</code> 目录（Dubbo SPI 也兼容 <code>/META-INF/services</code> 目录）下新建一个与接口同名的名为 <code>org.zhenchao.spi.RateLimiter</code> 的配置文件，内容为：</p>
+<figure class="highlight properties"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">api</span>=<span class="string">org.zhenchao.spi.ApiRateLimiter</span></span><br><span class="line"><span class="attr">ip</span>=<span class="string">org.zhenchao.spi.IpRateLimiter</span></span><br><span class="line"><span class="attr">user</span>=<span class="string">org.zhenchao.spi.UserRateLimiter</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>不同于 JDK SPI，Dubbo 要求被扩展的接口必须采用注解 <code>@SPI</code> 进行修饰，所以 RateLimiter 接口需要更改为：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@SPI</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">RateLimiter</span> </span>{</span><br><span class="line">    <span class="function"><span class="keyword">boolean</span> <span class="title">reject</span><span class="params">()</span></span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>然后基于 <code>com.alibaba.dubbo.common.extension.ExtensionLoader</code> 类进行调度（如下），ExtensionLoader 是整个 Dubbo SPI 最核心的实现，稍后会对其实现进行详细分析：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">ExtensionLoader&lt;RateLimiter&gt; extensionLoader = ExtensionLoader.getExtensionLoader(RateLimiter.class);</span><br><span class="line"><span class="keyword">for</span> (<span class="keyword">final</span> String name : extensionLoader.getSupportedExtensions()) {</span><br><span class="line">    RateLimiter limiter = extensionLoader.getExtension(name);</span><br><span class="line">    limiter.reject();</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上面的例子仅仅演示了 Dubbo SPI 的基本使用，基本看不出和 JDK SPI 的区别，实际上从例子中我们还是可以初步看出 Dubbo SPI 是按需加载的。Dubbo SPI 基于我们指定的扩展名称加载相应的扩展实现，而 JDK SPI 则是一股脑全部给加载了，这也就是前面列举 Dubbo 为什么 “重复造轮子” 的 <strong>第 1 个原因</strong> 。相对于 JDK SPI 来说，Dubbo SPI 还是多做了一些，接下来我们继续从源码层面对整个 SPI 扩展机制的设计和实现进行分析。</p>
+<p>Dubbo 整个 SPI 的实现位于 <code>com.alibaba.dubbo.common.extension</code> 包下面，代码总量也就 1000 行左右，可谓是短小而精悍，extension 包中的类组织结构如下：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">extension</span><br><span class="line">+- factory</span><br><span class="line">|-- com.alibaba.dubbo.common.extension.factory.AdaptiveExtensionFactory</span><br><span class="line">|-- com.alibaba.dubbo.common.extension.factory.SpiExtensionFactory</span><br><span class="line">+- support</span><br><span class="line">|-- com.alibaba.dubbo.common.extension.support.ActivateComparator</span><br><span class="line">+- com.alibaba.dubbo.common.extension.Activate</span><br><span class="line">+- com.alibaba.dubbo.common.extension.Adaptive</span><br><span class="line">+- com.alibaba.dubbo.common.extension.ExtensionFactory</span><br><span class="line">+- com.alibaba.dubbo.common.extension.ExtensionLoader</span><br><span class="line">+- com.alibaba.dubbo.common.extension.SPI</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上面的例子中我们已经接触到了 <code>@SPI</code> 注解和 ExtensionLoader 类，这也是 Dubbo SPI 最核心的两个实现，接下去的分析过程将从这两个类展开。SPI 扩展机制虽然听起来高大上并且好用，但是说得简单点也就是 <strong>基于配置指定扩展接口的具体一个或多个实现，解析并反射实例化扩展实现类的过程</strong> ，所以不管实现上怎么添油加醋，也都是围绕着这么一个基本的运行机制展开。</p>
+<p>下面首先来看一下注解 <code>@SPI</code> 的定义，Dubbo 通过该注解标识接口是一个扩展接口，接口的实现类能够被 Dubbo SPI 托管，<code>@SPI</code> 的定义比较简单：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Documented</span></span><br><span class="line"><span class="meta">@Retention(RetentionPolicy.RUNTIME)</span></span><br><span class="line"><span class="meta">@Target({ElementType.TYPE})</span></span><br><span class="line"><span class="keyword">public</span> <span class="meta">@interface</span> SPI {</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 缺省扩展点名。</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function">String <span class="title">value</span><span class="params">()</span> <span class="keyword">default</span> ""</span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>该注解仅声明了一个属性，用于指定默认扩展名，Dubbo SPI 的配置一般采用 <code>key=value</code> 的形式，我们可以在注解接口时指定默认实现类的扩展名称。</p>
+<p>接下来分析 ExtensionLoader 实现，前面已经提及过这是 Dubbo SPI 最核心的一个实现类，回忆一下前面的例子对于扩展类的调度实际上也就分为 2 步，第 1 步拿到<br>RateLimiter 对应的 ExtensionLoader 对象，第 2 步调用该对象的 getExtension 方法基于扩展名称获取扩展实现类对象：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">1. ExtensionLoader&lt;RateLimiter&gt; extensionLoader = ExtensionLoader.getExtensionLoader(RateLimiter.class);</span><br><span class="line">2. RateLimiter limiter = extensionLoader.getExtension(name);</span><br></pre></td></tr></tbody></table></div></figure>
+<p>针对每一个 SPI 扩展类型，Dubbo 都会为其绑定一个 ExtensionLoader 对象，上面第 1 步调用 <code>getExtensionLoader(Class&lt;T&gt; type)</code> 方法就是在获取扩展类型对应的 ExtensionLoader，该方法的实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> &lt;T&gt; <span class="function">ExtensionLoader&lt;T&gt; <span class="title">getExtensionLoader</span><span class="params">(Class&lt;T&gt; type)</span> </span>{</span><br><span class="line">    <span class="keyword">if</span> (type == <span class="keyword">null</span>) {</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> IllegalArgumentException(<span class="string">"Extension type == null"</span>);</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">// 必须是接口类型</span></span><br><span class="line">    <span class="keyword">if</span> (!type.isInterface()) {</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> IllegalArgumentException(<span class="string">"Extension type("</span> + type + <span class="string">") is not interface!"</span>);</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">// 必须被 @SPI 注解</span></span><br><span class="line">    <span class="keyword">if</span> (!withExtensionAnnotation(type)) {</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> IllegalArgumentException(</span><br><span class="line">                <span class="string">"Extension type("</span> + type + <span class="string">") is not extension, because WITHOUT @"</span> + SPI.class.getSimpleName() + <span class="string">" Annotation!"</span>);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 先尝试从本地缓存中获取</span></span><br><span class="line">    ExtensionLoader&lt;T&gt; loader = (ExtensionLoader&lt;T&gt;) EXTENSION_LOADERS.get(type);</span><br><span class="line">    <span class="keyword">if</span> (loader == <span class="keyword">null</span>) {</span><br><span class="line">        <span class="comment">// 本地缓存不命中则创建</span></span><br><span class="line">        EXTENSION_LOADERS.putIfAbsent(type, <span class="keyword">new</span> ExtensionLoader&lt;T&gt;(type));</span><br><span class="line">        loader = (ExtensionLoader&lt;T&gt;) EXTENSION_LOADERS.get(type);</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">return</span> loader;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>该方法会限制入参必须是被 <code>@SPI</code> 注解的接口类型，这也是 Dubbo 对于扩展类型仅有的约束，在这方面 JDK SPI 则没有相应的限制，扩展类型既可以是类也可以是接口，并且不需要额外注解，不过既然是面向接口编程，所以扩展类型还是推荐设计成接口类型。对于满足约束条件的入参，方法接下去会先尝试从缓存中获取绑定的 ExtensionLoader 实例，这里采用一个线程安全的 ConcurrentHashMap 缓存扩展类型及其绑定的 ExtensionLoader，该属性定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/** 缓存扩展类型及其绑定的 ExtensionLoader 对象（每一个扩展类型都拥有属于自己的 ExtensionLoader） */</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> ConcurrentMap&lt;Class&lt;?&gt;, ExtensionLoader&lt;?&gt;&gt; EXTENSION_LOADERS = <span class="keyword">new</span> ConcurrentHashMap&lt;Class&lt;?&gt;, ExtensionLoader&lt;?&gt;&gt;();</span><br></pre></td></tr></tbody></table></div></figure>
+<p>对于第一次调用该方法的扩展类型会创建一个新的 ExtensionLoader 对象，并记录到 EXTENSION_LOADERS 中。接下来就可以调用 ExtensionLoader 对象的 <code>getExtension(String name)</code> 方法获取指定的扩展类型实现类实例：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> T <span class="title">getExtension</span><span class="params">(String name)</span> </span>{</span><br><span class="line">    <span class="keyword">if</span> (name == <span class="keyword">null</span> || name.length() == <span class="number">0</span>) {</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> IllegalArgumentException(<span class="string">"Extension name == null"</span>);</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">if</span> (<span class="string">"true"</span>.equals(name)) {</span><br><span class="line">        <span class="comment">// 获取默认的实现类</span></span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">this</span>.getDefaultExtension();</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 获取指定名称的扩展类型实例</span></span><br><span class="line">    Holder&lt;Object&gt; holder = cachedInstances.get(name); <span class="comment">// 先尝试从缓存中获取</span></span><br><span class="line">    <span class="keyword">if</span> (holder == <span class="keyword">null</span>) {</span><br><span class="line">        cachedInstances.putIfAbsent(name, <span class="keyword">new</span> Holder&lt;Object&gt;());</span><br><span class="line">        holder = cachedInstances.get(name);</span><br><span class="line">    }</span><br><span class="line">    Object instance = holder.get();</span><br><span class="line">    <span class="keyword">if</span> (instance == <span class="keyword">null</span>) {</span><br><span class="line">        <span class="keyword">synchronized</span> (holder) {</span><br><span class="line">            instance = holder.get();</span><br><span class="line">            <span class="keyword">if</span> (instance == <span class="keyword">null</span>) {</span><br><span class="line">                <span class="comment">// 创建扩展类型实现</span></span><br><span class="line">                instance = <span class="keyword">this</span>.createExtension(name);</span><br><span class="line">                holder.set(instance);</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">return</span> (T) instance;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>该方法的执行流程可以概括如下 3 步：</p>
+<ol>
+<li>如果 <code>name=true</code> 则获取注解默认指定的扩展类型实例；</li>
+<li>尝试从缓存中获取之前创建的扩展类型实例；</li>
+<li>如果缓存不命中则说明是第一次获取指定扩展类型，执行创建对应的实例。</li>
+</ol>
+<p>依据前面对 <code>@SPI</code> 注解实现的介绍，我们知道该注解持有一个 String 类型的属性，允许我们指定当前扩展类型的默认扩展名称，在本方法中如果入参 <code>name=true</code> 则 Dubbo 会认为我们希望获取默认的扩展类型实现，接下来会转而走 <code>getDefaultExtension()</code> 逻辑，默认扩展名称的获取我们会在稍后的解析过程中提及到，方法 <code>getDefaultExtension()</code> 本质上也是调用了 <code>getExtension(String name)</code> 方法，所以这里不展开说明。对于其他有效入参来说，方法会首先尝试获取缓存的实例，这些实例记录在 cachedInstances 属性中，这也是一个线程安全的 ConcurrentHashMap 类型：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/** 记录扩展名称与对应持有扩展类型实例的 {<span class="doctag">@link</span> Holder} 对象 */</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> ConcurrentMap&lt;String, Holder&lt;Object&gt;&gt; cachedInstances = <span class="keyword">new</span> ConcurrentHashMap&lt;String, Holder&lt;Object&gt;&gt;();</span><br></pre></td></tr></tbody></table></div></figure>
+<p>对于缓存不命中的的扩展名称，接下来会调用 <code>createExtension(String name)</code> 方法创建扩展类型实例，该方法所做的工作可以概括为：</p>
+<ol>
+<li>基于扩展名称获取对应的扩展实现类 Class 对象；</li>
+<li>如果之前没有访问过该 Class 则会基于反射创建相应的实例，并缓存；</li>
+<li>遍历实例所有的方法，反射调用参数类型为扩展类型的 setter，注入相应的扩展实例属性；</li>
+<li>应用包装类对实例逐层包装。</li>
+</ol>
+<p>上述过程中 3 和 4 是 Dubbo SPI 相对于 JDK SPI 进行的增强，在一些较复杂场景下实为一种有用的设计。方法 <code>createExtension(String name)</code> 的具体实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> T <span class="title">createExtension</span><span class="params">(String name)</span> </span>{</span><br><span class="line">    <span class="comment">// 获取扩展名称对应的实现类 Class 对象</span></span><br><span class="line">    Class&lt;?&gt; clazz = <span class="keyword">this</span>.getExtensionClasses().get(name);</span><br><span class="line">    <span class="keyword">if</span> (clazz == <span class="keyword">null</span>) {</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">this</span>.findException(name);</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="comment">// 尝试从缓存中获取对应的实例</span></span><br><span class="line">        T instance = (T) EXTENSION_INSTANCES.get(clazz);</span><br><span class="line">        <span class="keyword">if</span> (instance == <span class="keyword">null</span>) {</span><br><span class="line">            <span class="comment">// 反射实例化</span></span><br><span class="line">            EXTENSION_INSTANCES.putIfAbsent(clazz, clazz.newInstance());</span><br><span class="line">            instance = (T) EXTENSION_INSTANCES.get(clazz);</span><br><span class="line">        }</span><br><span class="line">        <span class="comment">// 执行 setter 注入</span></span><br><span class="line">        <span class="keyword">this</span>.injectExtension(instance);</span><br><span class="line">        Set&lt;Class&lt;?&gt;&gt; wrapperClasses = cachedWrapperClasses;</span><br><span class="line">        <span class="keyword">if</span> (wrapperClasses != <span class="keyword">null</span> &amp;&amp; wrapperClasses.size() &gt; <span class="number">0</span>) {</span><br><span class="line">            <span class="keyword">for</span> (Class&lt;?&gt; wrapperClass : wrapperClasses) {</span><br><span class="line">                <span class="comment">// 采用包装类逐层包装</span></span><br><span class="line">                instance = <span class="keyword">this</span>.injectExtension((T) wrapperClass.getConstructor(type).newInstance(instance));</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    } <span class="keyword">catch</span> (Throwable t) {</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> IllegalStateException(</span><br><span class="line">                <span class="string">"Extension instance(name: "</span> + name + <span class="string">", class: "</span> + type + <span class="string">")  could not be instantiated: "</span> + t.getMessage(), t);</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>在获取扩展名称对应的实现类 Class 对象之前，先是调用了 <code>getExtensionClasses()</code> 方法，实际上 ExtensionLoader 在多个方法中都有调用该方法，主要是因为通过该方法能够获取到当前 ExtensionLoader 对象所关联的扩展类型对应配置的所有扩展实现类 Class 对象，并在首次访问时触发 SPI 配置的加载过程。该方法的实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> Map&lt;String, Class&lt;?&gt;&gt; getExtensionClasses() {</span><br><span class="line">    Map&lt;String, Class&lt;?&gt;&gt; classes = cachedClasses.get();</span><br><span class="line">    <span class="keyword">if</span> (classes == <span class="keyword">null</span>) {</span><br><span class="line">        <span class="keyword">synchronized</span> (cachedClasses) {</span><br><span class="line">            classes = cachedClasses.get();</span><br><span class="line">            <span class="keyword">if</span> (classes == <span class="keyword">null</span>) {</span><br><span class="line">                <span class="comment">// 加载当前类型的 SPI 配置</span></span><br><span class="line">                classes = <span class="keyword">this</span>.loadExtensionClasses();</span><br><span class="line">                cachedClasses.set(classes);</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">return</span> classes;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>方法利用 cachedClasses 缓存扩展类对应的 SPI 配置，cachedClasses 是一个 Holder 类型的属性，持有 Map 类型的数据，其中 key 为扩展名称，value 为对应的扩展实现类 Class 对象，属性定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/** 记录正向映射关系 */</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> Holder&lt;Map&lt;String, Class&lt;?&gt;&gt;&gt; cachedClasses = <span class="keyword">new</span> Holder&lt;Map&lt;String, Class&lt;?&gt;&gt;&gt;();</span><br></pre></td></tr></tbody></table></div></figure>
+<p>对于首次调用而言会触发调用 <code>loadExtensionClasses()</code> 方法，该方法的主要作用就是从 <code>META-INF/dubbo/internal/</code>、<code>META-INF/dubbo/</code>，以及 <code>META-INF/services/</code> 目录下检索 SPI 配置，并执行加载和解析过程：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> Map&lt;String, Class&lt;?&gt;&gt; loadExtensionClasses() {</span><br><span class="line">    <span class="keyword">final</span> SPI defaultAnnotation = type.getAnnotation(SPI.class);</span><br><span class="line">    <span class="keyword">if</span> (defaultAnnotation != <span class="keyword">null</span>) {</span><br><span class="line">        String value = defaultAnnotation.value();</span><br><span class="line">        <span class="comment">// 指定默认的扩展名称</span></span><br><span class="line">        <span class="keyword">if</span> ((value = value.trim()).length() &gt; <span class="number">0</span>) {</span><br><span class="line">            String[] names = NAME_SEPARATOR.split(value);</span><br><span class="line">            <span class="keyword">if</span> (names.length &gt; <span class="number">1</span>) {</span><br><span class="line">                <span class="comment">// 只能指定一个默认扩展名称</span></span><br><span class="line">                <span class="keyword">throw</span> <span class="keyword">new</span> IllegalStateException(</span><br><span class="line">                        <span class="string">"more than 1 default extension name on extension "</span> + type.getName() + <span class="string">": "</span> + Arrays.toString(names));</span><br><span class="line">            }</span><br><span class="line">            <span class="keyword">if</span> (names.length == <span class="number">1</span>) {</span><br><span class="line">                cachedDefaultName = names[<span class="number">0</span>];</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    Map&lt;String, Class&lt;?&gt;&gt; extensionClasses = <span class="keyword">new</span> HashMap&lt;String, Class&lt;?&gt;&gt;();</span><br><span class="line">    <span class="comment">// META-INF/dubbo/internal/</span></span><br><span class="line">    <span class="keyword">this</span>.loadFile(extensionClasses, DUBBO_INTERNAL_DIRECTORY);</span><br><span class="line">    <span class="comment">// META-INF/dubbo/</span></span><br><span class="line">    <span class="keyword">this</span>.loadFile(extensionClasses, DUBBO_DIRECTORY);</span><br><span class="line">    <span class="comment">// META-INF/services/</span></span><br><span class="line">    <span class="keyword">this</span>.loadFile(extensionClasses, SERVICES_DIRECTORY);</span><br><span class="line">    <span class="keyword">return</span> extensionClasses;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>方法首先会解析 <code>@SPI</code> 注解中配置的默认扩展名称，并记录到属性 cachedDefaultName 中，Dubbo 要求只能指定一个默认的扩展名称。然后会调用 <code>loadFile(Map&lt;String, Class&lt;?&gt;&gt; extensionClasses, String dir)</code> 方法从之前所列举的各个目录中检索、加载，以及解析 SPI 配置，最终以扩展名称为 key，对应配置的扩展实现类 Class 对象为 value 记录到 Map 集合中，整个过程这里不展开说明，比较简单。</p>
+<p>下面继续来看一下 <code>injectExtension(T instance)</code> 方法，前面曾提到过借助该方法，Dubbo SPI 能够调用参数类型同样为扩展类型的 setter 方法注入相应的扩展实现类对象到当前实例中，这是 JDK SPI 所不具备的。该方法的实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> T <span class="title">injectExtension</span><span class="params">(T instance)</span> </span>{</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="keyword">if</span> (objectFactory != <span class="keyword">null</span>) {</span><br><span class="line">            <span class="keyword">for</span> (Method method : instance.getClass().getMethods()) {</span><br><span class="line">                <span class="comment">// 仅处理 setter</span></span><br><span class="line">                <span class="keyword">if</span> (method.getName().startsWith(<span class="string">"set"</span>)</span><br><span class="line">                        &amp;&amp; method.getParameterTypes().length == <span class="number">1</span></span><br><span class="line">                        &amp;&amp; Modifier.isPublic(method.getModifiers())) {</span><br><span class="line">                    <span class="comment">// 获取属性类型</span></span><br><span class="line">                    Class&lt;?&gt; pt = method.getParameterTypes()[<span class="number">0</span>];</span><br><span class="line">                    <span class="keyword">try</span> {</span><br><span class="line">                        <span class="comment">// 获取属性名称</span></span><br><span class="line">                        String property = method.getName().length() &gt; <span class="number">3</span> ? method.getName().substring(<span class="number">3</span>, <span class="number">4</span>).toLowerCase() + method.getName().substring(<span class="number">4</span>) : <span class="string">""</span>;</span><br><span class="line">                        Object object = objectFactory.getExtension(pt, property);</span><br><span class="line">                        <span class="keyword">if</span> (object != <span class="keyword">null</span>) {</span><br><span class="line">                            <span class="comment">// 反射调用</span></span><br><span class="line">                            method.invoke(instance, object);</span><br><span class="line">                        }</span><br><span class="line">                    } <span class="keyword">catch</span> (Exception e) {</span><br><span class="line">                        logger.error(<span class="string">"fail to inject via method "</span> + method.getName() + <span class="string">" of interface "</span> + type.getName() + <span class="string">": "</span> + e.getMessage(), e);</span><br><span class="line">                    }</span><br><span class="line">                }</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">    } <span class="keyword">catch</span> (Exception e) {</span><br><span class="line">        logger.error(e.getMessage(), e);</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">return</span> instance;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>方法一开始就判断属性 objectFactory 是否为 null，该属性在 ExtensionLoader 的构造函数中被创建（如下），然后方法会依据 java bean 定义规范筛选出 setter 方法，并以此得到 setter 方法的参数类型及其对应的属性名称，然后基于 <code>ExtensionFactory#getExtension</code> 方法获取相应的 SPI 扩展实现类实例注入到当前实例中。</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="title">ExtensionLoader</span><span class="params">(Class&lt;?&gt; type)</span> </span>{</span><br><span class="line">    <span class="keyword">this</span>.type = type;</span><br><span class="line">    <span class="keyword">this</span>.objectFactory = (type == ExtensionFactory.class ? <span class="keyword">null</span> :</span><br><span class="line">            ExtensionLoader.getExtensionLoader(ExtensionFactory.class).getAdaptiveExtension());</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>对于除 ExtensionFactory 以外的其他扩展类型来说，这里本质上返回的是 AdaptiveExtensionFactory 类型，Dubbo 默认对于 ExtensionFactory 的扩展配置如下：</p>
+<figure class="highlight properties"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">adaptive</span>=<span class="string">com.alibaba.dubbo.common.extension.factory.AdaptiveExtensionFactory</span></span><br><span class="line"><span class="attr">spi</span>=<span class="string">com.alibaba.dubbo.common.extension.factory.SpiExtensionFactory</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>由于 AdaptiveExtensionFactory 采用注解 <code>@Adaptive</code> 修饰，所以在加载扩展配置时会将其 Class 对象记录到类属性 cachedAdaptiveClass 中，这是一个适配器类，其中持有了配置的 ExtensionFactory 扩展实现类实例，当我们调用 <code>AdaptiveExtensionFactory#getExtension</code> 方法获取指定扩展类型实例时，实际上是在遍历应用其持有的 ExtensionFactory 实例。</p>
+<p>扩展点自适应实际上也是 Dubbo SPI 增强的特性之一（“重复造轮子” 中列举的 <strong>第 3 个原因</strong> ），这一机制依赖于 <code>@Adaptive</code> 注解，上面对于该注解的应用是修饰在类型上，实际上该注解更多的应用场合在于修饰方法。前面我们曾介绍过 Dubbo SPI 在构造扩展类型实例时，针对实例的参数类型同样为扩展类型的 setter 会执行依赖注入，这个时候注入的并不是一个具体的扩展类型，而是一个扩展类型的适配器类实例。例如在对扩展类型 A 实例执行 setter 注入 B 扩展类型时，此时注入的实际上是 B 类型的适配器类型实例（由程序自动生成），而不是具体的 B 类型实现类实例，因为对于一个扩展类型来说我们并不知道当前依赖的具体类型是谁，需要依据 URL 中的入参待到运行时才能决定。</p>
+<p>这里以前面的 IpRateLimiter 举例说明，假设 IpRateLimiter 需要依赖于一个 IP 解析器 IpResolver，这是一个接口，围绕该接口有两个具体实现类：LocalIpResolver 和 RemoteIpResolver，接口的定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@SPI("local")</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">IpResolver</span> </span>{</span><br><span class="line">    <span class="meta">@Adaptive("resolver")</span></span><br><span class="line">    <span class="function">String <span class="title">resolve</span><span class="params">(URL url)</span></span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>依赖于 IpResolver 的 IpRateLimiter 定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">IpRateLimiter</span> <span class="keyword">implements</span> <span class="title">RateLimiter</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> IpResolver ipResolver;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">reject</span><span class="params">()</span> </span>{</span><br><span class="line">        ipResolver.resolve(url);</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> IpRateLimiter <span class="title">setIpResolver</span><span class="params">(IpResolver ipResolver)</span> </span>{</span><br><span class="line">        <span class="keyword">this</span>.ipResolver = ipResolver;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">this</span>;</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>Dubbo SPI 在构造 IpRateLimiter 实例时检测到它有一个参数类型为 SPI 扩展类型的 setter（即 setIpResolver），这个时候就会构造 IpResolver 的适配器类型实例进行注入，相应的适配器实现由程序按照规则自动生成。待到实际执行 <code>IpResolver#resolve</code> 方法时，会从入参 URL 中查询 key 为 <code>resolver</code> 的参数值，以此决定具体注入的扩展类型实例。</p>
+<p>这一自适应机制简单的说就是在依赖注入时先用一个适配器类实例占坑，待到运行时再动态代理到具体的实现类去执行相应的操作。这是一个比较常用且优雅的设计，记得之前在设计动态 IoC 时就采用了类似的实现机制，针对一个 service 类存在多个实现，具体使用哪个实现类需要等到运行时才能依据入参决定，但是 Spring IoC 又是在容器启动时完成 singleton 类型的注入，如果不希望把 Spring IoC 退化成一个大工厂使用，就可以在依赖注入时先注入一个适配器类实例，并在运行时由该实例动态代理具体的 service 实现类。</p>
+<p>关于上述扩展点自适应机制，下面一起来看一下相应的源码实现，这里将焦点聚焦到 <code>ExtensionLoader#getAdaptiveExtension</code> 方法，ExtensionLoader 利用属性 cachedAdaptiveInstance 记录当前扩展类型对应的适配器类实例，所以该方法的逻辑就是先尝试从 cachedAdaptiveInstance 中获取，如果不存在则会调用 <code>ExtensionLoader#createAdaptiveExtension</code> 方法进行创建：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> T <span class="title">createAdaptiveExtension</span><span class="params">()</span> </span>{</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">this</span>.injectExtension((T) <span class="keyword">this</span>.getAdaptiveExtensionClass().newInstance());</span><br><span class="line">    } <span class="keyword">catch</span> (Exception e) {</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> IllegalStateException(<span class="string">"Can not create adaptive extension "</span> + type + <span class="string">", cause: "</span> + e.getMessage(), e);</span><br><span class="line">    }</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span> Class&lt;?&gt; getAdaptiveExtensionClass() {</span><br><span class="line">    <span class="keyword">this</span>.getExtensionClasses();</span><br><span class="line">    <span class="keyword">if</span> (cachedAdaptiveClass != <span class="keyword">null</span>) {</span><br><span class="line">        <span class="keyword">return</span> cachedAdaptiveClass;</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">return</span> cachedAdaptiveClass = <span class="keyword">this</span>.createAdaptiveExtensionClass();</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述方法的逻辑比较简单，前面曾说明过 <code>@Adaptive</code> 注解既可以注解类型，也可以注解方法，如果一个扩展类型的某个实现类已经被该注解所修饰，那么此时就没有必要为该扩展类型再自动生成一个适配器，相当于我们已经为其手动创建了一个，前面的 AdaptiveExtensionFactory 就是这样一个手动创建的适配器类。对于其他情况来说，就需要调用 <code>ExtensionLoader#createAdaptiveExtensionClass</code> 方法自动生成相应的适配器类，并编译返回对应的 Class 对象，具体实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> Class&lt;?&gt; createAdaptiveExtensionClass() {</span><br><span class="line">    <span class="comment">// 生产扩展类型的 Adaptive 类 java 代码</span></span><br><span class="line">    String code = <span class="keyword">this</span>.createAdaptiveExtensionClassCode();</span><br><span class="line">    ClassLoader classLoader = findClassLoader();</span><br><span class="line">    <span class="comment">// 编译机器生成的 Adaptive 类 java 代码</span></span><br><span class="line">    Compiler compiler = ExtensionLoader.getExtensionLoader(Compiler.class).getAdaptiveExtension();</span><br><span class="line">    <span class="keyword">return</span> compiler.compile(code, classLoader);</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>方法首先会调用 <code>ExtensionLoader#createAdaptiveExtensionClassCode</code> 方法按照规则生成扩展类型的适配器类，相应实现比较冗长，但是逻辑并不复杂。以前面的 IpResolver 接口举例来说，该方法会为其生成一个名为 <code>IpResolver$Adaptive</code> 的适配器类，该类会实现被 <code>@Adaptive</code> 修饰的方法（其他方法直接抛出 UnsupportedOperationException 异常），其逻辑就是从 URL 中获取注解指定参数对应的参数值，并以该参数值为扩展类型名称获取相应的扩展实例，然后调用具体实现类对应的方法，具体形式如下（为了排版美观，进行了一些微调）：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">IpResolver</span>$<span class="title">Adaptive</span> <span class="keyword">implements</span> <span class="title">IpResolver</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> java.lang.<span class="function">String <span class="title">resolve</span><span class="params">(URL arg0)</span> </span>{</span><br><span class="line">        <span class="keyword">if</span> (arg0 == <span class="keyword">null</span>) <span class="keyword">throw</span> <span class="keyword">new</span> IllegalArgumentException(<span class="string">"url == null"</span>);</span><br><span class="line">        URL url = arg0;</span><br><span class="line">        String extName = url.getParameter(<span class="string">"resolver"</span>, <span class="string">"local"</span>);</span><br><span class="line">        <span class="keyword">if</span> (extName == <span class="keyword">null</span>) <span class="keyword">throw</span> <span class="keyword">new</span> IllegalStateException(<span class="string">"Fail to get extension(org.zhenchao.spi.IpResolver) name from url("</span> + url.toString() + <span class="string">") use keys([resolver])"</span>);</span><br><span class="line">        IpResolver extension = ExtensionLoader.getExtensionLoader(IpResolver.class).getExtension(extName);</span><br><span class="line">        <span class="keyword">return</span> extension.resolve(arg0);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上面说明了“重复造轮子”的原因 1 和原因 3。针对原因 2，Dubbo SPI 定义了一个 exceptions 属性，这是一个 Map 类型集合，在加载 SPI 配置时，如果某一行配置存在问题导致加载失败，Dubbo SPI 会以该行的具体配置为 key 记录相应的异常信息，并在获取指定扩展名称对应扩展实现类 Class 对象失败时打印相应的异常链，从而方便定位错误。除了这 3 个原因（也可以说是 Dubbo SPI 对于 JDK SPI 进行的增强），Dubbo SPI 还定义了 <code>@Activate</code> 注解，我们可以调用 <code>ExtensionLoader#getActivateExtension</code> 方法获取被该注解修饰的扩展类型实现，从而简化配置和编码，具体的实现比较简单，不再展开说明。</p>
+<p>针对 Dubbo SPI 机制，除了内嵌在 Dubbo 中的实现，Dubbo 的作者也曾将其抽取出来成为一个独立的项目，即 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/alibaba/cooma">cooma</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>。在实现上，comma 对 Dubbo SPI 进行了一些精简和优化，Dubbo 的作者此举是认为 Dubbo SPI 在实现上耦合了微容器之外 RPC 的概念，在功能上划分不够清晰，所以将其独立出来划清与 Dubbo 的界限，方便独立发展和改进，但是二者在设计思想上还是一致的。如果仅仅是希望学习 Dubbo SPI，可以参阅 cooma 的源码，780 行的微容器实现，短小而精悍，并且 SPI 机制（包括适配器机制）有时候并不是我们不需要它，而是不知道它的存在，以致于写了一些不够优雅的代码。</p>
+
+        <h3 id="总结">
+          <a href="#总结" class="heading-link"><i class="fas fa-link"></i></a>总结</h3>
+      <p>本文主要介绍和分析了 JDK SPI 和 Dubbo SPI，关于两种 SPI 机制的选择，个人觉得如果不是写框架、基础组件类代码，大部分时候 JDK SPI 都能够胜任我们的需求，JDK SPI 相对于 Dubbo SPI 虽然在功能上弱化了许多，但是使用简单、不增加学习成本，也不坑后来人，所以 JDK SPI 理应成为我们的首选，当然 Dubbo SPI 的设计思想和实现也值得我们去借鉴。</p>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2017/12/17/rpc/dubbo-spi/">https://plotor.github.io/2017/12/17/rpc/dubbo-spi/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/RPC/">RPC</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Dubbo/">Dubbo</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2018/03/04/protocol/oauth-v2-protocol/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">OAuth 2.0 开放授权那些事儿</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2017/10/23/design-pattern/reactor/"><span class="paginator-prev__text">Reactor：事件驱动的高性能响应模式</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#JDK-SPI"><span class="toc-number">1.</span> <span class="toc-text">
+          JDK SPI</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Dubbo-SPI"><span class="toc-number">2.</span> <span class="toc-text">
+          Dubbo SPI</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">3.</span> <span class="toc-text">
+          总结</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

@@ -1,0 +1,576 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="以 java 语言为例，JVM 针对 java 程序的优化可以发生在编译期和运行期，相应的优化操作分别发生在 javac 编译器在将 java 源程序编译成字节码期间，以及运行时即时编译器（JIT: Just In Time Compiler）将字节码编译成本地机器码期间。此外，还有一类编译器可以将源程序直接编译成与目标机器指令集相关的二进制代码，此类编译器称为提前编译器。运行期依赖于 JIT 的">
+<meta property="og:type" content="article">
+<meta property="og:title" content="探秘 JVM：编译与优化">
+<meta property="og:url" content="https://plotor.github.io/2016/12/12/jvm/compile-optimization/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="以 java 语言为例，JVM 针对 java 程序的优化可以发生在编译期和运行期，相应的优化操作分别发生在 javac 编译器在将 java 源程序编译成字节码期间，以及运行时即时编译器（JIT: Just In Time Compiler）将字节码编译成本地机器码期间。此外，还有一类编译器可以将源程序直接编译成与目标机器指令集相关的二进制代码，此类编译器称为提前编译器。运行期依赖于 JIT 的">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://plotor.github.io/images/2016/jvm-javac-compiler.png">
+<meta property="og:image" content="https://plotor.github.io/images/2016/jvm-interpreter-compiler-interaction.png">
+<meta property="og:image" content="https://plotor.github.io/images/2016/jvm-hotspot-code-detection.png">
+<meta property="article:published_time" content="2016-12-12T10:06:18.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.952Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="JVM">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://plotor.github.io/images/2016/jvm-javac-compiler.png"><title>探秘 JVM：编译与优化 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2016/12/12/jvm/compile-optimization/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">探秘 JVM：编译与优化</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2016-12-12</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">5.7k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">20分</span></span></div></header><div class="post-body"><p>以 java 语言为例，JVM 针对 java 程序的优化可以发生在编译期和运行期，相应的优化操作分别发生在 javac 编译器在将 java 源程序编译成字节码期间，以及运行时即时编译器（JIT: Just In Time Compiler）将字节码编译成本地机器码期间。此外，还有一类编译器可以将源程序直接编译成与目标机器指令集相关的二进制代码，此类编译器称为提前编译器。运行期依赖于 JIT 的编译优化的主要目的在于提升程序的执行效率，而编译期优化的主要目的在于支持 java 语法糖，提升语言的易用性和编码效率。如果以字节码所处的位置作为参考线，那么编译期的编译可以称为前端编译，而即时编译和提前编译合起来则可以称为后端编译。<a id="more"></a></p>
+
+        <h3 id="前端编译与优化">
+          <a href="#前端编译与优化" class="heading-link"><i class="fas fa-link"></i></a>前端编译与优化</h3>
+      <p>编译期优化主要发生在 javac 命令将 java 源码编译成字节码期间，其主要目的在于支撑 java 语法糖，提升语言的易用性和编码效率。</p>
+
+        <h4 id="Javac-编译器">
+          <a href="#Javac-编译器" class="heading-link"><i class="fas fa-link"></i></a>Javac 编译器</h4>
+      <p>Javac 编译器是 java 语言内置的编译器，采用 java 语言实现，其编译过程大致分为如下 4 个阶段：</p>
+<ol>
+<li>初始化插入式注解处理器；</li>
+<li>解析与填充符号表，包括词法解析、语法解析，以及填充符号表；</li>
+<li>执行插入式注解处理器；</li>
+<li>分析与字节码生成，包括：标注检查、数据流与控制流分析、解语法糖，以及生成字节码。</li>
+</ol>
+<p>执行步骤如下图所示：</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2016/jvm-javac-compiler.png" alt="image">
+      </p>
+<ul>
+<li><strong>解析与填充符号表</strong></li>
+</ul>
+<p>解析过程主要包含词法分析和语法分析两个过程，由 <code>JavaCompiler#parseFiles</code> 方法实现：</p>
+<ul>
+<li><strong>词法分析</strong> ：将源码的字符流转换成标记集合的过程，类比 NLP 中的分词，标记是编译过程的最小元素。该过程主要由 <code>com.sun.tools.javac.parser.Scanner</code> 类实现。</li>
+<li><strong>语法分析</strong> ：由标记构造抽象语法树的过程，该过程在 <code>com.sun.tools.javac.parser.Parser</code> 类中实现，对应的抽象语法树则有类 <code>com.sun.tools.javac.tree.JCTree</code> 表示。</li>
+</ul>
+<p>经过这两个步骤之后，编译器基本不会再对源码文件进行操作，后续的操作都建立在抽象语法树上。</p>
+<p>完成了词法分析和语法分析之后，下一阶段是对符号（Symbol Table）表进行填充（位于 <code>JavaCompiler#enterTrees</code> 方法）。符号表是由一组符号地址和符号信息构成的数据结构，其中的信息在编译的不同阶段都会用到，填充符号表的过程由 <code>com.sun.tools.javac.comp.Enter</code> 类实现。</p>
+<ul>
+<li><strong>应用插入式注解</strong></li>
+</ul>
+<p>插入式注解可以看作是一组编译器的插件，允许对抽象语法树中的任意元素执行读取、修改和添加操作。如果这些注解对语法树进行了修改，编译器需要回到解析与填充符号表阶段重新执行，直到所有插入式注解不再对语法树进行修改为止，每次循环称为一个轮次（Round），这也是为什么上述图中会有一个循环的原因。有了插入式注解，我们可以通过编写自己的代码来干涉编译器的行为，典型的例子就是 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://projectlombok.org/">Lombok</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>。</p>
+<p>插入式注解的初始化过程在 <code>JavaCompiler#initProcessAnnotations</code> 方法中完成，而执行则是在 <code>JavaCompiler#processAnnotations</code> 方法中完成，该方法会判断是否有新的注解处理器需要执行，若有则通过 <code>JavacProcessingEnvironment#doProcessing</code> 方法生成一个新的 JavaCompiler 对象，对编译的后续步骤进行处理。</p>
+<ul>
+<li><strong>语义分析与字节码生成</strong></li>
+</ul>
+<p>抽象语法树能够描述一个正确的源程序，但无法保证程序语义的正确性，而语义分析的主要目的就在于结合上下文对程序的相关性质进行检查，包括标注检查和数据及控制流分析两个步骤。下面的代码块对应语义分析和字节码生成的执行步骤：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">case</span> BY_TODO:</span><br><span class="line">    <span class="keyword">while</span> (!todo.isEmpty())</span><br><span class="line">        generate( <span class="comment">// 生成字节码</span></span><br><span class="line">                desugar(<span class="comment">// 解语法糖</span></span><br><span class="line">                        flow(<span class="comment">// 数据及控制流分析</span></span><br><span class="line">                                attribute(<span class="comment">// 标注检查</span></span><br><span class="line">                                        todo.remove()))));</span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>标注检查</strong> 的内容主要包括如变量使用前是否声明，变量与赋值之间的数据类型是否匹配，以及常量折叠（比如将 <code>int a = 1 + 2</code> 折叠为为 <code>int a = 3</code>）等。 <strong>数据与控制流分析</strong> 用于对程序的上下文执行更进一步的验证，与类加载时的数据与控制流分析的目的基本一致，但校验范围有所区别。</p>
+<p>语法糖（Syntactic Sugar）是这样一类语法，它对语言的编译结果和功能没有实质性的影响，但却能够让开发人员更加方便的使用语言，例如 java 语言中的泛型、变长参数、自动装箱与拆箱机制等。JVM 并不直接支持语法糖对应的语法，所以需要在编译阶段将其还原成基础语法结构，这个过程称为 <strong>解语法糖</strong> 。</p>
+<p><strong>字节码生成</strong> 阶段不仅仅是把各个步骤生成的信息（语法树、符号表）转换成字节码，编译器还会进行少量的代码添加和转换工作。这一过程在 <code>com.sun.tools.javac.jvm.Gen</code> 类中完成，并由方法 <code>ClassWriter#writeClass</code> 方法输出字节码。</p>
+<p>至此，整个编译过程宣告结束。</p>
+
+        <h4 id="Java-语法糖">
+          <a href="#Java-语法糖" class="heading-link"><i class="fas fa-link"></i></a>Java 语法糖</h4>
+      <p>语法糖是这样一类语法，它对语言的编译结果和功能没有实质性的影响，但却能够让开发人员更加方便的使用语言，提升编码效率和语言的严谨性，降低编码出错的机会。</p>
+<ul>
+<li><strong>泛型与类型的擦除</strong></li>
+</ul>
+<p>Java 中的泛型并不是真正意义上的泛型，而是为了方便使用的一种语法糖实现，这也是 java 泛型被人所诟病的原因。Java 的泛型仅存在于源码层面，在将源码编译成字节码的过程中，泛型就会被擦除成为原生类型，可以理解为 Object 类型。不过，这里的擦除仅仅作用于方法 Code 属性中的字节码，实际上元数据中还是保留了泛型信息，这也是我们能够通过反射手段取得参数化类型的根本依据。</p>
+<ul>
+<li><strong>自动装箱、拆箱与遍历循环</strong></li>
+</ul>
+<p>自动装箱和拆箱在编译之后被转换成了对应的包装（eg. <code>Integer#valueOf</code>）和还原（eg. <code>Integer#intValue</code>）方法，而遍历循环则还原成了迭代器的实现。</p>
+<p>除了上述介绍的语法糖之外，java 中还有很多语法糖，包括条件编译、内部类、枚举类、断言语句、数值字面量、对枚举和字符串的 switch 语法支持、try-with-resources，以及 java 8 新增的 lambda 表达式等。</p>
+
+        <h3 id="后端编译与优化">
+          <a href="#后端编译与优化" class="heading-link"><i class="fas fa-link"></i></a>后端编译与优化</h3>
+      <p>后端编译主要包含即时编译和提前编译，其中即时编译会在程序运行期间依据环境和程序的运行状态选择性的将字节码编译生成机器码执行，而提前编译则是直接将源程序编译成平台相关的二进制指令。</p>
+
+        <h4 id="即时编译器">
+          <a href="#即时编译器" class="heading-link"><i class="fas fa-link"></i></a>即时编译器</h4>
+      <p>主流虚拟机（eg. HotSpot, J9）对于 java 程序一开始采用解释器解释执行，当发现某个方法或代码块被频繁调用时会将这些代码标记为热点代码，JIT 在运行时会将热点代码编译成机器相关的机器码，并执行各种层次的优化。运行期优化发生在将字节码编译成本地机器码期间，其主要目的在于提升程序的运行性能。</p>
+
+        <h5 id="分层编译">
+          <a href="#分层编译" class="heading-link"><i class="fas fa-link"></i></a>分层编译</h5>
+      <p>解释器和编译器各有优势，前者因为省去了编译的时间，程序可以具备较快的启动速度，同时占用更少的内存；后者因为将代码编译成本地机器码，所以具备更快的执行速度，但是需要额外的编译时间和内存开销。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2016/jvm-interpreter-compiler-interaction.png" alt="image">
+      </p>
+<p>以 HotSpot 为例，采用了解释器与编译器共存的架构，如上图所示。在 JDK 10 之前，HotSpot 内置了 1 款解释器和 2 款即时编译器，其中即时编译器分为：Client 编译器（简称 C1）和 Server 编译器（简称 C2）。在 JDK 10 之后增加了 Graal 编译器，其目的在于取代 C2 编译器，不过目前 Graal 还处于实验阶段。</p>
+<p>在分层编译（Tiered Compilation）工作模式出现之前，HotSpot 虚拟机通常采用一个解释器搭配一个 JIT 的方式工作。我们可以在程序启动时通过 <code>-client</code> 参数或 <code>-server</code> 参数来强制虚拟机所使用的 JIT 类型，前者使用 C1 编译器，具备较好的编译速度，后者使用 C2 编译器，具备较好的编译质量。</p>
+<p>HotSpot 虚拟机默认采用解释器与编译器混合运行的模式，可以通过 <code>java -version</code> 命令查看，如下所示：</p>
+<figure class="highlight bash"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ java -version</span><br><span class="line">java version <span class="string">"1.8.0_241"</span></span><br><span class="line">Java(TM) SE Runtime Environment (build 1.8.0_241-b07)</span><br><span class="line">Java HotSpot(TM) 64-Bit Server VM (build 25.241-b07, mixed mode)  <span class="comment"># 这里的 mixed mode 表示采用混合模式</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>我们也可以通过 <code>-Xint</code> 参数指定虚拟机仅运行于解释模式，这时 JIT 将完全不介入工作；或者通过 <code>-Xcomp</code> 参数指定虚拟机运行于编译模式，这时优先采用编译方式执行，只有当编译无法进行的情况下才会让解释器介入执行。</p>
+<p>前面已经介绍了解释器和编译器各有其优点，解释执行模式能够让程序具备较快的启动速度，但是编译模式执行能够让程序具备较快的执行速度，并且不同级别的编译器在编译速度和执行速度上是矛盾的。如何在解释执行和编译执行，以及不同级别编译器的编译速度和执行速度之间进行取舍，从而让程序能够兼顾启动速度和运行速度，HotSpot 的解决方案是引入分层编译机制，并在 JDK 7 的 server 模式中采用了默认开启（分层编译最早在 JDK 6 中引入，但是需要通过 <code>-XX:+TieredCompilation</code> 参数来手动开启）。分层编译机制具体分层细节如下：</p>
+<ul>
+<li><strong>第 0 层</strong> ：程序纯解释执行，解释器不开启性能监控。</li>
+<li><strong>第 1 层</strong> ：使用 C1 编译器将字节码编译成本地机器码执行，并进行简单、可靠的稳定优化，但不开启性能监控。</li>
+<li><strong>第 2 层</strong> ：仍然使用 C1 编译器执行，但开启方法及回边次数统计等有限的性能监控。</li>
+<li><strong>第 3 层</strong> ：仍然使用 C1 编译器执行，但开启全部的性能监控，如分支跳转、虚方法调用版本等。</li>
+<li><strong>第 4 层</strong> ：使用 C2 编译器将字节码编译成本地机器码执行，相对于 C1 而言会启动更多编译耗时更长的优化，甚至是一些不可靠的激进优化。</li>
+</ul>
+<p>上述分层策略并不是固定不变的，可以依据运行参数和版本来调整分层数量。</p>
+
+        <h5 id="热点探测">
+          <a href="#热点探测" class="heading-link"><i class="fas fa-link"></i></a>热点探测</h5>
+      <p>JIT 会对热点代码执行即时编译，这里的热点代码主要包含 <strong>被多次调用的方法</strong> 和 <strong>被多次执行的循环体</strong> 两类，但不管是哪种类型的热点代码，即使编译的单位都是针对整个方法体，而不是单独的循环体。</p>
+<p>针对被多次执行的循环体进行优化的原因主要在于一些方法虽然被调用的次数不多，但是因为方法中存在较多的循环，导致循环部分代码被多次执行，这样的代码也是热点代码。对多次被调用的方法执行即时编译属于 JIT 的标准编译方式，而针对被多次执行的循环体的即时编译则发生在方法执行过程中，形象称之为 <strong>栈上替换（OSR: On Stack Replacement）</strong> 。</p>
+<p>判断一段代码是否属于热点代码称之为 <strong>热点探测（Hot Spot Code Detection）</strong> ，判断的方式主要分为两种：</p>
+<ol>
+<li><strong>基于采样的热点探测</strong> ：JVM 周期性检查各个线程的调用栈顶，如果发现某个方法经常出现在栈顶则视为热点方法，该策略实现简单且高效，但是存在一定的误判率。</li>
+<li><strong>基于计数器的热点探测</strong> ：JVM 会为每个方法（或代码块）设置一个计数器以统计方法的执行次数，超过一定的阈值则视为热点方法，该策略实现相对复杂，但是统计结果更加精确严谨。</li>
+</ol>
+<p>HotSpot 虚拟机采用基于计数器的热点探测策略，而 J9 虚拟机则采用基于采样的热点探测策略。</p>
+<p>以 HotSpot 为例，它为每个方法设置了两个计数器：<strong>方法调用计数器</strong> 和 <strong>回边计数器</strong> 。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2016/jvm-hotspot-code-detection.png" alt="image">
+      </p>
+<p>上图分别展示了两种基于两种计数器的热点探测流程。</p>
+<p>对于 <strong>方法调用计数器</strong> 而言，当一个方法被调用时会先去检查这个方法是否有对应已编译的版本，如果没有则将方法调用计数器的值加 1；然后判断方法调用计数器和回边调用计数器之和是否超过阈值，如果超过则向即时编译器提交编译请求。默认执行引擎不会阻塞等待编译完成（可以通过 <code>-XX:BackgroundCompilation</code> 参数调整），而是继续以解释器的方式执行该方法，编译完成后会更新相应方法的入口地址，当下一次调用该方法时就会切换成编译后的版本。</p>
+<p>方法计数器触发编译的阈值默认在客户端模式下是 1500 次，而在服务端模式下是 10000 次，可以通过 <code>-XX:CompileThreshold</code> 参数进行调整。计数器在依据计数器值判定是否需要触发编译时，默认调用的并非是计数器计数的绝对值，而是一个相对的值，即一段时间内方法被调用的次数。当超过这个时间段，方法的调用次数仍然没有达到阈值，则方法调用计数会将计数值减半，这一机制称之为 <strong>热度衰减（Counter Decay）</strong> ，这个时间跨度也被称为 <strong>半衰周期（Counter Half Life Time）</strong> 。可以通过参数（<code>-XX:-UseCounterDecay</code>）关闭热度衰减策略，以及设定半衰周期（<code>-XX:CounterHalfLifeTime</code>），当关闭热度衰减之后，只要时间足够长，绝大部分方法都会被编译成本地代码。</p>
+<p>对于 <strong>回边计数器</strong> 而言，当遇到一条回边指令（即字节码中控制流向后跳转的指令）时，会先检查需要执行的代码片段是否有对应已编译的版本，如果没有则将回边计数器的值加 1；然后判断方法调用计数器和回边调用计数器之和是否超过阈值，如果超过则发起一个 OSR 编译请求，并将回调计数器的值降低一些。默认情况下执行引擎同样不会等待编译完成，而是继续以解释器的方式执行该方法，编译完成后会更新相应方法的入口地址，当下一次调用该方法时就会切换成编译后的版本。</p>
+<p>回边计数器虽然提供了 <code>-XX:CompileThreshold</code> 和 <code>-XX:BackEdgeThreshold</code> 两个参数用于对阈值进行控制，但是当前 HotSpot 虚拟机并未实现这两个参数，而是通过 <code>-XX:OnStackReplacePercentage</code> 参数间接控制该计数器的阈值。</p>
+<p>不同于方法调用计数器，回边计数器并没有热度衰减机制。</p>
+
+        <h4 id="提前编译器">
+          <a href="#提前编译器" class="heading-link"><i class="fas fa-link"></i></a>提前编译器</h4>
+      <p>即时编译虽然极大提升了 JVM 对于程序的执行效率，但是不能忽视其所带来的运行时资源消耗，所以就衍生出了一种想法，在程序启动之前先提前编译成平台相关的机器码，对应的编译器就是提前编译器。</p>
+<p>提前编译在 java 客户端和服务端应用领域一直不温不火，但却在 Android 领域大放异彩。Android 在 2013 年推出的基于提前编译器 ART(Android Runtime) 虚拟机，一经推出就马上干掉了之前基于即时编译的 Dalvik 虚拟机。</p>
+<p>目前，提前编译主要分为两种思路：</p>
+<ol>
+<li>与传统 C/C++ 编译器类似，在程序运行之前将其编译成平台相关机器码。</li>
+<li>讲之前即时编译的编译结果保存下来，供下次运行时直接使用，以减少再次即时编译的时间，俗称即时编译缓存（JIT Caching）。</li>
+</ol>
+
+        <h4 id="即时编译优化技术">
+          <a href="#即时编译优化技术" class="heading-link"><i class="fas fa-link"></i></a>即时编译优化技术</h4>
+      
+        <h5 id="方法内联">
+          <a href="#方法内联" class="heading-link"><i class="fas fa-link"></i></a>方法内联</h5>
+      <p>方法内联优化机制的本质就是将目标方法的代码“复制”到发起调用的方法之中，避免产生真实的方法调用。方法内联是编译器最重要的优化手段，为其它优化手段建立了良好的基础。</p>
+<p>然而，java 语言中默认的实例方法都是虚方法，所以无法简单的进行内联，需要借助 <strong>类型继承关系分析（CHA: Class Hierarchy Analysis）</strong> 技术。CHA 是一种基于整个应用程序的类型分析技术，用于确定在目前已加载的类中，某个接口是否有多于一种的实现，某个类是否存在子类，子类是否覆盖实现了父类的某个虚方法等信息，从而为编译器执行方法内联提供分析依据。</p>
+
+        <h5 id="逃逸分析">
+          <a href="#逃逸分析" class="heading-link"><i class="fas fa-link"></i></a>逃逸分析</h5>
+      <p>逃逸分析（Escape Analysis）与 CHA 一样，同样是为其它优化策略提供分析依据，其基本原理是分析对象的动态作用域，从而判定一个对象是否发生逃逸，是方法逃逸还是线程逃逸。</p>
+<ul>
+<li><strong>方法逃逸</strong> ：当一个对象在方法中被定义后，它可能被外部方法所引用，例如通过参数传递给其它方法。</li>
+<li><strong>线程逃逸</strong> ：当一个对象在线程中被定义后，它可能被外部线程所访问，例如将对象赋值给其它线程中的实例变量。</li>
+</ul>
+<p>如果可以确定一个对象不会逃逸到方法或线程外，或者逃逸程度较低（<code>线程逃逸 &gt; 方法逃逸 &gt; 不逃逸</code>），则可以对这个对象变量进行一些高效的优化，比如：</p>
+<ul>
+<li><strong>栈上分配（Stack Allocations）</strong> ：对象一般在堆上进行创建，这些对象可以被各个线程所共享，也是垃圾收集的主要目标。如果能够确定一个对象不会出现线程逃逸，就可以在栈上进行分配，这个对象的生命周期与栈帧相同（无需 GC），并且这部分对象的占比较大，所以栈上分配可以极大优化内存使用率和运行效率。栈上分配支持方法逃逸，但不支持线程逃逸。</li>
+<li><strong>标量替换（Scalar Replacement）</strong> ：所谓标量是指一个数据已经无法再被分解（例如原始数据类型），与其对应的可以继续分解的数据称为聚合量，对象是典型的聚合量。标量替换就是将一个聚合量拆散，根据程序访问情况将其使用到的成员变量恢复成原始类型来访问。如果可以确定一个对象不会逃逸，且这个对象是可拆分的，程序执行时就可以不创建该对象，而改为直接创建若干个被这个方法使用到的成员变量进行代替，这样可以在栈上进行内存分配，同时为后续进一步优化创造条件。</li>
+<li><strong>同步消除（Synchronization Elimination）</strong> ：多线程访问一个可以被共享的变量，为保证安全性需要同步加锁，如果可以确定一个对象不会逃逸，那么就不存在线程竞争关系，相应的加锁就是多余的，可以被消除。</li>
+</ul>
+<p>逃逸分析从 JDK 7 开始默认开启，虽然目前技术成熟度一般，但却是 JIT 编译优化的一个重要方向。</p>
+
+        <h5 id="公共子表达式消除">
+          <a href="#公共子表达式消除" class="heading-link"><i class="fas fa-link"></i></a>公共子表达式消除</h5>
+      <p>如果一个表达式 E 已经计算过了，并且到目前为止 E 中的所有变量的值均未发生变化，那么 E 的这次出现就成了公共子表达式，没有再次计算的必要，直接用之前的计算结果替换即可。</p>
+<p>如果这种优化仅限于程序基本块内，称之为 <strong>局部公共子表达式消除</strong> ，如果涉及多个程序基本块，则称之为 <strong>全局公共子表达式消除</strong> 。</p>
+
+        <h5 id="数组边界检查消除">
+          <a href="#数组边界检查消除" class="heading-link"><i class="fas fa-link"></i></a>数组边界检查消除</h5>
+      <p>Java 是动态安全的语言，对数组的读写不会像 C/C++ 那样裸指针操作。Java 在执行数组访问时会去检查当前指针是否越界，这样在保证运行安全的同时也造成了一定的负担，但是这种机制是不能去除的。</p>
+<p>实际上我们不需要每次去访问元素都检查一下是否越界，一些数组的访问越界在编译期即可确定，对于另外一些无法确定的可以借助 <strong>隐式异常机制</strong> ，让原本边界判定操作变为在越界时主动触发异常，这样的优化措施可以在保证边界检查的前提下，又减少了非必要的边界判定。然而，异常处理过程是一个从用户态转到内核态，再转到用户态的过程，所以如果频繁发生异常的话，隐式异常处理机制也是一个比较耗时的过程，还不如边界检查，不过 JVM 会根据实际情况来选择是否采用隐式异常处理机制。</p>
+
+        <h3 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h3>
+      <ol>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/26418340/">Java 虚拟机规范（Java SE 8 版）</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/24722612/">深入理解 java 虚拟机（第 2 版）</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/34907497/">深入理解 java 虚拟机（第 3 版）</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+</ol>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2016/12/12/jvm/compile-optimization/">https://plotor.github.io/2016/12/12/jvm/compile-optimization/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/JVM/">JVM</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2016/12/16/jvm/diagnostic-tools/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">探秘 JVM：监控与诊断工具</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2016/12/10/jvm/bytecode-engine/"><span class="paginator-prev__text">探秘 JVM：字节码执行引擎</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%89%8D%E7%AB%AF%E7%BC%96%E8%AF%91%E4%B8%8E%E4%BC%98%E5%8C%96"><span class="toc-number">1.</span> <span class="toc-text">
+          前端编译与优化</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#Javac-%E7%BC%96%E8%AF%91%E5%99%A8"><span class="toc-number">1.1.</span> <span class="toc-text">
+          Javac 编译器</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#Java-%E8%AF%AD%E6%B3%95%E7%B3%96"><span class="toc-number">1.2.</span> <span class="toc-text">
+          Java 语法糖</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%90%8E%E7%AB%AF%E7%BC%96%E8%AF%91%E4%B8%8E%E4%BC%98%E5%8C%96"><span class="toc-number">2.</span> <span class="toc-text">
+          后端编译与优化</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%8D%B3%E6%97%B6%E7%BC%96%E8%AF%91%E5%99%A8"><span class="toc-number">2.1.</span> <span class="toc-text">
+          即时编译器</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E5%88%86%E5%B1%82%E7%BC%96%E8%AF%91"><span class="toc-number">2.1.1.</span> <span class="toc-text">
+          分层编译</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E7%83%AD%E7%82%B9%E6%8E%A2%E6%B5%8B"><span class="toc-number">2.1.2.</span> <span class="toc-text">
+          热点探测</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%8F%90%E5%89%8D%E7%BC%96%E8%AF%91%E5%99%A8"><span class="toc-number">2.2.</span> <span class="toc-text">
+          提前编译器</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%8D%B3%E6%97%B6%E7%BC%96%E8%AF%91%E4%BC%98%E5%8C%96%E6%8A%80%E6%9C%AF"><span class="toc-number">2.3.</span> <span class="toc-text">
+          即时编译优化技术</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E6%96%B9%E6%B3%95%E5%86%85%E8%81%94"><span class="toc-number">2.3.1.</span> <span class="toc-text">
+          方法内联</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E9%80%83%E9%80%B8%E5%88%86%E6%9E%90"><span class="toc-number">2.3.2.</span> <span class="toc-text">
+          逃逸分析</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E5%85%AC%E5%85%B1%E5%AD%90%E8%A1%A8%E8%BE%BE%E5%BC%8F%E6%B6%88%E9%99%A4"><span class="toc-number">2.3.3.</span> <span class="toc-text">
+          公共子表达式消除</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E6%95%B0%E7%BB%84%E8%BE%B9%E7%95%8C%E6%A3%80%E6%9F%A5%E6%B6%88%E9%99%A4"><span class="toc-number">2.3.4.</span> <span class="toc-text">
+          数组边界检查消除</span></a></li></ol></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">3.</span> <span class="toc-text">
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

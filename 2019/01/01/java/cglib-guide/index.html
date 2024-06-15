@@ -1,0 +1,598 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="CGLib(Code Generation Library) 是一个强大、高效，以及高质量的字节码生成库，能够在运行时动态生成字节码，从而实现一些比较极客的功能。CGLib 被许多开源软件采用，我们在写一些基础库时也很青睐，但是官方给到的文档比较简单，所以本文参考 CGLib: The missing manual，并结合自己的使用经验，总结了一个中文版本。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CGLib：The Missing Guide">
+<meta property="og:url" content="https://plotor.github.io/2019/01/01/java/cglib-guide/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="CGLib(Code Generation Library) 是一个强大、高效，以及高质量的字节码生成库，能够在运行时动态生成字节码，从而实现一些比较极客的功能。CGLib 被许多开源软件采用，我们在写一些基础库时也很青睐，但是官方给到的文档比较简单，所以本文参考 CGLib: The missing manual，并结合自己的使用经验，总结了一个中文版本。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2019-01-01T12:58:00.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.955Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="CGlib">
+<meta name="twitter:card" content="summary"><title>CGLib：The Missing Guide | 指  间</title><link ref="canonical" href="https://plotor.github.io/2019/01/01/java/cglib-guide/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">CGLib：The Missing Guide</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2019-01-01</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">4.6k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">23分</span></span></div></header><div class="post-body"><p>CGLib(Code Generation Library) 是一个强大、高效，以及高质量的字节码生成库，能够在运行时动态生成字节码，从而实现一些比较极客的功能。CGLib 被许多开源软件采用，我们在写一些基础库时也很青睐，但是官方给到的文档比较简单，所以本文参考 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="http://mydailyjava.blogspot.com/2013/11/cglib-missing-manual.html">CGLib: The missing manual</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>，并结合自己的使用经验，总结了一个中文版本。<a id="more"></a></p>
+<p>在正式开始之前，先给出 CGLib 在使用上的一些限制：</p>
+<ol>
+<li>无法代理 final 类（受制于继承机制，final 类不允许继承）。</li>
+<li>无法代理非静态（non-static）内部类。</li>
+<li>创建代理类对象时，需要被代理类提供相应参数签名的构造方法。</li>
+<li>创建代理相对于 java 原生动态代理性能较低，但是运行性能更高。</li>
+</ol>
+<blockquote>
+<p>本文示例运行版本：3.2.x</p>
+</blockquote>
+
+        <h3 id="动态代理：Enhancer">
+          <a href="#动态代理：Enhancer" class="heading-link"><i class="fas fa-link"></i></a>动态代理：Enhancer</h3>
+      <p>本小节所有示例都基于 SampleClass 进行，以该类作为被代理类，定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">SampleClass</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">SampleClass</span><span class="params">()</span> </span>{</span><br><span class="line">        System.out.println(<span class="keyword">this</span>.getClass().getSimpleName() + <span class="string">": default construct method"</span>);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">SampleClass</span><span class="params">(String name)</span> </span>{</span><br><span class="line">        System.out.println(<span class="keyword">this</span>.getClass().getSimpleName() + <span class="string">": construct method : "</span> + name);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> String <span class="title">hello</span><span class="params">(String name)</span> </span>{</span><br><span class="line">        System.out.println(<span class="keyword">this</span>.getClass().getSimpleName() + <span class="string">": hello method"</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="string">"Hello, "</span> + name;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">final</span> String <span class="title">finalMethod</span><span class="params">(String input)</span> </span>{</span><br><span class="line">        System.out.println(<span class="keyword">this</span>.getClass().getSimpleName() + <span class="string">": final method"</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="string">"final method: "</span> + input;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> String <span class="title">staticMethod</span><span class="params">(String input)</span> </span>{</span><br><span class="line">        System.out.println(SampleClass.class.getName() + <span class="string">": static method"</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="string">"static method: "</span> + input;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">private</span> String <span class="title">privateMethod</span><span class="params">(String input)</span> </span>{</span><br><span class="line">        System.out.println(<span class="keyword">this</span>.getClass().getSimpleName() + <span class="string">": private method"</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="string">"private method: "</span> + input;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="FixedValue：替换实例方法返回值">
+          <a href="#FixedValue：替换实例方法返回值" class="heading-link"><i class="fas fa-link"></i></a>FixedValue：替换实例方法返回值</h4>
+      <p>FixedValue 用于替换被代理类方法的返回值（final/static 方法除外），假设我们希望替换 <code>SampleClass#hello</code> 方法的返回值，基于 CGLib 的 FixedValue 可以实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">Enhancer enhancer = <span class="keyword">new</span> Enhancer();</span><br><span class="line">enhancer.setSuperclass(SampleClass.class);</span><br><span class="line">enhancer.setCallback(<span class="keyword">new</span> FixedValue() {</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> Object <span class="title">loadObject</span><span class="params">()</span> <span class="keyword">throws</span> Exception </span>{</span><br><span class="line">        <span class="comment">// 替换方法的返回值</span></span><br><span class="line">        <span class="keyword">return</span> <span class="string">"Hello, cglib!"</span>;</span><br><span class="line">    }</span><br><span class="line">});</span><br><span class="line"><span class="comment">// 这里要求被代理类必须具备默认构造方法</span></span><br><span class="line">SampleClass proxy = (SampleClass) enhancer.create();</span><br><span class="line">Assert.assertEquals(<span class="string">"Hello, cglib!"</span>, proxy.hello(<span class="keyword">null</span>)); <span class="comment">// 不管我们传递任何参数值，返回值始终是我们指定的返回值</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>如果我们在创建代理对象时指定了参数（如下），则要求 SampleClass 必须具备相同参数签名的构造方法，这里要求 SampleClass 必须具备仅有一个 String 类型参数的构造方法：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SampleClass proxy = (SampleClass) enhancer.create(<span class="keyword">new</span> Class[] {String.class}, <span class="keyword">new</span> Object[] {<span class="string">"zhenchao"</span>});</span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>注意</strong> ：代理对象的 toString 方法也会被代理，所以 toString 返回的也是 <code>Hello, cglib!</code>。同理 hashCode 方法也会被代理，所以也会返回 <code>Hello, cglib!</code> 字符串，但是因为 hashCode 方法的返回类型是 int，所以会抛出 ClassCastException 异常。</p>
+<p>此外，final 方法和 static 方法不会被代理。</p>
+
+        <h4 id="InvocationHandler：拦截方法时提供获取方法的相关信息">
+          <a href="#InvocationHandler：拦截方法时提供获取方法的相关信息" class="heading-link"><i class="fas fa-link"></i></a>InvocationHandler：拦截方法时提供获取方法的相关信息</h4>
+      <p>FixedValue 仅允许我们修改实例方法的返回值，但是对于当前调用方法的相关信息我们无从了解，InvocationHandler 则以参数的方式将这些信息传递给我们，几乎等同于 jdk 自带的 <code>java.lang.reflect.InvocationHandler</code>，两者都定义了 invoke 方法，且在方法签名上是一致的，使用示例：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">Enhancer enhancer = <span class="keyword">new</span> Enhancer();</span><br><span class="line">enhancer.setSuperclass(SampleClass.class);</span><br><span class="line">enhancer.setCallback(<span class="keyword">new</span> InvocationHandler() {</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> Object <span class="title">invoke</span><span class="params">(Object proxy, Method method, Object[] args)</span> <span class="keyword">throws</span> Throwable </span>{</span><br><span class="line">        System.out.println(<span class="string">"proxy: "</span> + proxy.getClass().getSimpleName());</span><br><span class="line">        System.out.println(<span class="string">"method: "</span> + method.getName());</span><br><span class="line">        System.out.println(<span class="string">"args: "</span> + Arrays.toString(args));</span><br><span class="line">        <span class="comment">// proxy.toString(); 会导致无穷循环</span></span><br><span class="line">        System.out.println(<span class="string">"invoke method: "</span> + method.getName());</span><br><span class="line">        <span class="keyword">return</span> <span class="string">"Hello, cglib!"</span>;</span><br><span class="line">    }</span><br><span class="line">});</span><br><span class="line">SampleClass proxy = (SampleClass) enhancer.create();</span><br><span class="line">Assert.assertEquals(<span class="string">"Hello, cglib!"</span>, proxy.hello(<span class="string">"zhenchao"</span>));</span><br></pre></td></tr></tbody></table></div></figure>
+<p>InvocationHandler 接口的定义如下，参数 proxy 是 CGLib 生成的代理类对象，method 即为我们当前调用的方法签名，args 是我们传递给方法的参数列表。</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">InvocationHandler</span> <span class="keyword">extends</span> <span class="title">Callback</span> </span>{</span><br><span class="line">    <span class="function"><span class="keyword">public</span> Object <span class="title">invoke</span><span class="params">(Object proxy, Method method, Object[] args)</span> <span class="keyword">throws</span> Throwable</span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>对于本次调用来说这三个参数值如下，其中代理对象对应的类名是 CGLib 在 SampleClass 类型的基础上随机生成的，以防止与系统中已有的类重名：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">proxy: SampleClass$$EnhancerByCGLIB$$a01c21b9</span><br><span class="line">method: hello</span><br><span class="line">args: [zhenchao]</span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>注意</strong> ：我们在 invoke 中调用 proxy 的一般方法会循环触发 invoke 方法（包括执行 <code>method.invoke(proxy, args)</code>），导致无穷循环，最终导致栈溢出，为了解决这一问题我们可以使用 MethodInterceptor 代替。</p>
+
+        <h4 id="MethodInterceptor：InvocationHandler-的增强版本">
+          <a href="#MethodInterceptor：InvocationHandler-的增强版本" class="heading-link"><i class="fas fa-link"></i></a>MethodInterceptor：InvocationHandler 的增强版本</h4>
+      <figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">Enhancer enhancer = <span class="keyword">new</span> Enhancer();</span><br><span class="line">enhancer.setSuperclass(SampleClass.class);</span><br><span class="line">enhancer.setCallback(<span class="keyword">new</span> MethodInterceptor() {</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> Object <span class="title">intercept</span><span class="params">(Object obj, Method method, Object[] args, MethodProxy proxy)</span> <span class="keyword">throws</span> Throwable </span>{</span><br><span class="line">        System.out.println(<span class="string">"obj: "</span> + obj.getClass().getSimpleName());</span><br><span class="line">        System.out.println(<span class="string">"method: "</span> + method.getName());</span><br><span class="line">        System.out.println(<span class="string">"args: "</span> + Arrays.toString(args));</span><br><span class="line">        System.out.println(<span class="string">"proxy: "</span> + proxy.getSuperName());</span><br><span class="line">        <span class="comment">// 执行被代理类的方法</span></span><br><span class="line">        <span class="keyword">return</span> proxy.invokeSuper(obj, args);</span><br><span class="line">    }</span><br><span class="line">});</span><br><span class="line">SampleClass proxy = (SampleClass) enhancer.create();</span><br><span class="line">Assert.assertEquals(<span class="string">"Hello, zhenchao"</span>, proxy.hello(<span class="string">"zhenchao"</span>));</span><br></pre></td></tr></tbody></table></div></figure>
+<p>MethodInterceptor 接口的定义如下，其中 obj 是 CGLib 生成的代理类对象，等价于 InvocationHandler 中的 proxy，而 MethodInterceptor 中的 proxy 则是用来触发被代理类对应的方法（即被代理方法），我们可以触发任意次，而不会造成无穷循环。</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">MethodInterceptor</span> <span class="keyword">extends</span> <span class="title">Callback</span> </span>{</span><br><span class="line">    <span class="function"><span class="keyword">public</span> Object <span class="title">intercept</span><span class="params">(Object obj, Method method, Object[] args, MethodProxy proxy)</span> <span class="keyword">throws</span> Throwable</span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="LazyLoader：仅在第一次调用方法时创建代理对象">
+          <a href="#LazyLoader：仅在第一次调用方法时创建代理对象" class="heading-link"><i class="fas fa-link"></i></a>LazyLoader：仅在第一次调用方法时创建代理对象</h4>
+      <p>LazyLoader 在方法签名上与 FixedValue 一致，但是在方法返回上却大相径庭，前面介绍了 FixedValue 用于替换方法的返回值，而 LazyLoader 则是返回一个代理对象，该代理对象由开发者自己指定和创建，并且 <strong>仅在第一次调用被代理方法时创建代理对象</strong> ，后面的使用都会复用该对象：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">Enhancer enhancer = <span class="keyword">new</span> Enhancer();</span><br><span class="line">enhancer.setSuperclass(SampleClass.class);</span><br><span class="line">enhancer.setCallback(<span class="keyword">new</span> LazyLoader() {</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> Object <span class="title">loadObject</span><span class="params">()</span> <span class="keyword">throws</span> Exception </span>{</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> SampleClass();</span><br><span class="line">    }</span><br><span class="line">});</span><br><span class="line">SampleClass proxy = (SampleClass) enhancer.create();</span><br><span class="line"><span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">3</span>; i++) {</span><br><span class="line">    Assert.assertEquals(<span class="string">"Hello, zhenchao"</span>, proxy.hello(<span class="string">"zhenchao"</span>));</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上面的示例我们循环调用了 3 次被代理方法，由下面的输出可以看到只有在第一次调用被代理方法时触发创建了代理对象，这里需要注意的时被代理对象的构造方法被调用了两次，一次是 CGLib 创建代理对象时调用的，一次是我们 <code>new SampleClass()</code> 时调用的。</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">SampleClass$$EnhancerByCGLIB$$a6d4c46: default construct method</span><br><span class="line">SampleClass: default construct method</span><br><span class="line">SampleClass: hello method</span><br><span class="line">SampleClass: hello method</span><br><span class="line">SampleClass: hello method</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="Dispatcher-每次调用被代理方法时都会创建代理对象">
+          <a href="#Dispatcher-每次调用被代理方法时都会创建代理对象" class="heading-link"><i class="fas fa-link"></i></a>Dispatcher: 每次调用被代理方法时都会创建代理对象</h4>
+      <p>Dispatcher 的作用与 LazyLoader 相同，区别在于每次调用被代理方法时都会创建返回新的代理对象：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">Enhancer enhancer = <span class="keyword">new</span> Enhancer();</span><br><span class="line">enhancer.setSuperclass(SampleClass.class);</span><br><span class="line">enhancer.setCallback(<span class="keyword">new</span> Dispatcher() {</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> Object <span class="title">loadObject</span><span class="params">()</span> <span class="keyword">throws</span> Exception </span>{</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> SampleClass();</span><br><span class="line">    }</span><br><span class="line">});</span><br><span class="line">SampleClass proxy = (SampleClass) enhancer.create();</span><br><span class="line"><span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">3</span>; i++) {</span><br><span class="line">    Assert.assertEquals(<span class="string">"Hello, zhenchao"</span>, proxy.hello(<span class="string">"zhenchao"</span>));</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>输出如下，由输出可以看到每次调用被代理方法时都会创建代理对象：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">SampleClass$$EnhancerByCGLIB$$21d43ab6: default construct method</span><br><span class="line">SampleClass: default construct method</span><br><span class="line">SampleClass: hello method</span><br><span class="line">SampleClass: default construct method</span><br><span class="line">SampleClass: hello method</span><br><span class="line">SampleClass: default construct method</span><br><span class="line">SampleClass: hello method</span><br></pre></td></tr></tbody></table></div></figure>
+<p>ProxyRefDispatcher 是 Dispatcher 的增强版本，唯一的区别在于在方法中传递了一个代理对象 proxy 进来：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">Enhancer enhancer = <span class="keyword">new</span> Enhancer();</span><br><span class="line">enhancer.setSuperclass(SampleClass.class);</span><br><span class="line">enhancer.setCallback(<span class="keyword">new</span> ProxyRefDispatcher() {</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> Object <span class="title">loadObject</span><span class="params">(Object proxy)</span> <span class="keyword">throws</span> Exception </span>{</span><br><span class="line">        System.out.println(<span class="string">"proxy: "</span> + proxy.getClass().getSimpleName());</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> SampleClass();</span><br><span class="line">    }</span><br><span class="line">});</span><br><span class="line">SampleClass proxy = (SampleClass) enhancer.create();</span><br><span class="line"><span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">3</span>; i++) {</span><br><span class="line">    Assert.assertEquals(<span class="string">"Hello, zhenchao"</span>, proxy.hello(<span class="string">"zhenchao"</span>));</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>输出如下：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">SampleClass$$EnhancerByCGLIB$$f6b27b53: default construct method</span><br><span class="line">proxy: SampleClass$$EnhancerByCGLIB$$f6b27b53</span><br><span class="line">SampleClass: default construct method</span><br><span class="line">SampleClass: hello method</span><br><span class="line">proxy: SampleClass$$EnhancerByCGLIB$$f6b27b53</span><br><span class="line">SampleClass: default construct method</span><br><span class="line">SampleClass: hello method</span><br><span class="line">proxy: SampleClass$$EnhancerByCGLIB$$f6b27b53</span><br><span class="line">SampleClass: default construct method</span><br><span class="line">SampleClass: hello method</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="NoOp：直接委托给被代理类执行">
+          <a href="#NoOp：直接委托给被代理类执行" class="heading-link"><i class="fas fa-link"></i></a>NoOp：直接委托给被代理类执行</h4>
+      <p>NoOp 接口未声明任何方法，如果将 callback 设置为 NoOp 实例，则每次方法调用都会直接委托给被代理方法执行：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">Enhancer enhancer = <span class="keyword">new</span> Enhancer();</span><br><span class="line">enhancer.setSuperclass(SampleClass.class);</span><br><span class="line">enhancer.setCallback(NoOp.INSTANCE);</span><br><span class="line">SampleClass proxy = (SampleClass) enhancer.create();</span><br><span class="line">Assert.assertEquals(<span class="string">"Hello, zhenchao"</span>, proxy.hello(<span class="string">"zhenchao"</span>)); <span class="comment">// 直接调用被代理的 hello 方法</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="CallbackFilter：组合多种回调">
+          <a href="#CallbackFilter：组合多种回调" class="heading-link"><i class="fas fa-link"></i></a>CallbackFilter：组合多种回调</h4>
+      <p>Dispatcher 和 NoOp 从上面的示例看起来似乎是多此一举，没有太大的用处，但是在一些场景下可以使用 CallbackFilter 将它们组合起来使用，以应对不同调用分而治之，示例如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">Enhancer enhancer = <span class="keyword">new</span> Enhancer();</span><br><span class="line">enhancer.setSuperclass(SampleClass.class);</span><br><span class="line">CallbackHelper callbackHelper = <span class="keyword">new</span> CallbackHelper(SampleClass.class, <span class="keyword">new</span> Class[<span class="number">0</span>]) {</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">protected</span> Object <span class="title">getCallback</span><span class="params">(Method method)</span> </span>{</span><br><span class="line">        <span class="keyword">if</span> (method.getDeclaringClass() != Object.class &amp;&amp; method.getReturnType() == String.class) {</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">new</span> FixedValue() {</span><br><span class="line">                <span class="meta">@Override</span></span><br><span class="line">                <span class="function"><span class="keyword">public</span> Object <span class="title">loadObject</span><span class="params">()</span> <span class="keyword">throws</span> Exception </span>{</span><br><span class="line">                    <span class="keyword">return</span> <span class="string">"Hello, cglib!"</span>; <span class="comment">// 对于被代理类中的返回类型为 String 的方法统一拦截</span></span><br><span class="line">                }</span><br><span class="line">            };</span><br><span class="line">        } <span class="keyword">else</span> {</span><br><span class="line">            <span class="keyword">return</span> NoOp.INSTANCE; <span class="comment">// 对于其它方法直接委托给被代理类</span></span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">};</span><br><span class="line">enhancer.setCallbackFilter(callbackHelper);</span><br><span class="line">enhancer.setCallbacks(callbackHelper.getCallbacks());</span><br><span class="line">SampleClass proxy = (SampleClass) enhancer.create();</span><br><span class="line">Assert.assertEquals(<span class="string">"Hello, cglib!"</span>, proxy.hello(<span class="keyword">null</span>));</span><br><span class="line">Assert.assertNotEquals(<span class="string">"Hello, cglib!"</span>, proxy.toString());</span><br><span class="line">System.out.println(<span class="string">"hash code : "</span> + proxy.hashCode()); <span class="comment">// 调用 hashCode 方法也能正常返回哈希值了</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>上面的示例我们为 SampleClass 创建了多个代理对象，如果当前是定义在被代理类中的 String 方法，则直接修改返回值，否则直接委托给被代理类执行，从而能够避免直接使用 FixedValue 一刀切的问题。这个时候我们调用 toString、hashCode 方法就能够正常返回我们期望的结果。</p>
+
+        <h3 id="工具类集合">
+          <a href="#工具类集合" class="heading-link"><i class="fas fa-link"></i></a>工具类集合</h3>
+      
+        <h4 id="Bean-工具类集合">
+          <a href="#Bean-工具类集合" class="heading-link"><i class="fas fa-link"></i></a>Bean 工具类集合</h4>
+      
+        <h5 id="ImmutableBean：创建对象的不可变引用">
+          <a href="#ImmutableBean：创建对象的不可变引用" class="heading-link"><i class="fas fa-link"></i></a>ImmutableBean：创建对象的不可变引用</h5>
+      <p>ImmutableBean 用来创建一个已有对象的不可变引用（<code>ImmutableBean#create</code> 方法），我们可以改变原对象的属性，这会反应在 CGLib 创建出来的不可变引用上，但是不允许通过不可变引用来修改原对象的值，示例如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">SampleBean bean = <span class="keyword">new</span> SampleBean();</span><br><span class="line">bean.setValue(<span class="string">"Hello world!"</span>);</span><br><span class="line"><span class="comment">// 创建一个不可变的 bean</span></span><br><span class="line">SampleBean immutableBean = (SampleBean) ImmutableBean.create(bean);</span><br><span class="line">Assert.assertEquals(<span class="string">"Hello world!"</span>, immutableBean.getValue());</span><br><span class="line"><span class="comment">// 可以通过改变原有对象来改变不变对象</span></span><br><span class="line">bean.setValue(<span class="string">"Hello world, again!"</span>);</span><br><span class="line">Assert.assertEquals(<span class="string">"Hello world, again!"</span>, immutableBean.getValue());</span><br><span class="line"><span class="comment">// 不允许在不变对象上进行修改</span></span><br><span class="line">immutableBean.setValue(<span class="string">"Hello cglib!"</span>); <span class="comment">// 错误，不允许修改不可变对象</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>上面的示例中我们通过 <code>ImmutableBean#create</code> 方法创建了一个 SampleBean 对象的不可变引用，然后我们可以修改原对象的值，相应的修改会反应到不可变引用上，但是如果我们尝试修改不可变引用则会抛出异常。</p>
+
+        <h5 id="BeanGenerator：动态创建-bean-对象">
+          <a href="#BeanGenerator：动态创建-bean-对象" class="heading-link"><i class="fas fa-link"></i></a>BeanGenerator：动态创建 bean 对象</h5>
+      <p>BeanGenerator 可以在 <strong>运行时</strong> 动态创建一个 bean 对象，这个对象可以是实际不存在的类，例如下面的示例中就创建了一个包含 name 属性的 bean 对象，并调用了相应的 setter 和 getter 方法，但是我们并没有为该 bean 显式的定义类：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">BeanGenerator generator = <span class="keyword">new</span> BeanGenerator();</span><br><span class="line">generator.addProperty(<span class="string">"name"</span>, String.class);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 动态创建一个 bean</span></span><br><span class="line">Object bean = generator.create();</span><br><span class="line"></span><br><span class="line"><span class="comment">// 执行 setter 和 getter</span></span><br><span class="line">Method setter = bean.getClass().getMethod(<span class="string">"setName"</span>, String.class);</span><br><span class="line">setter.invoke(bean, <span class="string">"zhenchao"</span>);</span><br><span class="line">Method getter = bean.getClass().getMethod(<span class="string">"getName"</span>);</span><br><span class="line">Assert.assertEquals(<span class="string">"zhenchao"</span>, getter.invoke(bean));</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h5 id="BeanCopier-在两个不同类型-bean-对象之间执行属性拷贝">
+          <a href="#BeanCopier-在两个不同类型-bean-对象之间执行属性拷贝" class="heading-link"><i class="fas fa-link"></i></a>BeanCopier: 在两个不同类型 bean 对象之间执行属性拷贝</h5>
+      <p>BeanCopier 允许在两个不同类型（也可以是相同类型） bean 对象之间执行属性拷贝（按照属性名称匹配），如果属性名称相同但是类型不同，我们可以指定转换器。示例：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">BeanCopier copier = BeanCopier.create(SampleBean.class, SampleBean2.class, <span class="keyword">false</span>);</span><br><span class="line">SampleBean bean = <span class="keyword">new</span> SampleBean();</span><br><span class="line">bean.setValue(<span class="string">"Hello cglib!"</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// SampleBean2 与 SampleBean 具备相同的类型和名称属性定义</span></span><br><span class="line">SampleBean2 bean2 = <span class="keyword">new</span> SampleBean2();</span><br><span class="line">copier.copy(bean, bean2, <span class="keyword">null</span>);</span><br><span class="line">Assert.assertEquals(<span class="string">"Hello cglib!"</span>, bean2.getValue());</span><br><span class="line"></span><br><span class="line">bean.setValue(<span class="string">"1103"</span>);</span><br><span class="line">copier = BeanCopier.create(SampleBean.class, SampleBean3.class, <span class="keyword">true</span>);</span><br><span class="line"><span class="comment">// SampleBean3 与 SampleBean 具备同名但不同类型属性定义</span></span><br><span class="line">SampleBean3 bean3 = <span class="keyword">new</span> SampleBean3();</span><br><span class="line">copier.copy(bean, bean3, <span class="keyword">new</span> Converter() {</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> Object <span class="title">convert</span><span class="params">(Object value, Class target, Object context)</span> </span>{</span><br><span class="line">        <span class="keyword">return</span> NumberUtils.isCreatable(String.valueOf(value)) ? NumberUtils.toInt(String.valueOf(value)) : value;</span><br><span class="line">    }</span><br><span class="line">});</span><br><span class="line">Assert.assertEquals(Integer.valueOf(<span class="number">1103</span>), bean3.getValue());</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h5 id="BulkBean：为-bean-创建一个代理">
+          <a href="#BulkBean：为-bean-创建一个代理" class="heading-link"><i class="fas fa-link"></i></a>BulkBean：为 bean 创建一个代理</h5>
+      <p>BulkBean 在定义时需要指定 bean 类型、setter 和 getter 方法，以及方法类型，然后我们就可以依据 BulkBean 提供的 property 相关方法来操作被代理 bean 对应的属性。示例：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">BulkBean bulkBean = BulkBean.create(</span><br><span class="line">        User.class,</span><br><span class="line">        <span class="keyword">new</span> String[] {<span class="string">"getName"</span>, <span class="string">"getAge"</span>},</span><br><span class="line">        <span class="keyword">new</span> String[] {<span class="string">"setName"</span>, <span class="string">"setAge"</span>},</span><br><span class="line">        <span class="keyword">new</span> Class[] {String.class, Integer.class});</span><br><span class="line"></span><br><span class="line">User user = <span class="keyword">new</span> User().setName(<span class="string">"zhenchao"</span>).setAge(<span class="number">26</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 通过 bulk 来获取 bean 属性</span></span><br><span class="line">Assert.assertEquals(<span class="number">2</span>, bulkBean.getPropertyValues(user).length);</span><br><span class="line">Assert.assertEquals(<span class="string">"zhenchao"</span>, bulkBean.getPropertyValues(user)[<span class="number">0</span>]);</span><br><span class="line">Assert.assertEquals(<span class="number">26</span>, bulkBean.getPropertyValues(user)[<span class="number">1</span>]);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 通过 bulk 来设置 bean 属性</span></span><br><span class="line">bulkBean.setPropertyValues(user, <span class="keyword">new</span> Object[] {<span class="string">"xiaotang"</span>, <span class="number">26</span>});</span><br><span class="line">Assert.assertEquals(<span class="string">"xiaotang"</span>, user.getName());</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h5 id="BeanMap：将一个-bean-对象转换成-map-集合">
+          <a href="#BeanMap：将一个-bean-对象转换成-map-集合" class="heading-link"><i class="fas fa-link"></i></a>BeanMap：将一个 bean 对象转换成 map 集合</h5>
+      <figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">User user = <span class="keyword">new</span> User();</span><br><span class="line">BeanMap map = BeanMap.create(user);</span><br><span class="line">user.setName(<span class="string">"zhenchao"</span>).setAge(<span class="number">26</span>);</span><br><span class="line">Assert.assertEquals(<span class="string">"zhenchao"</span>, map.get(<span class="string">"name"</span>));</span><br><span class="line">Assert.assertEquals(<span class="number">26</span>, map.get(<span class="string">"age"</span>));</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="KeyFactory：用来动态生成多个值的键">
+          <a href="#KeyFactory：用来动态生成多个值的键" class="heading-link"><i class="fas fa-link"></i></a>KeyFactory：用来动态生成多个值的键</h4>
+      <p>通常我们的键都是单一元素，而有多个值组成的键称为 multi-valued 键，KeyFactory 就是用来生成这种类型的键。首先我们需要定义一个接口，该接口必须仅包含一个 <code>Object newInstance(...)</code> 的方法，即方法名称为 newInstance，返回类型为 Object，示例：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">SampleKeyFactory</span> </span>{</span><br><span class="line">    <span class="function">Object <span class="title">newInstance</span><span class="params">(String... keys)</span></span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>然后我们就可以使用 KeyFactory 来创建 multi-values 键：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">SampleKeyFactory factory = (SampleKeyFactory) KeyFactory.create(SampleKeyFactory.class);</span><br><span class="line">Object key = factory.newInstance(<span class="string">"foo"</span>, <span class="string">"bar"</span>); <span class="comment">// 创建多值键</span></span><br><span class="line">Map&lt;Object, String&gt; map = <span class="keyword">new</span> HashMap&lt;&gt;();</span><br><span class="line">map.put(key, <span class="string">"Hello, cglib!"</span>);</span><br><span class="line">Assert.assertEquals(<span class="string">"Hello, cglib!"</span>, map.get(factory.newInstance(<span class="string">"foo"</span>, <span class="string">"bar"</span>)));</span><br><span class="line">Assert.assertFalse(map.containsKey(map.get(factory.newInstance(<span class="string">"a"</span>, <span class="string">"b"</span>))));</span><br></pre></td></tr></tbody></table></div></figure>
+<p>KeyFactory 会为键对象生成正确的 equals 方法和 hashCode 方法，从而保证键能够被正确的使用。KeyFactory 在 CGlib 的内部实现中被大量使用。</p>
+
+        <h4 id="Mixin：混合多个接口的实现">
+          <a href="#Mixin：混合多个接口的实现" class="heading-link"><i class="fas fa-link"></i></a>Mixin：混合多个接口的实现</h4>
+      <p>假设现在有两个接口：Interface1 和 Interface2，类 Class1 和 Class2 分别实现了这两个接口，如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">Interface1</span> </span>{</span><br><span class="line">    <span class="function">String <span class="title">first</span><span class="params">()</span></span>;</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Class1</span> <span class="keyword">implements</span> <span class="title">Interface1</span> </span>{</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> String <span class="title">first</span><span class="params">()</span> </span>{</span><br><span class="line">        <span class="keyword">return</span> <span class="string">"this is first"</span>;</span><br><span class="line">    }</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">Interface2</span> </span>{</span><br><span class="line">    <span class="function">String <span class="title">second</span><span class="params">()</span></span>;</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Class2</span> <span class="keyword">implements</span> <span class="title">Interface2</span> </span>{</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> String <span class="title">second</span><span class="params">()</span> </span>{</span><br><span class="line">        <span class="keyword">return</span> <span class="string">"this is second"</span>;</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>现在我们希望有一个对象能够包含 Class1 和 Class2 中所有的功能实现，则可以定义一个接口 MixinInterface 继承 Interface1 和 Interface2，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">MixinInterface</span> <span class="keyword">extends</span> <span class="title">Interface1</span>, <span class="title">Interface2</span> </span>{ }</span><br></pre></td></tr></tbody></table></div></figure>
+<p>然后我们就可以使用 Mixin 机制动态创建一个 MixinInterface 接口的实现类对象，同时指定让该对象聚合 Class1 和 Class2 实现类的功能：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">Mixin mixin = Mixin.create(</span><br><span class="line">        <span class="keyword">new</span> Class[] {Interface1.class, Interface2.class, MixinInterface.class},</span><br><span class="line">        <span class="keyword">new</span> Object[] {<span class="keyword">new</span> Class1(), <span class="keyword">new</span> Class2()});</span><br><span class="line">MixinInterface delegate = (MixinInterface) mixin;</span><br><span class="line">System.out.println(delegate.first());</span><br><span class="line">System.out.println(delegate.second());</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="StringSwitcher：建立-String-和-int-之间的映射关系">
+          <a href="#StringSwitcher：建立-String-和-int-之间的映射关系" class="heading-link"><i class="fas fa-link"></i></a>StringSwitcher：建立 String 和 int 之间的映射关系</h4>
+      <p>StringSwitcher 可以建立一个 String 数组中值到 int 数组中值依据下标对应的映射关系，例如下面的示例中 one 对应 20，two 对应 10：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">String[] strings = <span class="keyword">new</span> String[] {<span class="string">"one"</span>, <span class="string">"two"</span>};</span><br><span class="line"><span class="keyword">int</span>[] values = <span class="keyword">new</span> <span class="keyword">int</span>[] {<span class="number">20</span>, <span class="number">10</span>};</span><br><span class="line">StringSwitcher switcher = StringSwitcher.create(strings, values, <span class="keyword">true</span>);</span><br><span class="line">Assert.assertEquals(<span class="number">20</span>, switcher.intValue(<span class="string">"one"</span>));</span><br><span class="line">Assert.assertEquals(<span class="number">10</span>, switcher.intValue(<span class="string">"two"</span>));</span><br><span class="line">Assert.assertEquals(-<span class="number">1</span>, switcher.intValue(<span class="string">"three"</span>)); <span class="comment">// 默认值</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>这一机制在 java 7 之前可以被应用到 switch 中，因为 java 7 之前 switch 不支持匹配字符串，但是现在如果不是必须则不推荐使用。</p>
+
+        <h4 id="InterfaceMaker：动态创建接口">
+          <a href="#InterfaceMaker：动态创建接口" class="heading-link"><i class="fas fa-link"></i></a>InterfaceMaker：动态创建接口</h4>
+      <p>InterfaceMaker 用于动态创建一个接口，我们可以使用 Signature 来声明接口中的方法：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 方法名称，返回类型，参数类型列表</span></span><br><span class="line">Signature signature = <span class="keyword">new</span> Signature(<span class="string">"hello"</span>, Type.INT_TYPE, <span class="keyword">new</span> Type[] {Type.DOUBLE_TYPE});</span><br><span class="line">InterfaceMaker maker = <span class="keyword">new</span> InterfaceMaker();</span><br><span class="line">maker.add(signature, <span class="keyword">new</span> Type[<span class="number">0</span>]);</span><br><span class="line">Class iface = maker.create();</span><br><span class="line">Assert.assertEquals(<span class="number">1</span>, iface.getMethods().length);</span><br><span class="line">Assert.assertEquals(<span class="string">"hello"</span>, iface.getMethods()[<span class="number">0</span>].getName());</span><br><span class="line">Assert.assertEquals(<span class="keyword">int</span>.class, iface.getMethods()[<span class="number">0</span>].getReturnType());</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="MethodDelegate：建立方法间的代理关系">
+          <a href="#MethodDelegate：建立方法间的代理关系" class="heading-link"><i class="fas fa-link"></i></a>MethodDelegate：建立方法间的代理关系</h4>
+      <p>MethodDelegate 可以动态生成指定接口的实现类对象，并指定一个 bean 和无参数方法，调用接口的所有方法都会被委托给该 bean 的无参数方法：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">SampleBean bean = <span class="keyword">new</span> SampleBean().setValue(<span class="string">"Hello, cglib!"</span>);</span><br><span class="line">Interface1 delegate = (Interface1) MethodDelegate.create(bean, <span class="string">"getValue"</span>, Interface1.class);</span><br><span class="line"><span class="comment">// 调用接口的 Interface1#first 方法本质上在调用 SampleBean#getValue 方法</span></span><br><span class="line">Assert.assertEquals(<span class="string">"Hello, cglib!"</span>, delegate.first());</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="MulticastDelegate：广播调用指定接口方法到注册的实现类">
+          <a href="#MulticastDelegate：广播调用指定接口方法到注册的实现类" class="heading-link"><i class="fas fa-link"></i></a>MulticastDelegate：广播调用指定接口方法到注册的实现类</h4>
+      <p>MulticastDelegate 允许我们在调用指定接口的某个方法时，会将其广播给所有的注册的实现类实例，即调用所有注册的实现类实例的相应方法。</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">Provider</span> </span>{</span><br><span class="line">    <span class="function">String <span class="title">setValue</span><span class="params">(String value)</span></span>;</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">SampleProvider</span> <span class="keyword">implements</span> <span class="title">Provider</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> String name;</span><br><span class="line">    <span class="keyword">private</span> String value;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">SampleProvider</span><span class="params">(String name)</span> </span>{</span><br><span class="line">        <span class="keyword">this</span>.name = name;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> String <span class="title">setValue</span><span class="params">(String value)</span> </span>{</span><br><span class="line">        <span class="keyword">this</span>.value = value;</span><br><span class="line">        <span class="keyword">return</span> name;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> String <span class="title">getValue</span><span class="params">()</span> </span>{</span><br><span class="line">        <span class="keyword">return</span> value;</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上面我们定义了一个 Provider 接口，该接口声明了一个 setValue 方法，类 SampleProvider 实现了该接口。MulticastDelegate 允许我们在调用 <code>Provider#setValue</code> 方法时，将其广播应用到实现类 SampleProvider 所有在册的实例上：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">MulticastDelegate delegate = MulticastDelegate.create(Provider.class);</span><br><span class="line">SampleProvider provider1 = <span class="keyword">new</span> SampleProvider(<span class="string">"provider a"</span>);</span><br><span class="line">SampleProvider provider2 = <span class="keyword">new</span> SampleProvider(<span class="string">"provider b"</span>);</span><br><span class="line">delegate = delegate.add(provider1);</span><br><span class="line">delegate = delegate.add(provider2);</span><br><span class="line"></span><br><span class="line">Provider provider = (Provider) delegate;</span><br><span class="line">System.out.println(provider.setValue(<span class="string">"Hello world!"</span>)); <span class="comment">// 仅返回最后一个实例的返回值</span></span><br><span class="line"></span><br><span class="line">Assert.assertEquals(<span class="string">"Hello world!"</span>, provider1.getValue());</span><br><span class="line">Assert.assertEquals(<span class="string">"Hello world!"</span>, provider2.getValue());</span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>注意</strong> ：该机制要求对应的接口只能声明一个方法，如果对应的方法有返回值，则只能拿到最后一个注册实例的返回值。</p>
+
+        <h4 id="ConstructorDelegate：字节码层面的工厂方法">
+          <a href="#ConstructorDelegate：字节码层面的工厂方法" class="heading-link"><i class="fas fa-link"></i></a>ConstructorDelegate：字节码层面的工厂方法</h4>
+      <p>ConstructorDelegate 允许调用指定类型的指定构造方法来创建类型对象，首先我们需要声明一个 <code>Object newInstance(...)</code> 方法的接口（参数数目和类型没有限制，但只能有一个 newInstance 方法）：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">UserConstructorDelegate</span> </span>{</span><br><span class="line">    <span class="function">Object <span class="title">newInstance</span><span class="params">(String name, <span class="keyword">int</span> age)</span></span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>假设我们有一个 User 类，该类刚好有一个构造方法 <code>User(String name, int age)</code>，接下来我们就可以使用 ConstructorDelegate 来构造 User 对象：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">UserConstructorDelegate delegate = (UserConstructorDelegate) ConstructorDelegate.create(User.class, UserConstructorDelegate.class);</span><br><span class="line">User user = (User) delegate.newInstance(<span class="string">"zhenchao"</span>, <span class="number">28</span>);</span><br><span class="line">Assert.assertTrue(User.class.isAssignableFrom(user.getClass()));</span><br><span class="line">Assert.assertEquals(<span class="string">"zhenchao"</span>, user.getName());</span><br><span class="line">Assert.assertEquals(<span class="number">28</span>, user.getAge().intValue());</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="ParallelSorter：更加快速的多维数组排序器">
+          <a href="#ParallelSorter：更加快速的多维数组排序器" class="heading-link"><i class="fas fa-link"></i></a>ParallelSorter：更加快速的多维数组排序器</h4>
+      <p>ParallelSorter 声明对于多维数组进行排序具备更加高效的性能，示例：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">Integer[][] value = {</span><br><span class="line">        {<span class="number">4</span>, <span class="number">3</span>, <span class="number">9</span>, <span class="number">0</span>},</span><br><span class="line">        {<span class="number">2</span>, <span class="number">1</span>, <span class="number">6</span>, <span class="number">0</span>}</span><br><span class="line">};</span><br><span class="line">ParallelSorter.create(value).mergeSort(<span class="number">0</span>);</span><br><span class="line"><span class="keyword">for</span> (<span class="keyword">final</span> Integer[] v : value) {</span><br><span class="line">    System.out.println(Arrays.toString(v));</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="FastClass：更快的反射方法调用">
+          <a href="#FastClass：更快的反射方法调用" class="heading-link"><i class="fas fa-link"></i></a>FastClass：更快的反射方法调用</h4>
+      <p>我们在使用 java 反射时往往会顾忌反射执行的性能开销，而 FastClass 声明相对于 java 原生反射调用而言具备更加高效的性能，所以可以将其作为反射场景下部分 Class 对象功能的替代，使用示例：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">FastClass fastClass = FastClass.create(SampleBean.class);</span><br><span class="line">SampleBean bean = <span class="keyword">new</span> SampleBean();</span><br><span class="line">FastMethod fastMethod = fastClass.getMethod(SampleBean.class.getMethod(<span class="string">"hello"</span>, String.class));</span><br><span class="line">Assert.assertEquals(<span class="string">"hello, zhenchao"</span>, fastMethod.invoke(bean, <span class="keyword">new</span> Object[] {<span class="string">"zhenchao"</span>}));</span><br><span class="line">fastMethod = fastClass.getMethod(SampleBean.class.getMethod(<span class="string">"getValue"</span>));</span><br><span class="line">bean.setValue(<span class="string">"Hi, 2019~"</span>);</span><br><span class="line">Assert.assertEquals(<span class="string">"Hi, 2019~"</span>, fastMethod.invoke(bean, <span class="keyword">new</span> Object[<span class="number">0</span>]));</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上面的示例中我们使用 FastClass 创建了 SampleBean 的类 Class 对象，并利用该对象反射调用执行 SampleBean 的相关方法。FastClass 主要用于对方法的反射调用（包括构造方法），而对于字段的操作则没有提供相应的实现。</p>
+<p>FastClass 是否真的比 java 原生反射调用快这里不做讨论，<span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="http://mydailyjava.blogspot.com/2013/11/cglib-missing-manual.html">CGLib: The missing manual</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 给到的观点是，现代 JVM 针对原生反射调用已经进行了优化，所以 FastClass 的优势并不明显。原文如下：</p>
+<blockquote>
+<p><strong>How can the FastClass be faster than normal reflection?</strong></p>
+<p>Java reflection is executed by JNI where method invocations are executed by some C-code. The FastClass on the other side creates some byte code that calls the method directly from within the JVM. However, the newer versions of the HotSpot JVM (and probably many other modern JVMs) know a concept called inflation where the JVM will <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="http://www.docjar.com/html/api/sun/reflect/ReflectionFactory.java.html">translate reflective method calls</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> into <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="http://www.docjar.com/html/api/sun/reflect/NativeMethodAccessorImpl.java.html">native version</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>‘s of FastClass when a reflective method is executed often enough. You can even control this behavior (at least on a HotSpot JVM) with setting the <code>sun.reflect.inflationThreshold</code> property to a lower value. (The default is 15.) This property determines after how many reflective invocations a JNI call should be substituted by a byte code instrumented version. I would therefore recommend to not use FastClass on modern JVMs, it can however fine-tune performance on older Java virtual machines.</p>
+</blockquote>
+
+        <h3 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h3>
+      <ul>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="http://mydailyjava.blogspot.com/2013/11/cglib-missing-manual.html">CGLib: The missing manual</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/cglib/cglib/wiki">CGLib WIKI</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+</ul>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2019/01/01/java/cglib-guide/">https://plotor.github.io/2019/01/01/java/cglib-guide/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/CGlib/">CGlib</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2019/01/14/java/jmockit/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">JMockit：单元测试利器</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2018/11/21/storm/storm-ack/"><span class="paginator-prev__text">JStorm 源码解析：ACK 机制</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8A%A8%E6%80%81%E4%BB%A3%E7%90%86%EF%BC%9AEnhancer"><span class="toc-number">1.</span> <span class="toc-text">
+          动态代理：Enhancer</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#FixedValue%EF%BC%9A%E6%9B%BF%E6%8D%A2%E5%AE%9E%E4%BE%8B%E6%96%B9%E6%B3%95%E8%BF%94%E5%9B%9E%E5%80%BC"><span class="toc-number">1.1.</span> <span class="toc-text">
+          FixedValue：替换实例方法返回值</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#InvocationHandler%EF%BC%9A%E6%8B%A6%E6%88%AA%E6%96%B9%E6%B3%95%E6%97%B6%E6%8F%90%E4%BE%9B%E8%8E%B7%E5%8F%96%E6%96%B9%E6%B3%95%E7%9A%84%E7%9B%B8%E5%85%B3%E4%BF%A1%E6%81%AF"><span class="toc-number">1.2.</span> <span class="toc-text">
+          InvocationHandler：拦截方法时提供获取方法的相关信息</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#MethodInterceptor%EF%BC%9AInvocationHandler-%E7%9A%84%E5%A2%9E%E5%BC%BA%E7%89%88%E6%9C%AC"><span class="toc-number">1.3.</span> <span class="toc-text">
+          MethodInterceptor：InvocationHandler 的增强版本</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#LazyLoader%EF%BC%9A%E4%BB%85%E5%9C%A8%E7%AC%AC%E4%B8%80%E6%AC%A1%E8%B0%83%E7%94%A8%E6%96%B9%E6%B3%95%E6%97%B6%E5%88%9B%E5%BB%BA%E4%BB%A3%E7%90%86%E5%AF%B9%E8%B1%A1"><span class="toc-number">1.4.</span> <span class="toc-text">
+          LazyLoader：仅在第一次调用方法时创建代理对象</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#Dispatcher-%E6%AF%8F%E6%AC%A1%E8%B0%83%E7%94%A8%E8%A2%AB%E4%BB%A3%E7%90%86%E6%96%B9%E6%B3%95%E6%97%B6%E9%83%BD%E4%BC%9A%E5%88%9B%E5%BB%BA%E4%BB%A3%E7%90%86%E5%AF%B9%E8%B1%A1"><span class="toc-number">1.5.</span> <span class="toc-text">
+          Dispatcher: 每次调用被代理方法时都会创建代理对象</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#NoOp%EF%BC%9A%E7%9B%B4%E6%8E%A5%E5%A7%94%E6%89%98%E7%BB%99%E8%A2%AB%E4%BB%A3%E7%90%86%E7%B1%BB%E6%89%A7%E8%A1%8C"><span class="toc-number">1.6.</span> <span class="toc-text">
+          NoOp：直接委托给被代理类执行</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#CallbackFilter%EF%BC%9A%E7%BB%84%E5%90%88%E5%A4%9A%E7%A7%8D%E5%9B%9E%E8%B0%83"><span class="toc-number">1.7.</span> <span class="toc-text">
+          CallbackFilter：组合多种回调</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%B7%A5%E5%85%B7%E7%B1%BB%E9%9B%86%E5%90%88"><span class="toc-number">2.</span> <span class="toc-text">
+          工具类集合</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#Bean-%E5%B7%A5%E5%85%B7%E7%B1%BB%E9%9B%86%E5%90%88"><span class="toc-number">2.1.</span> <span class="toc-text">
+          Bean 工具类集合</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#ImmutableBean%EF%BC%9A%E5%88%9B%E5%BB%BA%E5%AF%B9%E8%B1%A1%E7%9A%84%E4%B8%8D%E5%8F%AF%E5%8F%98%E5%BC%95%E7%94%A8"><span class="toc-number">2.1.1.</span> <span class="toc-text">
+          ImmutableBean：创建对象的不可变引用</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#BeanGenerator%EF%BC%9A%E5%8A%A8%E6%80%81%E5%88%9B%E5%BB%BA-bean-%E5%AF%B9%E8%B1%A1"><span class="toc-number">2.1.2.</span> <span class="toc-text">
+          BeanGenerator：动态创建 bean 对象</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#BeanCopier-%E5%9C%A8%E4%B8%A4%E4%B8%AA%E4%B8%8D%E5%90%8C%E7%B1%BB%E5%9E%8B-bean-%E5%AF%B9%E8%B1%A1%E4%B9%8B%E9%97%B4%E6%89%A7%E8%A1%8C%E5%B1%9E%E6%80%A7%E6%8B%B7%E8%B4%9D"><span class="toc-number">2.1.3.</span> <span class="toc-text">
+          BeanCopier: 在两个不同类型 bean 对象之间执行属性拷贝</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#BulkBean%EF%BC%9A%E4%B8%BA-bean-%E5%88%9B%E5%BB%BA%E4%B8%80%E4%B8%AA%E4%BB%A3%E7%90%86"><span class="toc-number">2.1.4.</span> <span class="toc-text">
+          BulkBean：为 bean 创建一个代理</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#BeanMap%EF%BC%9A%E5%B0%86%E4%B8%80%E4%B8%AA-bean-%E5%AF%B9%E8%B1%A1%E8%BD%AC%E6%8D%A2%E6%88%90-map-%E9%9B%86%E5%90%88"><span class="toc-number">2.1.5.</span> <span class="toc-text">
+          BeanMap：将一个 bean 对象转换成 map 集合</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#KeyFactory%EF%BC%9A%E7%94%A8%E6%9D%A5%E5%8A%A8%E6%80%81%E7%94%9F%E6%88%90%E5%A4%9A%E4%B8%AA%E5%80%BC%E7%9A%84%E9%94%AE"><span class="toc-number">2.2.</span> <span class="toc-text">
+          KeyFactory：用来动态生成多个值的键</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#Mixin%EF%BC%9A%E6%B7%B7%E5%90%88%E5%A4%9A%E4%B8%AA%E6%8E%A5%E5%8F%A3%E7%9A%84%E5%AE%9E%E7%8E%B0"><span class="toc-number">2.3.</span> <span class="toc-text">
+          Mixin：混合多个接口的实现</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#StringSwitcher%EF%BC%9A%E5%BB%BA%E7%AB%8B-String-%E5%92%8C-int-%E4%B9%8B%E9%97%B4%E7%9A%84%E6%98%A0%E5%B0%84%E5%85%B3%E7%B3%BB"><span class="toc-number">2.4.</span> <span class="toc-text">
+          StringSwitcher：建立 String 和 int 之间的映射关系</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#InterfaceMaker%EF%BC%9A%E5%8A%A8%E6%80%81%E5%88%9B%E5%BB%BA%E6%8E%A5%E5%8F%A3"><span class="toc-number">2.5.</span> <span class="toc-text">
+          InterfaceMaker：动态创建接口</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#MethodDelegate%EF%BC%9A%E5%BB%BA%E7%AB%8B%E6%96%B9%E6%B3%95%E9%97%B4%E7%9A%84%E4%BB%A3%E7%90%86%E5%85%B3%E7%B3%BB"><span class="toc-number">2.6.</span> <span class="toc-text">
+          MethodDelegate：建立方法间的代理关系</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#MulticastDelegate%EF%BC%9A%E5%B9%BF%E6%92%AD%E8%B0%83%E7%94%A8%E6%8C%87%E5%AE%9A%E6%8E%A5%E5%8F%A3%E6%96%B9%E6%B3%95%E5%88%B0%E6%B3%A8%E5%86%8C%E7%9A%84%E5%AE%9E%E7%8E%B0%E7%B1%BB"><span class="toc-number">2.7.</span> <span class="toc-text">
+          MulticastDelegate：广播调用指定接口方法到注册的实现类</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#ConstructorDelegate%EF%BC%9A%E5%AD%97%E8%8A%82%E7%A0%81%E5%B1%82%E9%9D%A2%E7%9A%84%E5%B7%A5%E5%8E%82%E6%96%B9%E6%B3%95"><span class="toc-number">2.8.</span> <span class="toc-text">
+          ConstructorDelegate：字节码层面的工厂方法</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#ParallelSorter%EF%BC%9A%E6%9B%B4%E5%8A%A0%E5%BF%AB%E9%80%9F%E7%9A%84%E5%A4%9A%E7%BB%B4%E6%95%B0%E7%BB%84%E6%8E%92%E5%BA%8F%E5%99%A8"><span class="toc-number">2.9.</span> <span class="toc-text">
+          ParallelSorter：更加快速的多维数组排序器</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#FastClass%EF%BC%9A%E6%9B%B4%E5%BF%AB%E7%9A%84%E5%8F%8D%E5%B0%84%E6%96%B9%E6%B3%95%E8%B0%83%E7%94%A8"><span class="toc-number">2.10.</span> <span class="toc-text">
+          FastClass：更快的反射方法调用</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">3.</span> <span class="toc-text">
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

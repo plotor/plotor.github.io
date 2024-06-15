@@ -1,0 +1,476 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="CopyOnWriteArrayList 是线程安全的 List 实现，底层依赖于数组作为存储结构，并基于 写时复制（CoW: Copy-on-Write）机制 保证线程安全性。CopyOnWriteArrayList 在执行修改操作时会将底层数组复制一份，并在副本上实施修改，最后再更新回底层数组。虽然这样的实现比较消耗内存，但却带来了较高的执行效率，属于拿空间换时间。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="深入理解 JUC：CopyOnWriteArrayList">
+<meta property="og:url" content="https://plotor.github.io/2018/09/05/java/juc-cow-array-list/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="CopyOnWriteArrayList 是线程安全的 List 实现，底层依赖于数组作为存储结构，并基于 写时复制（CoW: Copy-on-Write）机制 保证线程安全性。CopyOnWriteArrayList 在执行修改操作时会将底层数组复制一份，并在副本上实施修改，最后再更新回底层数组。虽然这样的实现比较消耗内存，但却带来了较高的执行效率，属于拿空间换时间。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2018-09-05T09:38:39.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.959Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="并发编程">
+<meta name="twitter:card" content="summary"><title>深入理解 JUC：CopyOnWriteArrayList | 指  间</title><link ref="canonical" href="https://plotor.github.io/2018/09/05/java/juc-cow-array-list/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">深入理解 JUC：CopyOnWriteArrayList</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2018-09-05</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">2.2k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">9分</span></span></div></header><div class="post-body"><p>CopyOnWriteArrayList 是线程安全的 List 实现，底层依赖于数组作为存储结构，并基于 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Copy-on-write">写时复制（CoW: Copy-on-Write）机制</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 保证线程安全性。CopyOnWriteArrayList 在执行修改操作时会将底层数组复制一份，并在副本上实施修改，最后再更新回底层数组。虽然这样的实现比较消耗内存，但却带来了较高的执行效率，属于拿空间换时间。<a id="more"></a></p>
+<p>除了 CopyOnWriteArrayList，在 JUC 包中还有另外一个基于 CoW 机制实现的线程安全组件，即 CopyOnWriteArraySet，不过 CopyOnWriteArraySet 本质上还是基于 CopyOnWriteArrayList 实现的，所以理解了 CopyOnWriteArrayList 的实现原理，也就同时理解了 CopyOnWriteArraySet 的实现原理。</p>
+
+        <h3 id="CopyOnWriteArrayList-实现内幕">
+          <a href="#CopyOnWriteArrayList-实现内幕" class="heading-link"><i class="fas fa-link"></i></a>CopyOnWriteArrayList 实现内幕</h3>
+      <p>CopyOnWriteArrayList 实现自 List 接口，所以我们可以像使用 ArrayList 一样使用 CopyOnWriteArrayList。CopyOnWriteArrayList 类的字段定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">CopyOnWriteArrayList</span>&lt;<span class="title">E</span>&gt; <span class="keyword">implements</span> <span class="title">List</span>&lt;<span class="title">E</span>&gt;, <span class="title">RandomAccess</span>, <span class="title">Cloneable</span>, <span class="title">Serializable</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 支撑同步操作的重入锁 */</span></span><br><span class="line">    <span class="keyword">final</span> <span class="keyword">transient</span> ReentrantLock lock = <span class="keyword">new</span> ReentrantLock();</span><br><span class="line">    <span class="comment">/** 底层数组 */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">transient</span> <span class="keyword">volatile</span> Object[] array;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// ... 省略方法定义</span></span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>其中 <code>CopyOnWriteArrayList#array</code> 数组是 CopyOnWriteArrayList 的底层存储结构，CopyOnWriteArrayList 依赖于该数组对数据进行存储。字段 <code>CopyOnWriteArrayList#lock</code> 对应 ReentrantLock 类型，用于控制多个线程对底层数组的修改操作，保证同一时间只有一个线程对底层数组进行修改。CopyOnWriteArrayList 提供了相应的 <code>CopyOnWriteArrayList#getArray</code> 和 <code>CopyOnWriteArrayList#setArray</code> 方法用于访问该字段。</p>
+<p>CopyOnWriteArrayList 定义了多个重载的构造方法来初始化构造一个 CopyOnWriteArrayList 对象，实现上比较简单。下面重点看一下 CopyOnWriteArrayList 之于 List 接口中声明的核心方法实现，即增（add）、删（remove）、改（set）、查（get）操作。</p>
+<p>首先来看一下 <strong>添加元素</strong> 的操作，CopyOnWriteArrayList 定义了多个重载版本的 <code>CopyOnWriteArrayList#add</code> 的方法实现，包括：</p>
+<ul>
+<li><code>CopyOnWriteArrayList#add(E)</code></li>
+<li><code>CopyOnWriteArrayList#add(int, E)</code></li>
+<li><code>CopyOnWriteArrayList#addIfAbsent(E)</code></li>
+<li><code>CopyOnWriteArrayList#addAll(Collection&lt;? extends E&gt;)</code></li>
+<li><code>CopyOnWriteArrayList#addAll(int, Collection&lt;? extends E&gt;)</code></li>
+<li><code>CopyOnWriteArrayList#addAllAbsent</code></li>
+</ul>
+<p>这些方法在实现上思想都是相通的，下面以 <code>CopyOnWriteArrayList#add(E)</code> 方法为例分析往 CopyOnWriteArrayList 中添加元素的运行机制，方法实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">add</span><span class="params">(E e)</span> </span>{</span><br><span class="line">    <span class="keyword">final</span> ReentrantLock lock = <span class="keyword">this</span>.lock;</span><br><span class="line">    <span class="comment">// 加锁，保证同一时间只有一个线程修改底层数组</span></span><br><span class="line">    lock.lock();</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="comment">// 获取底层数组</span></span><br><span class="line">        Object[] elements = <span class="keyword">this</span>.getArray();</span><br><span class="line">        <span class="keyword">int</span> len = elements.length;</span><br><span class="line">        <span class="comment">// 复制出一份新的数组，长度加 1，以容纳待添加的元素</span></span><br><span class="line">        Object[] newElements = Arrays.copyOf(elements, len + <span class="number">1</span>);</span><br><span class="line">        newElements[len] = e;</span><br><span class="line">        <span class="comment">// 更新底层数组</span></span><br><span class="line">        <span class="keyword">this</span>.setArray(newElements);</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">    } <span class="keyword">finally</span> {</span><br><span class="line">        <span class="comment">// 释放锁</span></span><br><span class="line">        lock.unlock();</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>前面我们已经提及到 CopyOnWriteArrayList 对于数据的修改都是在副本上进行的，上述方法的实现印证了这一点。当往 CopyOnWriteArrayList 中添加一个元素时，方法的执行流程如下：</p>
+<ol>
+<li>获取锁对象，保证同一时间只有一个线程在执行修改操作；</li>
+<li>获取底层数组，基于该数组拷贝出一个新的数组，新数组长度加 1；</li>
+<li>追加待添加元素到新数组的末尾位置，并更新底层数组；</li>
+<li>释放锁对象。</li>
+</ol>
+<p>再来看一下 <strong>获取元素</strong> 的操作，CopyOnWriteArrayList 仅定义了一个 <code>CopyOnWriteArrayList#get</code> 方法，用于获取指定下标的元素值，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> E <span class="title">get</span><span class="params">(<span class="keyword">int</span> index)</span> </span>{</span><br><span class="line">    <span class="comment">// 直接返回底层数组 index 下标的元素</span></span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">this</span>.get(<span class="keyword">this</span>.getArray(), index);</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">private</span> E <span class="title">get</span><span class="params">(Object[] a, <span class="keyword">int</span> index)</span> </span>{</span><br><span class="line">    <span class="keyword">return</span> (E) a[index];</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>实现上比较简单，这里主要强调一下弱一致性问题，也就说 get 操作不一定能够返回最新的值。考虑这样一个场景，假设有线程 A 和 B，其中 A 调用 get 方法获取数据，B 调用 add 方法添加数据，当前数组长度为 5：</p>
+<ol>
+<li>线程 B 获取底层数组 x，然后拷贝出一个长度为 6 的新数组 y，并将待追加的元素设置到 <code>y[5]</code> 的位置，此时还未更新底层数组；</li>
+<li>因为读操作无需获取锁，如果此时线程 A 尝试获取下标为 5 的元素，则会抛出 IndexOutOfBoundsException，因为此时 A 获取到的底层数组还是 x，还没有更新成 y。</li>
+</ol>
+<p>然而，大部分时候这种弱一致性并不会对我们的业务造成影响，但是我们需要知道其存在，以便在发生错误时快速定位问题。</p>
+<p>继续来看一下 <strong>修改元素</strong> 的操作，CopyOnWriteArrayList 同样仅定义了一个 <code>CopyOnWriteArrayList#set</code> 方法，用于修改指定下标的元素值，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> E <span class="title">set</span><span class="params">(<span class="keyword">int</span> index, E element)</span> </span>{</span><br><span class="line">    <span class="keyword">final</span> ReentrantLock lock = <span class="keyword">this</span>.lock;</span><br><span class="line">    <span class="comment">// 获取锁</span></span><br><span class="line">    lock.lock();</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="comment">// 获取底层数组</span></span><br><span class="line">        Object[] elements = <span class="keyword">this</span>.getArray();</span><br><span class="line">        <span class="comment">// 获取数组 index 下标值</span></span><br><span class="line">        E oldValue = <span class="keyword">this</span>.get(elements, index);</span><br><span class="line">        <span class="comment">// 待更新的元素值与数组中指定位置的元素值不同</span></span><br><span class="line">        <span class="keyword">if</span> (oldValue != element) {</span><br><span class="line">            <span class="keyword">int</span> len = elements.length;</span><br><span class="line">            Object[] newElements = Arrays.copyOf(elements, len);</span><br><span class="line">            <span class="comment">// 更新 index 位置的元素值</span></span><br><span class="line">            newElements[index] = element;</span><br><span class="line">            <span class="comment">// 更新底层数组</span></span><br><span class="line">            <span class="keyword">this</span>.setArray(newElements);</span><br><span class="line">        } <span class="keyword">else</span> {</span><br><span class="line">            <span class="comment">// Not quite a no-op; ensures volatile write semantics</span></span><br><span class="line">            <span class="comment">// 待更新的元素值与数组中指定位置的元素值相同，无需执行更新操作</span></span><br><span class="line">            <span class="keyword">this</span>.setArray(elements); <span class="comment">// 保证 volatile 写语义</span></span><br><span class="line">        }</span><br><span class="line">        <span class="keyword">return</span> oldValue;</span><br><span class="line">    } <span class="keyword">finally</span> {</span><br><span class="line">        <span class="comment">// 释放锁</span></span><br><span class="line">        lock.unlock();</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述方法的执行逻辑如代码注释，比较简单，但是当修改的目标元素值前后未发生变化时还是会调用 <code>CopyOnWriteArrayList#setArray</code> 方法更新一下底层数组，用意何在呢？</p>
+<p>代码中给出的理由是 “Not quite a no-op; ensures volatile write semantics”，也就是说这里的更新操作不完全是一个无意义的操作，可以用来保证 volatile 的写语义，因为底层数组 array 是 volatile 类型。要理解其用意，可以参考 《<span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://www.infoq.cn/article/java_memory_model">深入理解 java 内存模型</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>》一书中的示例（稍作修改）：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">int</span> a = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">private</span> <span class="keyword">volatile</span> <span class="keyword">boolean</span> flag = <span class="keyword">true</span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">writer</span><span class="params">()</span> </span>{</span><br><span class="line">    a = <span class="number">1</span>; <span class="comment">// 1</span></span><br><span class="line">    flag = <span class="keyword">true</span>; <span class="comment">// 2</span></span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">reader</span><span class="params">()</span> </span>{</span><br><span class="line">    <span class="keyword">if</span> (flag) { <span class="comment">// 3</span></span><br><span class="line">        <span class="keyword">int</span> i = a; <span class="comment">// 4</span></span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>假设线程 A 执行 writer 方法之后，线程 B 执行 reader 方法。根据 happens-before 原则，这个过程建立的 happens-before 关系为：</p>
+<ol>
+<li>根据程序次序规则，1 happens before 2; 3 happens before 4。</li>
+<li>根据 volatile 规则，2 happens before 3。</li>
+<li>根据 happens before 的传递性规则，1 happens before 4。</li>
+</ol>
+<p>这样就能保证线程 B 在 reader 方法中读取 a 变量时能够看见线程 A 在 writer 方法中对 a 的修改，即使在 writer 方法中对变量 flag 的修改同样看似多余。</p>
+<p>最后来看一下 <strong>删除元素</strong> 的操作，CopyOnWriteArrayList 针对删除操作定义了多个重载版本的 <code>CopyOnWriteArrayList#remove</code> 的方法实现，包括：</p>
+<ul>
+<li><code>CopyOnWriteArrayList#remove(int)</code></li>
+<li><code>CopyOnWriteArrayList#remove(java.lang.Object)</code></li>
+<li><code>CopyOnWriteArrayList#removeAll</code></li>
+<li><code>CopyOnWriteArrayList#removeIf</code></li>
+</ul>
+<p>下面以 <code>CopyOnWriteArrayList#remove(int)</code> 方法为例分析从 CopyOnWriteArrayList 中删除元素的运行机制，方法实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> E <span class="title">remove</span><span class="params">(<span class="keyword">int</span> index)</span> </span>{</span><br><span class="line">    <span class="keyword">final</span> ReentrantLock lock = <span class="keyword">this</span>.lock;</span><br><span class="line">    <span class="comment">// 获取锁</span></span><br><span class="line">    lock.lock();</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="comment">// 获取底层数组</span></span><br><span class="line">        Object[] elements = <span class="keyword">this</span>.getArray();</span><br><span class="line">        <span class="keyword">int</span> len = elements.length;</span><br><span class="line">        <span class="comment">// 获取指定下标元素</span></span><br><span class="line">        E oldValue = <span class="keyword">this</span>.get(elements, index);</span><br><span class="line">        <span class="keyword">int</span> numMoved = len - index - <span class="number">1</span>;</span><br><span class="line">        <span class="comment">// 如果是删除最后一个元素，则直接 copy 即可，无需移动</span></span><br><span class="line">        <span class="keyword">if</span> (numMoved == <span class="number">0</span>) {</span><br><span class="line">            <span class="keyword">this</span>.setArray(Arrays.copyOf(elements, len - <span class="number">1</span>));</span><br><span class="line">        } <span class="keyword">else</span> {</span><br><span class="line">            <span class="comment">// 否则，分两次进行拷贝，去掉原 index 下标的元素</span></span><br><span class="line">            Object[] newElements = <span class="keyword">new</span> Object[len - <span class="number">1</span>];</span><br><span class="line">            System.arraycopy(elements, <span class="number">0</span>, newElements, <span class="number">0</span>, index);</span><br><span class="line">            System.arraycopy(elements, index + <span class="number">1</span>, newElements, index, numMoved);</span><br><span class="line">            <span class="keyword">this</span>.setArray(newElements);</span><br><span class="line">        }</span><br><span class="line">        <span class="keyword">return</span> oldValue;</span><br><span class="line">    } <span class="keyword">finally</span> {</span><br><span class="line">        <span class="comment">// 释放锁</span></span><br><span class="line">        lock.unlock();</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>删除的逻辑本质上还是在副本上进行，如上述代码注释，其过程与前面分析的操作类似。</p>
+<p>除了上面分析的核心操作方法，CopyOnWriteArrayList 还实现了 <code>CopyOnWriteArrayList#iterator</code> 方法返回一个迭代器，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> Iterator&lt;E&gt; <span class="title">iterator</span><span class="params">()</span> </span>{</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">new</span> COWIterator&lt;E&gt;(<span class="keyword">this</span>.getArray(), <span class="number">0</span>);</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>关于 COWIterator 的实现不再继续深入，但是需要知晓的一点是，COWIterator 不支持在迭代过程中修改 CopyOnWriteArrayList 中的元素，对应的 <code>COWIterator#remove</code>、<code>COWIterator#set</code> 和 <code>COWIterator#add</code> 方法均直接抛出 UnsupportedOperationException 异常。此外，方法 <code>CopyOnWriteArrayList#iterator</code> 返回的是一个弱一致性迭代器，即在迭代期间，其它线程对于底层数组的修改并不会被迭代器看见。</p>
+
+        <h3 id="总结">
+          <a href="#总结" class="heading-link"><i class="fas fa-link"></i></a>总结</h3>
+      <p>本文分析了 CopyOnWriteArrayList 的设计与实现，CopyOnWriteArrayList 对于数据的修改操作均在副本上完成，并基于 ReentrantLock 保证同一时间只有一个线程能够对底层数组执行修改操作。线程在读取 CopyOnWriteArrayList 时都是拿到底层数组的一个最新快照，并在快照上执行读取操作，所以期间的修改结果对于读操作是不可见的，这也就导致了读写的弱一致性。但是对于读多写少的场景来说，CopyOnWriteArrayList 能够在保证线程安全的同时媲美 ArrayList 的性能。</p>
+
+        <h3 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h3>
+      <ol>
+<li>JDK 1.8 源码</li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://www.infoq.cn/article/java_memory_model">深入理解 java 内存模型</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+</ol>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2018/09/05/java/juc-cow-array-list/">https://plotor.github.io/2018/09/05/java/juc-cow-array-list/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Java/">Java</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/">并发编程</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2018/09/10/java/juc-concurrent-linked-queue/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">深入理解 JUC：ConcurrentLinkedQueue</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2018/09/04/java/juc-semaphore/"><span class="paginator-prev__text">深入理解 JUC：Semaphore</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#CopyOnWriteArrayList-%E5%AE%9E%E7%8E%B0%E5%86%85%E5%B9%95"><span class="toc-number">1.</span> <span class="toc-text">
+          CopyOnWriteArrayList 实现内幕</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">2.</span> <span class="toc-text">
+          总结</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">3.</span> <span class="toc-text">
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

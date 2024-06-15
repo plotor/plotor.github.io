@@ -1,0 +1,583 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="面试官 ：小桂子是吧，看你简历上写着精通 java 编程，想必对 java 已经掌握的很好了吧？ 小桂子 ：系呀系呀，一直都用 java 写 bug 呢~ 面试官 ：那你说说 jdk1.7 之前 HashMap 的底层实现原理呗，另外为什么在高并发场景下可能造成较高的 CPU 占用？ 小桂子 ：这个。。。好像是红黑树？ 面试官 ：哦？你说的是 jdk1.8 之后的设计，既然你提到了，那就聊聊红黑">
+<meta property="og:type" content="article">
+<meta property="og:title" content="那些年，面试被虐过的红黑树">
+<meta property="og:url" content="https://plotor.github.io/2018/03/25/algorithm/rb-tree/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="面试官 ：小桂子是吧，看你简历上写着精通 java 编程，想必对 java 已经掌握的很好了吧？ 小桂子 ：系呀系呀，一直都用 java 写 bug 呢~ 面试官 ：那你说说 jdk1.7 之前 HashMap 的底层实现原理呗，另外为什么在高并发场景下可能造成较高的 CPU 占用？ 小桂子 ：这个。。。好像是红黑树？ 面试官 ：哦？你说的是 jdk1.8 之后的设计，既然你提到了，那就聊聊红黑">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://plotor.github.io/images/material/liu.png">
+<meta property="og:image" content="https://plotor.github.io/images/2018/rbt.png">
+<meta property="og:image" content="https://plotor.github.io/images/2018/rbt_1.png">
+<meta property="og:image" content="https://plotor.github.io/images/2018/rbt_2.png">
+<meta property="og:image" content="https://plotor.github.io/images/2018/rbt_3.png">
+<meta property="og:image" content="https://plotor.github.io/images/2018/rbt_i_1.png">
+<meta property="og:image" content="https://plotor.github.io/images/2018/rbt_i_2.png">
+<meta property="og:image" content="https://plotor.github.io/images/2018/rbt_i_3.png">
+<meta property="og:image" content="https://plotor.github.io/images/2018/rbt_i_4.png">
+<meta property="og:image" content="https://plotor.github.io/images/2018/rbt_i_5.png">
+<meta property="og:image" content="https://plotor.github.io/images/2018/rbt_d_1.png">
+<meta property="og:image" content="https://plotor.github.io/images/2018/rbt_d_2.png">
+<meta property="og:image" content="https://plotor.github.io/images/2018/rbt_d_3.png">
+<meta property="og:image" content="https://plotor.github.io/images/2018/rbt_d_4.png">
+<meta property="og:image" content="https://plotor.github.io/images/2018/rbt_d_5.png">
+<meta property="article:published_time" content="2018-03-25T12:46:32.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.970Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="数据结构">
+<meta property="article:tag" content="算法">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://plotor.github.io/images/material/liu.png"><title>那些年，面试被虐过的红黑树 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2018/03/25/algorithm/rb-tree/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">那些年，面试被虐过的红黑树</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2018-03-25</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">3.2k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">11分</span></span></div></header><div class="post-body"><ul>
+<li><strong>面试官</strong> ：小桂子是吧，看你简历上写着精通 java 编程，想必对 java 已经掌握的很好了吧？</li>
+<li><strong>小桂子</strong> ：系呀系呀，一直都用 java 写 bug 呢~</li>
+<li><strong>面试官</strong> ：那你说说 jdk1.7 之前 HashMap 的底层实现原理呗，另外为什么在高并发场景下可能造成较高的 CPU 占用？</li>
+<li><strong>小桂子</strong> ：这个。。。好像是红黑树？</li>
+<li><strong>面试官</strong> ：哦？你说的是 jdk1.8 之后的设计，既然你提到了，那就聊聊红黑树这个数据结构吧，这里是白纸和笔，手写一棵吧！</li>
+<li><strong>小桂子</strong> ：哎呀，哎呀哎呀，老师，突然肚子好疼，我要去一下厕所，一会儿就回来~~~</li>
+</ul>
+<a id="more"></a>
+
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/material/liu.png" alt="image">
+      </p>
+<p>面试处处是套路呀。。。不知道你是否有和小桂子一样尴尬的面试经历呢，如果有的话欢迎到评论区留言，说出你的故事～</p>
+<p>接下来我们进入正题，开始探究面试官为难小桂子的红黑树。说到红黑树，大部分人应该对他既熟悉又陌生，熟悉是因为我们每天 coding 都会直接或者间接的用到它，但是设计和实现上的复杂性又让很多人对其原理望而却步。红黑树的定义比较简单，无非是在插入和删除的过程中自平衡规则多了一些，不过再多也只是个位数而已，只要静下心来跟随本文，相信你会有所收获，let’s moving…</p>
+<p>接下去的篇幅小编假设你已经对二叉树、平衡二叉树的结构、作用，以及弊端有一定的了解。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/rbt.png" alt="image">
+      </p>
+<p>红黑树（如上图，引用自维基百科）是一种 <strong>自平衡</strong> 的二叉树，所谓的自平衡是指在插入和删除的过程中，红黑树会采取一定的策略对树的组织形式进行调整，以尽可能的减少树的高度，从而节省查找的时间。红黑树的特性如下：</p>
+<blockquote>
+<ol>
+<li>结点是红色或黑色</li>
+<li>根结点始终是黑色</li>
+<li>叶子结点（NIL 结点）都是黑色</li>
+<li>红色结点的两个直接孩子结点都是黑色（即从叶子到根的所有路径上不存在两个连续的红色结点）</li>
+<li>从任一结点到每个叶子的所有简单路径都包含相同数目的黑色结点</li>
+</ol>
+</blockquote>
+<p>以上性质保证了红黑树在满足平衡二叉树特征的前提下，还可以做到 <strong>从根到叶子的最长路径最多不会超过最短路径的两倍</strong> ，这主要是考虑两个极端的情况，由性质 4 和 5 我们可以知道在一棵红黑树上从根到叶子的最短路径全部由黑色结点构成，而最长结点则由红黑结点交错构成（始终按照一红一黑的顺序组织），又因为最短路径和最长路径的黑色结点数目是一致的，所以最长路径上的结点数是最短路径的两倍。</p>
+
+        <h3 id="自平衡策略">
+          <a href="#自平衡策略" class="heading-link"><i class="fas fa-link"></i></a>自平衡策略</h3>
+      <p>对于一棵红黑树的操作最基本的无外乎增删改查，其中查和改都不会改变树的结构，所以与普通平衡二叉树操作无异。剩下的就是增删操作，插入和删除都会破坏树的结构，不过借助一定的平衡策略能够让树重新满足定义。平衡策略可以简单概括为三种： <strong>左旋转</strong> 、<strong>右旋转</strong> ，以及 <strong>变色</strong> 。在插入或删除结点之后，只要我们沿着结点到根的路径上执行这三种操作，就可以最终让树重新满足定义。</p>
+<ul>
+<li><strong>左旋转</strong></li>
+</ul>
+<p>对于当前结点而言，如果右子结点为红色，左子结点为黑色，则执行左旋转，如下图：</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/rbt_1.png" alt="image">
+      </p>
+<ul>
+<li><strong>右旋转</strong></li>
+</ul>
+<p>对于当前结点而言，如果左子、左孙子结点均为红色，则执行右旋转，如下图：</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/rbt_2.png" alt="image">
+      </p>
+<ul>
+<li><strong>变色</strong></li>
+</ul>
+<p>对于当前结点而言，如果左、右子结点均为红色，则执行变色，如下图：</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/rbt_3.png" alt="image">
+      </p>
+
+        <h3 id="插入操作">
+          <a href="#插入操作" class="heading-link"><i class="fas fa-link"></i></a>插入操作</h3>
+      <p>红黑树作为平衡二叉树的一种，同样需要借助于查找操作定位插入点，不过红黑树约定 <strong>新插入的结点一律为红色</strong> ，这主要也是为了简化树的自平衡过程。对于一棵空树而言，插入结点为红色会增加一次变色操作，但是对于其余的情况，如果插入的结点是一个黑色结点，那么必然会破坏性质 5，而插入一个红色结点有可能会破坏性质 4，但是此时我们可以通过简单的策略对树进行调整以重新满足定义。</p>
+<p>我们约定 X 为插入的结点，P 为 X 的父结点，G 为 X 的祖父结点，U 为 X 的叔叔结点。</p>
+<p>下面遵从上述策略分场景对插入过程进行探讨：</p>
+<blockquote>
+<p>1.新插入结点 X 是根结点</p>
+</blockquote>
+<p>此时新插入结点为红色，违背性质 2，只需将其变为黑色即可。</p>
+<blockquote>
+<p>2.新插入结点 X 的父结点 P 是黑色</p>
+</blockquote>
+<p>此时需要依据新插入结点 X 值相对于父结点 P 的大小分为两种情况，如果小于则将 X 简单插入到 P 的左子位置即可（下图左），如果 X 的值大于 P，则需要将 X 插入到 P 的右子结点位置，然后执行一次左旋转即可（下图右）。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/rbt_i_1.png" alt="image">
+      </p>
+<blockquote>
+<p>3.父结点 P 为红色，同时存在叔叔结点 U 也为红色</p>
+</blockquote>
+<p>因为 P 为红色，按照性质 4 则 G 必定为黑色，如果 X 的值小于 P，则需要在 P 的左子位置插入（如下图），插入后不满足性质 4，此时只需要执行一次变色操作，将 P、G、U 的颜色反转一下即可，因为 G 变为红色，所以路径长度减 1，但是因为 P 和 U 都变为了黑色，所以路径长度又加 1，最终长度不变，但此时 G 变为了红色，所以需要继续向上递归。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/rbt_i_2.png" alt="image">
+      </p>
+<p>如果 X 的值大于 P，则需要在 P 的右子位置插入（如下图），插入后不满足性质 4，此时需要先执行左旋转变为上面这种情况，继续变色即可。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/rbt_i_3.png" alt="image">
+      </p>
+<blockquote>
+<p>4.父结点 P 为红色，同时叔叔结点 U 为黑色或不存在</p>
+</blockquote>
+<p>因为 P 为红色，按照性质 4 则 G 必定为黑色，如果 X 的值小于 P，则需要在 P 的左子位置插入（如下图），插入后不满足性质 4，此时需要先执行一次右旋转，旋转之后仍然违背性质 4，同时左子树的高度减 1，这个时候需要再执行一次变色操作即可满足定义。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/rbt_i_4.png" alt="image">
+      </p>
+<p>如果 X 的值大于 P，则需要在 P 的右子位置插入（如下图），插入后不满足性质 4，此时我们需要执行一次左旋转，然后就转换成了上面这种情况，继续右旋转、变色即可。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/rbt_i_5.png" alt="image">
+      </p>
+
+        <h3 id="删除操作">
+          <a href="#删除操作" class="heading-link"><i class="fas fa-link"></i></a>删除操作</h3>
+      <p>红黑树作为平衡二叉树的一种，同样需要借助于查找操作定位删除点，在执行删除之前我们需要判断待删除结点有几个孩子结点，如果是 2 个的话我们需要从结点的左子树中寻找值最大的结点，或者从右子树中寻找值最小的结点，并用结点值替换掉待删除结点（只要目标结点值从树上消失即可，不要纠结具体删除的是哪个结点）。这两个结点有一个共性，即最多只有一个孩子结点（因为已经是自己所处范围内的最大和最小了嘛，一山不容二虎（鼠）），此时就将需求转变成删除只有一个孩子结点的结点，相对要简单了许多。</p>
+<p>我们约定 X 为待删除的结点，P 为 X 的父结点，S 为 X 的孩子结点，B 为 X 的兄弟结点，BL 为 B 的左孩子结点，BR 为 B 的右孩子结点。</p>
+<ol>
+<li>如果待删除结点 X 是一个红色结点，则直接删除即可，不会违反定义。</li>
+<li>如果待删除结点 X 是一个黑色结点，且其孩子结点 S 是红色的，那么只需要将 X 替换成 S，同时将 S 由红变黑即可。</li>
+<li>如果需要删除的结点 X 是黑色的，同时它的孩子结点 S 也是黑色的，这种情况需要进一步分场景讨论。</li>
+</ol>
+<p>对于第三种情况我们首先将 X 替换成 S，并重命名其为 N，N 沿用 X 对于长辈和晚辈的称呼，需要清楚这里实际删除的是 X 结点，并且删除之后通过 N 的路径长度减 1。</p>
+<blockquote>
+<p>1.N 是新的根</p>
+</blockquote>
+<p>这种情况比较简单，不需要再做任何调整。</p>
+<blockquote>
+<p>2.N 的父结点、兄弟结点 B，以及 B 的孩子结点均为黑色</p>
+</blockquote>
+<p>如下图，此时只需要将 B 变为红色即可，这样所有通过 B 的路径减 1，与所有通过 N 的路径正好一致，但是此时通过 P 的路径都减少了 1 个长度，所以需要向上递归对结点 P 继续判定。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/rbt_d_1.png" alt="image">
+      </p>
+<blockquote>
+<p>3.N 的兄弟结点 B 为红色，其余结点均为黑色</p>
+</blockquote>
+<p>如下图，此时需要执行一次左旋转，然后将 P 和 B 的颜色互换。调整前后各个结点的路径没有变化，但是因为之前经过 N 的路径长度少了一个单位，所以此时仍然不满足定义，需要按照后面的场景继续调整。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/rbt_d_2.png" alt="image">
+      </p>
+<blockquote>
+<p>4.N 的父结点 P 为红色，兄弟结点 B，以及 B 的孩子结点均为黑色</p>
+</blockquote>
+<p>如下图，此时我们只需要简单互换 P 和 B 的颜色，这种情况下对于不通过 N 的结点路径没有影响，但是却让通过 N 的结点路径加 1，正好弥补之前删除操作所带来的损失。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/rbt_d_3.png" alt="image">
+      </p>
+<blockquote>
+<p>5.N 的兄弟结点 B 为黑色，B 的左孩子为红色，B 的右孩子为黑色</p>
+</blockquote>
+<p>如下图，此时我们需要先执行一次右旋转操作，然后互换 B 与 BL 的颜色，操作之后通过所有结点的路径长度并没有发生变化，却让 N 有了一个新的黑色兄弟结点，并且该兄弟结点的右孩子为红色，从而可以按照接下去介绍的一种场景继续调整。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/rbt_d_4.png" alt="image">
+      </p>
+<p>注：白色结点表示该结点既可以是黑色也可以是红色，后续图示亦是如此。</p>
+<blockquote>
+<p>6.N 的兄弟结点 B 为黑色，B 的右孩子为红色</p>
+</blockquote>
+<p>如下图，此时我们需要先执行一次左旋转，并互换 P 和 B 的颜色，同时将 B 的右孩子结点变为黑色。变更之后，除 N 外其余结点的路径长度未发生变化，但是经过 N 的路径上却增加了一个黑色结点，这刚好弥补之前删除操作所带来的损失。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/rbt_d_5.png" alt="image">
+      </p>
+
+        <h3 id="总结">
+          <a href="#总结" class="heading-link"><i class="fas fa-link"></i></a>总结</h3>
+      <p>红黑树的主要难点在于插入和删除过程中的自平衡调整，其中插入过程的调整相对简单，删除的过程需要处理的情况要多一些，但不管是插入还是删除，都建议读者将所有的图放置在一起进行观察，能够发现其中承前启后的奥妙，本文鉴于篇幅就不再贴出长图。另外也建议读者按照上述过程自己在白纸上手动去构造一棵红黑树，并逐一将结点删除，以此来加深理解，也可以借助旧金山大学推出的交互网站辅助学习（<span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://www.cs.usfca.edu/~galles/visualization/RedBlack.html">点击前往</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>），相关实现位于 algorithm-design 项目的 <code>org.zhenchao.classic.search</code> 包下面，地址：</p>
+<blockquote>
+<p><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/plotor/algorithm-design">https://github.com/plotor/algorithm-design</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></p>
+</blockquote>
+<p><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/10432347/">《算法》</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 红宝书的作者之一 “罗伯特·塞奇威克” 是红黑树的提出者，红黑树是在 2-3 树的基础上改进而成，相对于红黑树而言 2-3 树的自平衡策略要容易理解很多，在此也推荐大家在学习时参阅相关章节。</p>
+
+        <h3 id="参考文献">
+          <a href="#参考文献" class="heading-link"><i class="fas fa-link"></i></a>参考文献</h3>
+      <ol>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://zh.wikipedia.org/wiki/%E7%BA%A2%E9%BB%91%E6%A0%91">红黑树 - 维基百科</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/10432347/">算法（第4版）</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+</ol>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2018/03/25/algorithm/rb-tree/">https://plotor.github.io/2018/03/25/algorithm/rb-tree/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/">数据结构</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/%E7%AE%97%E6%B3%95/">算法</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2018/05/16/scala/scala-collection-common/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">Scala 集合：基础 API</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2018/03/04/protocol/oauth-v2-protocol/"><span class="paginator-prev__text">OAuth 2.0 开放授权那些事儿</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%87%AA%E5%B9%B3%E8%A1%A1%E7%AD%96%E7%95%A5"><span class="toc-number">1.</span> <span class="toc-text">
+          自平衡策略</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8F%92%E5%85%A5%E6%93%8D%E4%BD%9C"><span class="toc-number">2.</span> <span class="toc-text">
+          插入操作</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%A0%E9%99%A4%E6%93%8D%E4%BD%9C"><span class="toc-number">3.</span> <span class="toc-text">
+          删除操作</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">4.</span> <span class="toc-text">
+          总结</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="toc-number">5.</span> <span class="toc-text">
+          参考文献</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

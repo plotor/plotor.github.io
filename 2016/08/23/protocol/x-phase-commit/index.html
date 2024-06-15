@@ -1,0 +1,563 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="在分布式系统中著有 CAP 理论，该理论由加州大学伯克利分校的 Eric Brewer 教授提出，阐述了在一个分布式系统中不可能同时满足一致性（ C onsistency）、可用性（ A vailability），以及分区容错性（ P artition Tolerance）。  一致性 ：在分布式系统中数据往往存在多个副本，一致性描述的是这些副本中的数据在内容和组织上的一致。 可用性 ：描述系统对">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CAP 理论与分阶段提交协议">
+<meta property="og:url" content="https://plotor.github.io/2016/08/23/protocol/x-phase-commit/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="在分布式系统中著有 CAP 理论，该理论由加州大学伯克利分校的 Eric Brewer 教授提出，阐述了在一个分布式系统中不可能同时满足一致性（ C onsistency）、可用性（ A vailability），以及分区容错性（ P artition Tolerance）。  一致性 ：在分布式系统中数据往往存在多个副本，一致性描述的是这些副本中的数据在内容和组织上的一致。 可用性 ：描述系统对">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://plotor.github.io/images/2016/2pc-success.png">
+<meta property="og:image" content="https://plotor.github.io/images/2016/2pc-failed.png">
+<meta property="og:image" content="https://plotor.github.io/images/2017/2pc-state.png">
+<meta property="og:image" content="https://plotor.github.io/images/2016/3pc-fail-1.png">
+<meta property="og:image" content="https://plotor.github.io/images/2016/3pc-success.png">
+<meta property="og:image" content="https://plotor.github.io/images/2016/3pc-fail-2.png">
+<meta property="og:image" content="https://plotor.github.io/images/2017/3pc-state.png">
+<meta property="article:published_time" content="2016-08-23T08:34:08.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.968Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="分布式">
+<meta property="article:tag" content="分布式事务">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://plotor.github.io/images/2016/2pc-success.png"><title>CAP 理论与分阶段提交协议 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2016/08/23/protocol/x-phase-commit/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">CAP 理论与分阶段提交协议</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2016-08-23</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">3.6k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">12分</span></span></div></header><div class="post-body"><p>在分布式系统中著有 CAP 理论，该理论由加州大学伯克利分校的 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Eric_Brewer_%28scientist%29">Eric Brewer</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 教授提出，阐述了在一个分布式系统中不可能同时满足一致性（ <strong>C</strong> onsistency）、可用性（ <strong>A</strong> vailability），以及分区容错性（ <strong>P</strong> artition Tolerance）。</p>
+<ul>
+<li><strong>一致性</strong> ：在分布式系统中数据往往存在多个副本，一致性描述的是这些副本中的数据在内容和组织上的一致。</li>
+<li><strong>可用性</strong> ：描述系统对用户的服务能力，所谓可用是指在用户能够容忍的时间范围内返回用户期望的结果。</li>
+<li><strong>分区容错性</strong> ：分布式系统通常由多个节点构成，由于网络是不可靠的，所以存在分布式集群中的节点因为网络通信故障导致被孤立成一个个小集群的可能性，即网络分区，分区容错性要求在出现网络分区时系统仍然能够对外提供一致性的可用服务。</li>
+</ul>
+<a id="more"></a>
+
+<p>对于一个分布式系统而言，我们要始终假设网络是不可靠的，因此分区容错性是对一个分布式系统最基本的要求，我们的切入点更多的是尝试在可用性和一致性之间寻找一个平衡点，但这也并非要求我们在系统设计时一直建立在网络出现分区的前提之上，然后对一致性和可用性在选择时非此即彼。</p>
+<p>Eric Brewer 教授在 2012 年就曾指出 <strong>CAP 理论证明不能同时满足一致性、可用性，以及分区容错性的观点在实际系统设计指导上存在一定的误导性</strong> 。传统对于 CAP 理论的理解认为在设计分布式系统时必须满足 P，然后在 C 和 A 之间进行取舍，这是片面的。实际中网络出现分区的可能性还是比较小的，尤其是目前网络环境正在变得越来越好，甚至许多系统都拥有专线支撑，所以在网络未出现分区时，还是应该兼顾 A 和 C。所以，我们可以这样去理解 CAP，只有在网络出现分区的情况下才需要在一致性和可用性之间进行取舍。另外就是对于一致性、可用性，以及分区容错性三者在度量上也应该有一个评定范围，最简单的以可用性为例，当有多少占比请求出现响应超时才可以被认为是不满足可用性，而不是一出现超时就认为是不可用的。最后我们需要考虑的一点就是分布式系统一般都是一个比较大且复杂的系统，我们应该从更小的粒度上对各个子系统进行评估和设计，而不是简单的从整体上武断决策。</p>
+<p>让分布式集群始终对外提供可用的一致性服务一直是富有挑战和趣味的任务。暂且抛开可用性，拿一致性来说，对于关系型数据库我们通常利用事务来保证数据的强一致性，但是当我们的数据量越来越大，大到单库已经无法承担时，我们不得不采取分库分表的策略对数据库实现水平拆分，或者引入 NoSQL 技术，构建分布式数据库集群以分摊读写压力，从而提升数据库的存储和响应能力，但是多个数据库实例也为我们使用数据库带来了许多的限制，比如主键的全局唯一、联表查询、数据聚合等等，另外一个相当棘手的问题就是数据库的事务由原先的单库事务变成了现在的分布式事务。</p>
+<p>分布式事务的实现并不是无解的，比如下文要展开的两阶段提交（2PC：Two-Phase Commit）和三阶段提交（3PC：Three-Phase Commit）都给我们提供了思路，但是在分布式环境下如何保证数据的强一致性，并对外提供高可用的服务还是相当棘手的，因此很多分布式系统对于数据强一致性都敬而远之。</p>
+
+        <h3 id="两阶段提交协议（2PC：Two-Phase-Commit）">
+          <a href="#两阶段提交协议（2PC：Two-Phase-Commit）" class="heading-link"><i class="fas fa-link"></i></a>两阶段提交协议（2PC：Two-Phase Commit）</h3>
+      <p>两阶段提交协议的目标在于为分布式系统保证数据的一致性，许多分布式系统采用该协议提供对分布式事务的支持。顾名思义，该协议将一个分布式的事务过程拆分成两个阶段： <strong>投票</strong> 和 <strong>事务提交</strong> 。为了让整个数据库集群能够正常的运行，该协议指定了一个 <strong>协调者</strong> 单点，用于协调整个数据库集群各节点的运行。为了简化描述，我们将数据库集群中的各个节点称为 <strong>参与者</strong> ，三阶段提交协议中同样包含协调者和参与者这两个角色定义。</p>
+
+        <h4 id="第一阶段：投票">
+          <a href="#第一阶段：投票" class="heading-link"><i class="fas fa-link"></i></a>第一阶段：投票</h4>
+      <p>该阶段的主要目的在于打探数据库集群中的各个参与者是否能够正常的执行事务，具体步骤如下：</p>
+<ol>
+<li>协调者向所有的参与者发送事务执行请求，并等待参与者反馈事务执行结果；</li>
+<li>事务参与者收到请求之后，执行事务但不提交，并记录事务日志；</li>
+<li>参与者将自己事务执行情况反馈给协调者，同时阻塞等待协调者的后续指令。</li>
+</ol>
+
+        <h4 id="第二阶段：事务提交">
+          <a href="#第二阶段：事务提交" class="heading-link"><i class="fas fa-link"></i></a>第二阶段：事务提交</h4>
+      <p>在经过第一阶段协调者的询盘之后，各个参与者会回复自己事务的执行情况，这时候存在 3 种可能性：</p>
+<ul>
+<li>所有参与者都回复能够正常执行事务。</li>
+<li>一个或多个参与者回复事务执行失败。</li>
+<li>协调者等待超时。</li>
+</ul>
+<p>对于第 1 种情况，协调者将向所有的参与者发出提交事务的通知，具体步骤如下：</p>
+<ol>
+<li>协调者向各个参与者发送 commit 通知，请求提交事务；</li>
+<li>参与者收到事务提交通知之后执行 commit 操作，然后释放占有的资源；</li>
+<li>参与者向协调者返回事务 commit 结果信息。</li>
+</ol>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2016/2pc-success.png" alt="image">
+      </p>
+<p>对于第 2 和第 3 种情况，协调者均认为参与者无法成功执行事务。为了保证数据一致性，协调者要向各个参与者发送事务回滚通知，具体步骤如下：</p>
+<ol>
+<li>协调者向各个参与者发送事务 rollback 通知，请求回滚事务；</li>
+<li>参与者收到事务回滚通知之后执行 rollback 操作，然后释放占有的资源；</li>
+<li>参与者向协调者返回事务 rollback 结果信息。</li>
+</ol>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2016/2pc-failed.png" alt="image">
+      </p>
+<p>两阶段提交协议要解决的是分布式数据库数据强一致性问题，实际应用中更多的是用来保证跨系统事务操作的原子性，下图描绘了协调者与参与者的状态转换。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2017/2pc-state.png" alt="image">
+      </p>
+<p>站在协调者的角度，在发起投票之后即进入了 WAIT 状态，等待所有参与者回复各自事务执行状态，并在收到所有参与者的回复后决策下一步是发送 commit 或 rollback 请求。</p>
+<p>站在参与者的角度，当回复完协调者的投票请求之后便进入 READY 状态（能够正常执行事务），接下去就是等待协调者最终的决策通知，一旦收到通知便可依据决策执行 commit 或 rollback 操作。</p>
+<p>两阶段提交协议原理简单、易于实现，但是缺点也是显而易见的，包括：</p>
+<ul>
+<li><strong>单点问题</strong> ：协调者在整个两阶段提交过程中扮演着举足轻重的作用，一旦协调者所在服务器宕机，就会影响整个数据库集群的正常运行。比如在第二阶段中，如果协调者因为故障不能正常发送事务提交或回滚通知，那么参与者们将一直处于阻塞状态，整个数据库集群将无法提供服务。</li>
+<li><strong>同步阻塞</strong> ：两阶段提交执行过程中，所有的参与者都需要听从协调者的统一调度，期间处于阻塞状态而不能从事其它操作，这样效率极其低下。</li>
+<li><strong>数据不一致</strong> ：两阶段提交协议虽然是为分布式数据强一致所设计，但仍然存在导致数据不一致的可能性。比如在第二阶段中，假设协调者发出了事务 commit 通知，但是因为网络问题该通知仅被一部分参与者所收到并执行了commit 操作，其余的参与者则因为没有收到通知一直处于阻塞状态，这时候就产生了数据的不一致问题。</li>
+</ul>
+<p>针对上述缺点可以引入 <strong>超时机制</strong> 和 <strong>互询机制</strong> 在一定程度上予以解决。</p>
+<p>对于协调者来说，如果在指定时间内没有收到所有参与者的应答，则可以自动退出 WAIT 状态，并向所有参与者发送 rollback 通知。对于参与者来说，如果位于 READY 状态，但是在指定时间内没有收到协调者的第二阶段通知，则不能武断地执行 rollback 操作，因为协调者可能发送的是 commit 通知，这个时候执行 rollback 就会导致数据不一致。</p>
+<p>此时，我们可以引入互询机制，让参与者（令为 A）去询问其它参与者（令为 B）的执行情况：</p>
+<ul>
+<li>如果 B 执行了 rollback 或 commit 操作，则 A 可以大胆的与 B 执行相同的操作。</li>
+<li>如果 B 此时还没有到达 READY 状态，则可以推断出协调者发出的肯定是 rollback 通知。</li>
+<li>如果 B 同样位于 READY 状态，则 A 可以继续询问另外的参与者，只有当所有的参与者都位于 READY 状态时，此时两阶段提交协议无法处理，将陷入长时间的阻塞状态。</li>
+</ul>
+
+        <h3 id="三阶段提交协议（3PC：Three-Phase-Commit）">
+          <a href="#三阶段提交协议（3PC：Three-Phase-Commit）" class="heading-link"><i class="fas fa-link"></i></a>三阶段提交协议（3PC：Three-Phase Commit）</h3>
+      <p>针对两阶段提交存在的问题，三阶段提交协议通过引入一个 <strong>预询盘</strong> 阶段，以及超时策略来减少整个集群的阻塞时间，提升系统性能。三阶段提交的三个阶段分别为：预询盘（can_commit）、预提交（pre_commit），以及事务提交（do_commit）。</p>
+
+        <h4 id="第一阶段：预询盘">
+          <a href="#第一阶段：预询盘" class="heading-link"><i class="fas fa-link"></i></a>第一阶段：预询盘</h4>
+      <p>该阶段协调者会去询问各个参与者是否能够正常执行事务，参与者根据自身情况回复一个预估值，相对于真正的执行事务，这个过程是轻量的，具体步骤如下：</p>
+<ol>
+<li>协调者向各个参与者发送事务询问通知，询问是否可以执行事务操作，并等待回复；</li>
+<li>各个参与者依据自身状况回复一个预估值，如果预估自己能够正常执行事务就返回确定信息，并进入预备状态，否则返回否定信息。</li>
+</ol>
+
+        <h4 id="第二阶段：预提交">
+          <a href="#第二阶段：预提交" class="heading-link"><i class="fas fa-link"></i></a>第二阶段：预提交</h4>
+      <p>本阶段协调者会根据第一阶段的询盘结果采取相应操作，询盘结果主要有 3 种：</p>
+<ul>
+<li>所有的参与者都返回确定信息。</li>
+<li>一个或多个参与者返回否定信息。</li>
+<li>协调者等待超时。</li>
+</ul>
+<p>针对第 1 种情况，协调者会向所有参与者发送事务执行请求，具体步骤如下：</p>
+<ol>
+<li>协调者向所有的事务参与者发送事务执行通知；</li>
+<li>参与者收到通知后执行事务但不提交；</li>
+<li>参与者将事务执行情况返回给客户端。</li>
+</ol>
+<p><strong>在上述步骤中，如果参与者等待超时，则会中断事务。</strong> 针对第 2 和第 3 种情况，协调者认为事务无法正常执行，于是向各个参与者发出 abort 通知，请求退出预备状态，具体步骤如下：</p>
+<ol>
+<li>协调者向所有事务参与者发送 abort 通知；</li>
+<li>参与者收到通知后中断事务。</li>
+</ol>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2016/3pc-fail-1.png" alt="image">
+      </p>
+
+        <h4 id="第三阶段：事务提交">
+          <a href="#第三阶段：事务提交" class="heading-link"><i class="fas fa-link"></i></a>第三阶段：事务提交</h4>
+      <p>如果第二阶段事务未中断，那么本阶段协调者将会依据事务执行返回的结果来决定提交或回滚事务，分为 3 种情况：</p>
+<ul>
+<li>所有的参与者都能正常执行事务。</li>
+<li>一个或多个参与者执行事务失败。</li>
+<li>协调者等待超时。</li>
+</ul>
+<p>针对第 1 种情况，协调者向各个参与者发起事务提交请求，具体步骤如下：</p>
+<ol>
+<li>协调者向所有参与者发送事务 commit 通知；</li>
+<li>所有参与者在收到通知之后执行 commit 操作，并释放占有的资源；</li>
+<li>参与者向协调者反馈事务提交结果。</li>
+</ol>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2016/3pc-success.png" alt="image">
+      </p>
+<p>针对第 2 和第 3 种情况，协调者认为事务无法成功执行，于是向各个参与者发送事务回滚请求，具体步骤如下：</p>
+<ol>
+<li>协调者向所有参与者发送事务 rollback 通知；</li>
+<li>所有参与者在收到通知之后执行 rollback 操作，并释放占有的资源；</li>
+<li>参与者向协调者反馈事务回滚结果。</li>
+</ol>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2016/3pc-fail-2.png" alt="image">
+      </p>
+<p>在本阶段如果因为协调者或网络问题，导致参与者迟迟不能收到来自协调者的 commit 或 rollback 请求，那么参与者将不会如两阶段提交中那样陷入阻塞，而是等待超时后继续 commit，相对于两阶段提交虽然降低了同步阻塞，但仍然无法完全避免数据的不一致。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2017/3pc-state.png" alt="image">
+      </p>
+<p>两阶段提交协议中所存在的长时间阻塞状态发生的几率还是非常低的，所以虽然三阶段提交协议相对于两阶段提交协议对于数据强一致性更有保障，但是因为效率问题，两阶段提交协议在实际系统中反而更加受宠。</p>
+
+        <h3 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h3>
+      <ol>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://www.infoq.cn/article/cap-twelve-years-later-how-the-rules-have-changed/?itm_source=infoq_en&amp;itm_medium=link_on_en_item&amp;itm_campaign=item_in_other_langs">CAP 理论十二年回顾：”规则”变了</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+</ol>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2016/08/23/protocol/x-phase-commit/">https://plotor.github.io/2016/08/23/protocol/x-phase-commit/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/%E5%88%86%E5%B8%83%E5%BC%8F/">分布式</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/">分布式事务</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2016/08/24/solution/distributed-id/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">转载：细聊分布式 ID 的生成方法</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2016/08/16/java/segment-based-concurrent-hashmap/"><span class="paginator-prev__text">基于锁分段机制的 ConcurrentHashMap 实现内幕</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%A4%E9%98%B6%E6%AE%B5%E6%8F%90%E4%BA%A4%E5%8D%8F%E8%AE%AE%EF%BC%882PC%EF%BC%9ATwo-Phase-Commit%EF%BC%89"><span class="toc-number">1.</span> <span class="toc-text">
+          两阶段提交协议（2PC：Two-Phase Commit）</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%AC%AC%E4%B8%80%E9%98%B6%E6%AE%B5%EF%BC%9A%E6%8A%95%E7%A5%A8"><span class="toc-number">1.1.</span> <span class="toc-text">
+          第一阶段：投票</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%AC%AC%E4%BA%8C%E9%98%B6%E6%AE%B5%EF%BC%9A%E4%BA%8B%E5%8A%A1%E6%8F%90%E4%BA%A4"><span class="toc-number">1.2.</span> <span class="toc-text">
+          第二阶段：事务提交</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%89%E9%98%B6%E6%AE%B5%E6%8F%90%E4%BA%A4%E5%8D%8F%E8%AE%AE%EF%BC%883PC%EF%BC%9AThree-Phase-Commit%EF%BC%89"><span class="toc-number">2.</span> <span class="toc-text">
+          三阶段提交协议（3PC：Three-Phase Commit）</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%AC%AC%E4%B8%80%E9%98%B6%E6%AE%B5%EF%BC%9A%E9%A2%84%E8%AF%A2%E7%9B%98"><span class="toc-number">2.1.</span> <span class="toc-text">
+          第一阶段：预询盘</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%AC%AC%E4%BA%8C%E9%98%B6%E6%AE%B5%EF%BC%9A%E9%A2%84%E6%8F%90%E4%BA%A4"><span class="toc-number">2.2.</span> <span class="toc-text">
+          第二阶段：预提交</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%AC%AC%E4%B8%89%E9%98%B6%E6%AE%B5%EF%BC%9A%E4%BA%8B%E5%8A%A1%E6%8F%90%E4%BA%A4"><span class="toc-number">2.3.</span> <span class="toc-text">
+          第三阶段：事务提交</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">3.</span> <span class="toc-text">
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

@@ -1,0 +1,597 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="Theia 是一个 java 语言编写的，支持自定义扩展的注解式配置加载与注入组件，旨在以注解的方式加载任何可以被表示成 Properties 对象的配置，并注入给目标对象，同时支持当配置内容发生变更时回调更新。配置文件的来源可以是本地文件、网络，以及第三方配置系统。Theia 默认支持从 ClassPath 加载本地配置文件，并支持以 SPI 的方式扩展以支持更多的配置来源，例如从 ZK 加载配">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Theia：可扩展的注解式配置注入组件">
+<meta property="og:url" content="https://plotor.github.io/2020/04/23/java/theia/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="Theia 是一个 java 语言编写的，支持自定义扩展的注解式配置加载与注入组件，旨在以注解的方式加载任何可以被表示成 Properties 对象的配置，并注入给目标对象，同时支持当配置内容发生变更时回调更新。配置文件的来源可以是本地文件、网络，以及第三方配置系统。Theia 默认支持从 ClassPath 加载本地配置文件，并支持以 SPI 的方式扩展以支持更多的配置来源，例如从 ZK 加载配">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://plotor.github.io/images/2020/theia.png">
+<meta property="article:published_time" content="2020-04-23T05:20:20.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.964Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Theia">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://plotor.github.io/images/2020/theia.png"><title>Theia：可扩展的注解式配置注入组件 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2020/04/23/java/theia/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><div class="sticky-top" data-popover="置顶文章" data-popover-pos="up"><span class="sticky-top__icon"><i class="fas fa-thumbtack"></i></span></div><h1 class="post-title">Theia：可扩展的注解式配置注入组件</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2020-04-23</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">3.7k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">18分</span></span></div></header><div class="post-body"><p>Theia 是一个 java 语言编写的，支持自定义扩展的注解式配置加载与注入组件，旨在以注解的方式加载任何可以被表示成 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://docs.oracle.com/cd/E23095_01/Platform.93/ATGProgGuide/html/s0204propertiesfileformat01.html">Properties</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 对象的配置，并注入给目标对象，同时支持当配置内容发生变更时回调更新。配置文件的来源可以是本地文件、网络，以及第三方配置系统。Theia 默认支持从 ClassPath 加载本地配置文件，并支持以 SPI 的方式扩展以支持更多的配置来源，例如从 ZK 加载配置等。</p>
+<p>特性一览：</p>
+<ul>
+<li>支持以注解的方式加载多种配置数据源，并注入给配置对象。</li>
+<li>支持预注入，预注入会校验配置的合法性，如果不合法则会放弃注入，避免配置出错影响服务的正常运行。</li>
+<li>支持配置变更时回调更新，默认关闭，并允许用户配置是否启用。</li>
+<li>内置基本类型转换器，用于将 String 类型配置项转换成目标类型对象。</li>
+<li>支持自定义类型转换器，以实现一些定制化的类型转换。</li>
+<li>支持以原生字符串或 Properties 对象的形式注入。</li>
+<li>支持监听注入过程（InjectEventListener）和更新过程（UpdateEventListener）。</li>
+<li>支持加载系统环境变量，并注入给配置对象。</li>
+<li>支持 <code>${}</code> 占位符替换，使用指定的配置项替换占位符。</li>
+<li>支持以 SPI 的方式扩展以支持更多类型的配置数据源。</li>
+<li>对于 Spring 应用，支持自动扫描、加载并初始化配置对象。</li>
+</ul>
+<a id="more"></a>
+
+<p>开源地址：<span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/plotor/theia">https://github.com/plotor/theia</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></p>
+
+        <h3 id="快速接入">
+          <a href="#快速接入" class="heading-link"><i class="fas fa-link"></i></a>快速接入</h3>
+      <p>这里以加载并注入 ClassPath 配置文件 <code>configurable_options.properties</code> 为例，接入过程分为 4 步：</p>
+<ol>
+<li>定义一个实现了 Options 接口的配置类 ExampleOptions；</li>
+<li>为 ExampleOptions 类添加 <code>@Configurable</code> 注解，用于指定配置数据源路径；</li>
+<li>调用 <code>ConfigManager#initialize</code> 方法初始化所有被管理的配置项；</li>
+<li>调用 <code>ConfigManager#getOptions</code> 方法拿到目标 options 实例，以获取对应的配置信息。</li>
+</ol>
+<p>ExampleOptions 的部分实现如下，完整实现可以参考源码：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Configurable(Constants.CP_PREFIX + "configurable_options")</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ExampleOptions</span> <span class="keyword">extends</span> <span class="title">AbstractOptions</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">long</span> serialVersionUID = -<span class="number">8145624960779711094L</span>;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Attribute(name = "myFiles")</span></span><br><span class="line">    <span class="keyword">private</span> File[] files;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Attribute(defaultValue = "15")</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">int</span> number;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Attribute(name = "property.message")</span></span><br><span class="line">    <span class="keyword">private</span> String propMessage;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Attribute(defaultValue = "1780000")</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">long</span> longValue;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Attribute(name = "another.long.value", defaultValue = "1000000")</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">long</span> anotherLongValue;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> Double floatingPointNumber;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Attribute</span></span><br><span class="line">    <span class="keyword">private</span> String fieldMessage;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Attribute</span></span><br><span class="line">    <span class="keyword">private</span> Boolean trueFalse;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Attribute(name = "list", converter = ListConverter.class)</span></span><br><span class="line">    <span class="keyword">public</span> List&lt;String&gt; list;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Attribute(converter = SetConverter.class)</span></span><br><span class="line">    <span class="keyword">public</span> Set&lt;String&gt; set;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// ... 省略部分实现</span></span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">update</span><span class="params">()</span> </span>{</span><br><span class="line">        <span class="comment">// 当配置发生变更时回调执行此方法</span></span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">validate</span><span class="params">()</span> </span>{</span><br><span class="line">        <span class="comment">// 此处实现配置校验逻辑</span></span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>初始化配置管理器：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">final</span> ConfigManager configManager = ConfigManager.getInstance();</span><br><span class="line"><span class="comment">// 初始化配置管理器</span></span><br><span class="line">configManager.initialize(<span class="string">"org.zhenchao.theia.example"</span>);</span><br><span class="line"><span class="comment">// 获取 options 实例</span></span><br><span class="line"><span class="keyword">final</span> ExampleOptions options = configManager.getOptions(ExampleOptions.class);</span><br><span class="line"><span class="comment">// 获取具体的配置项</span></span><br><span class="line">System.out.println(options.getPropMessage());</span><br></pre></td></tr></tbody></table></div></figure>
+<p>好啦，就这么简单，接下去就可以愉快的使用配置项啦！</p>
+<p>如果是 Spring 应用，则只需要在对应的 Options 类上添加 <code>@Component</code> 注解，并在 Spring 配置文件中添加如下配置：</p>
+<figure class="highlight xml"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">bean</span> <span class="attr">class</span>=<span class="string">"org.zhenchao.theia.SpringInitializer"</span>/&gt;</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>Spring 框架在启动期间会自动扫描所有被 <code>@Component</code> 注解的配置 Options 类，并完成加载和初始化过程。</p>
+
+        <h3 id="使用指南">
+          <a href="#使用指南" class="heading-link"><i class="fas fa-link"></i></a>使用指南</h3>
+      <p>本小节针对快速接入中的各个步骤进行详细说明。首先来看 <strong>步骤 1</strong> ，对于需要注入的 options，需要先实现 Options 接口，或继承 AbstractOptions 抽象类。Options 接口定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">Options</span> <span class="keyword">extends</span> <span class="title">Serializable</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * This method will be invoked after successfully injected.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">update</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Validate that the configuration is correctly.</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span> {<span class="doctag">@code</span> true} means correctly, or {<span class="doctag">@code</span> false}.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">boolean</span> <span class="title">validate</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>其中 <code>Options#update</code> 方法会在成功完成注入时回调，可以用于对配置字段的二次解析。方法 <code>Options#validate</code> 需要由应用自己实现对于配置的合法性校验，该方法会在预注入时调用，如果返回 false 则会放弃后续的正式注入操作，并抛出异常。</p>
+<p>然后（ <strong>步骤 2</strong> ），需要使用 <code>@Configurable</code> 注解为 options 关联对应的数据源，该注解定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="meta">@interface</span> Configurable {</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** The configuration resource, eg. ZK:/theia/example */</span></span><br><span class="line">    <span class="function">String <span class="title">resource</span><span class="params">()</span> <span class="keyword">default</span> ""</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** Alias for {<span class="doctag">@link</span> #resource()} */</span></span><br><span class="line">    <span class="function">String <span class="title">value</span><span class="params">()</span> <span class="keyword">default</span> ""</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Auto configure setting.</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * {<span class="doctag">@code</span> true} means the options will be detected and auto injected,</span></span><br><span class="line"><span class="comment">     * otherwise you should instantiate and configure the options by manual.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">boolean</span> <span class="title">autoConfigure</span><span class="params">()</span> <span class="keyword">default</span> <span class="keyword">true</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Autoload configuration when found source update.</span></span><br><span class="line"><span class="comment">     * {<span class="doctag">@code</span> true} means ignore the {<span class="doctag">@link</span> Constants#COMMONS_CONFIG_AUTOLOAD} config,</span></span><br><span class="line"><span class="comment">     * default is {<span class="doctag">@link</span> false}.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">boolean</span> <span class="title">autoload</span><span class="params">()</span> <span class="keyword">default</span> <span class="keyword">false</span></span>;</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>配置项 <code>Configurable#autoConfigure</code> 默认为 true，表示允许 ConfigManager 在初始化时自动实例化并注入配置项值，否则需要由开发人员自己完成实例化，并主动调用 <code>ConfigInjector#configureBean(Options)</code> 方法完成配置项值的注入。</p>
+<p>配置项 <code>Configurable#autoload</code> 默认为 false，当设置为 true 时则会在每次配置变更时回调执行 <code>Options#update</code> 方法，而忽略 <code>__commons_config_autoload</code> 配置。该配置项主要应用于加载 raw text 的场景，此时源配置不满足 Properties 文件格式，所以不能简单的添加 <code>__commons_config_autoload=true</code> 配置项以控制是否回调更新，这种场景下可以通过 <code>Configurable#autoload</code> 配置项来默认启用更新。</p>
+<p>完成与数据源的关联之后，接下来（ <strong>步骤 3</strong> ）需要使用 <code>@Attribute</code> 注解为各个字段关联对应的配置项，注解定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="meta">@interface</span> Attribute {</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** Property name */</span></span><br><span class="line">    <span class="function">String <span class="title">name</span><span class="params">()</span> <span class="keyword">default</span> ""</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** Alias for {<span class="doctag">@link</span> #name()} */</span></span><br><span class="line">    <span class="function">String <span class="title">value</span><span class="params">()</span> <span class="keyword">default</span> ""</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Configure required.</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * {<span class="doctag">@code</span> true} means this field must be configured, otherwise will throw {<span class="doctag">@link</span> ConfigException}.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">boolean</span> <span class="title">required</span><span class="params">()</span> <span class="keyword">default</span> <span class="keyword">true</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** The default value when missing config. */</span></span><br><span class="line">    <span class="function">String <span class="title">defaultValue</span><span class="params">()</span> <span class="keyword">default</span> ""</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** Whether inject this field with {<span class="doctag">@link</span> java.util.Properties} or {<span class="doctag">@link</span> String} raw type. */</span></span><br><span class="line">    <span class="function"><span class="keyword">boolean</span> <span class="title">raw</span><span class="params">()</span> <span class="keyword">default</span> <span class="keyword">false</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** Convert the string to target field type. */</span></span><br><span class="line">    Class&lt;? extends Converter&gt; converter() <span class="keyword">default</span> VoidConverter.class;</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>各个配置项说明如下：</p>
+<ul>
+<li><code>name</code> 和 <code>value</code>：用于将当前 field 与对应的配置项名称进行关联，如果未指定则以当前属性名称作为配置项名称，强烈建议配置。</li>
+<li><code>required</code>：表示当前配置项是必须的，默认为 true，如果未指定默认值，且对应的配置项缺失则会抛出 ConfigException 异常。</li>
+<li><code>defaultValue</code>：默认值，如果对应的配置项缺失，则采用默认值注入。</li>
+<li><code>raw</code>：是否以原生类型（String 或 Properties）进行注入，需要注意的是，一个 options 中只能定义一个 <code>raw=true</code> 的配置项，且与一般的注入方式互斥。</li>
+<li><code>converter</code>：自定义类型转换器，会将 String 类型转换成目标类型后再进行注入。</li>
+</ul>
+<p>注解 <code>@Attribute</code> 可以修饰 field，也可以修饰 getter 或 setter 方法，如果未明确指定 <code>name</code>，则会基于注解的属性或方法（getter 或 setter）自动计算 <code>name</code> 值，但是强烈建议手动配置 <code>name</code> 值，避免出错。类型转换器不是必须的，配置库内置了对以下类型的自动转换：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>类型</th>
+<th>转换器</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>boolean</td>
+<td>BooleanConverter</td>
+<td>用于将字符串转换成 boolean 类型</td>
+</tr>
+<tr>
+<td>char</td>
+<td>CharacterConverter</td>
+<td>用于将字符串转换成 char 类型，提取字符串的首字母</td>
+</tr>
+<tr>
+<td>byte</td>
+<td>NumberConverter</td>
+<td>用于将字符串转换成 byte 类型，可以使用 <code>@NumberRadix</code> 指定原始值的进制类型，默认为 10 进制</td>
+</tr>
+<tr>
+<td>short</td>
+<td>NumberConverter</td>
+<td>用于将字符串转换成 short 类型，可以使用 <code>@NumberRadix</code> 指定原始值的进制类型，默认为 10 进制</td>
+</tr>
+<tr>
+<td>int</td>
+<td>NumberConverter</td>
+<td>用于将字符串转换成 int 类型，可以使用 <code>@NumberRadix</code> 指定原始值的进制类型，默认为 10 进制</td>
+</tr>
+<tr>
+<td>long</td>
+<td>NumberConverter</td>
+<td>用于将字符串转换成 long 类型，可以使用 <code>@NumberRadix</code> 指定原始值的进制类型，默认为 10 进制</td>
+</tr>
+<tr>
+<td>float</td>
+<td>NumberConverter</td>
+<td>用于将字符串转换成 float 类型，可以使用 <code>@NumberRadix</code> 指定原始值的进制类型，默认为 10 进制</td>
+</tr>
+<tr>
+<td>double</td>
+<td>NumberConverter</td>
+<td>用于将字符串转换成 double 类型，可以使用 <code>@NumberRadix</code> 指定原始值的进制类型，默认为 10 进制</td>
+</tr>
+<tr>
+<td>String</td>
+<td>StringConverter</td>
+<td>以字符串类型进行注入，区别于 raw 类型的 String 注入，后者使用整个配置文件进行注入</td>
+</tr>
+<tr>
+<td>Array</td>
+<td>ArrayConverter</td>
+<td>用于将字符串按照英文逗号进行分割，并转换成目标数组类型，仅支持一维数组转换</td>
+</tr>
+<tr>
+<td>Date</td>
+<td>DateConverter</td>
+<td>用于将字符串转换成 Date 类型，需要指定 <code>@DatePattern</code></td>
+</tr>
+<tr>
+<td>Calendar</td>
+<td>CalendarConverter</td>
+<td>用于将字符串转换成 Calendar 类型，依赖 DateConverter</td>
+</tr>
+<tr>
+<td>Object</td>
+<td>GenericConverter</td>
+<td>将字符串转换成目标类型，相应的类需要具备一个包含 String 类型参数的构造方法</td>
+</tr>
+</tbody></table></div>
+<p>以上转换器无需手动指定，配置库会依据目标类型自动检测，如果手动指定了类型转换器，则优先级更高。</p>
+<p>最后（ <strong>步骤 4</strong> ），需要调用 <code>ConfigManager#initialize</code> 方法初始化和注入所有的配置项，如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">final</span> ConfigManager configManager = ConfigManager.getInstance();</span><br><span class="line"><span class="keyword">final</span> <span class="keyword">int</span> count = configManager.initialize(<span class="string">"org.zhenchao.theia.manager"</span>);</span><br><span class="line">Assert.assertEquals(<span class="number">4</span>, count);</span><br><span class="line">Assert.assertNotNull(configManager.getOptions(Options1.class));</span><br><span class="line">Assert.assertNotNull(configManager.getOptions(Options2.class));</span><br><span class="line">Assert.assertNotNull(configManager.getOptions(Options3.class));</span><br><span class="line">Assert.assertNotNull(configManager.getOptions(Options4.class));</span><br><span class="line">Assert.assertNull(configManager.getOptions(Options5.class));</span><br><span class="line">Assert.assertSame(configManager.getOptions(Options1.class), configManager.getOptions(Options1.class));</span><br><span class="line">Assert.assertNotSame(configManager.getOptions(Options1.class), configManager.getOptions(Options2.class));</span><br><span class="line"></span><br><span class="line"><span class="comment">// configure by manual</span></span><br><span class="line"><span class="keyword">final</span> Options5 options5 = <span class="keyword">new</span> Options5();</span><br><span class="line">configManager.getInjector().configureBean(options5);</span><br><span class="line">Assert.assertNotNull(configManager.getOptions(Options5.class));</span><br><span class="line">Assert.assertSame(options5, configManager.getOptions(Options5.class));</span><br></pre></td></tr></tbody></table></div></figure>
+<p>ConfigManager 在执行初始化（即调用 <code>ConfigManager#initialize</code> 方法）时允许指定扫描 Options 的根包名，如果没有设置则会扫描所有的包，推荐设置。</p>
+<p>ConfigManager 提供了 <code>ConfigManager#getOptions</code> 方法用于依据类型获取对应的 options 实例。</p>
+<p>工具类 Parser 定义了 <code>Parser#toList</code> 和 <code>Parser#toSet</code> 方法，抽象了字符串数组到 List 和 Set 类型的转换，可以依据场景考虑使用。</p>
+<p>最后来聊聊监听机制，配置库定义了两种监听器：InjectEventListener 和 UpdateEventListener。其中，InjectEventListener 用于监听注入过程，定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">InjectEventListener</span> <span class="keyword">extends</span> <span class="title">EventListener</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * This method will be invoked before injection.</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> options The options bean that will be injected.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">prevHandle</span><span class="params">(<span class="keyword">final</span> Options options)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * This method will be invoked after injection.</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> options The options bean that has been injected.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">postHandle</span><span class="params">(<span class="keyword">final</span> Options options)</span></span>;</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>此类监听器会在执行注入过程前后被调用，可以调用 <code>ConfigInjector#registerInjectListener</code> 方法和 <code>ConfigInjector#removeInjectListener</code> 方法分别注册和注销监听器。</p>
+<p>UpdateEventListener 则用于监听更新过程，定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">UpdateEventListener</span> <span class="keyword">extends</span> <span class="title">EventListener</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * This method will be invoked before update.</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> options The options bean that will be updated.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">prevHandle</span><span class="params">(Options options)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * This method will be invoked after update.</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> options The options bean that has been updated.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">postHandle</span><span class="params">(Options options)</span></span>;</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>此类监听器会在调用 <code>Options#update</code> 方法前后被调用，可以调用 <code>ConfigInjector#registerUpdateListener</code> 方法和 <code>ConfigInjector#removeUpdateListener</code> 方法分别注册和注销监听器。</p>
+
+        <h3 id="如何扩展">
+          <a href="#如何扩展" class="heading-link"><i class="fas fa-link"></i></a>如何扩展</h3>
+      <p>除了内建对 ClassPath 路径下配置的加载，Theia 还允许用户对支持的配置数据源进行扩展。接入一个新的数据源只需要继承 AbstractSourceProvider 抽象类即可，然后在项目的 <code>/META-INF/services</code> 目录下新建一个名为 <code>org.zhenchao.theia.source.provider.SourceProvider</code> 的文件，添加以下内容：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">org.zhenchao.theia.source.provider.ClasspathSourceProvider</span><br><span class="line">// your source provider class name here</span><br></pre></td></tr></tbody></table></div></figure>
+<p>配置库基于 jdk 内置的 SPI 机制加载所有的 SourceProvider。最后调用 <code>ConfUtils#registerPrefix</code> 静态方法注册对应的 prefix 标识即可。</p>
+<p>下面以从 zookeeper 加载配置为例演示如何实现扩展，首先继承 AbstractSourceProvider 实现一个 ZkSourceProvider，如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ZkSourceProvider</span> <span class="keyword">extends</span> <span class="title">AbstractSourceProvider</span> <span class="keyword">implements</span> <span class="title">SourceProvider</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> CuratorFramework zkClient;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> Set&lt;Source&gt; sourceRegistry = <span class="keyword">new</span> HashSet&lt;&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">ZkSourceProvider</span><span class="params">()</span> </span>{</span><br><span class="line">        RetryPolicy retryPolicy = <span class="keyword">new</span> ExponentialBackoffRetry(<span class="number">1000</span>, <span class="number">3</span>);</span><br><span class="line">        <span class="keyword">this</span>.zkClient = CuratorFrameworkFactory.newClient(<span class="string">"127.0.0.1:2181"</span>, retryPolicy);</span><br><span class="line">        <span class="keyword">this</span>.zkClient.start();</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">protected</span> Properties <span class="title">doLoadProperties</span><span class="params">(<span class="keyword">final</span> Source source, <span class="keyword">final</span> PropertiesBuilder builder)</span> <span class="keyword">throws</span> ConfigException </span>{</span><br><span class="line">        <span class="keyword">final</span> Class&lt;?&gt; optionsClass = source.getOptionsClass();</span><br><span class="line">        <span class="keyword">final</span> String resourceName = <span class="keyword">this</span>.resourceName(source);</span><br><span class="line">        log.info(<span class="string">"Load zk configuration, resource[{}], options[{}]."</span>, resourceName, optionsClass);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">try</span> {</span><br><span class="line">            <span class="keyword">final</span> String zkPath = <span class="keyword">this</span>.toZkPath(resourceName);</span><br><span class="line">            <span class="keyword">final</span> <span class="keyword">byte</span>[] bytes = zkClient.getData().forPath(zkPath);</span><br><span class="line">            <span class="keyword">if</span> (<span class="keyword">null</span> == bytes || <span class="number">0</span> == bytes.length) {</span><br><span class="line">                log.warn(<span class="string">"No zk property value resolved, path[{}]."</span>, zkPath);</span><br><span class="line">                <span class="keyword">return</span> builder.build();</span><br><span class="line">            }</span><br><span class="line">            <span class="keyword">final</span> String data = Bytes.toString(bytes);</span><br><span class="line">            <span class="keyword">if</span> (StringUtils.isBlank(data)) {</span><br><span class="line">                log.warn(<span class="string">"No zk property value resolved, path[{}]."</span>, zkPath);</span><br><span class="line">                <span class="keyword">return</span> builder.build();</span><br><span class="line">            }</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (log.isDebugEnabled()) {</span><br><span class="line">                log.debug(<span class="string">"Get zk property, path[{}], value[{}]."</span>, zkPath, data);</span><br><span class="line">            }</span><br><span class="line"></span><br><span class="line">            <span class="keyword">final</span> Properties properties = <span class="keyword">this</span>.toProperties(data);</span><br><span class="line">            <span class="keyword">if</span> (!properties.isEmpty()) {</span><br><span class="line">                builder.addAll(ConfUtils.toMap(properties));</span><br><span class="line">            }</span><br><span class="line">            <span class="keyword">return</span> builder.build();</span><br><span class="line">        } <span class="keyword">catch</span> (Throwable t) {</span><br><span class="line">            log.error(<span class="string">"Load zk configuration error, resource[{}], optionsClass[{}]"</span>, resourceName, optionsClass, t);</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> ConfigException(<span class="string">"load zk configuration error, "</span> +</span><br><span class="line">                    <span class="string">"resource: "</span> + resourceName + <span class="string">", options: "</span> + optionsClass, t);</span><br><span class="line">        }</span><br><span class="line"></span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">postLoad</span><span class="params">(Source source)</span> </span>{</span><br><span class="line">        <span class="keyword">if</span> (!<span class="keyword">this</span>.tryRegisterListener(source)) {</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> IllegalStateException(<span class="string">"register zk listener error, "</span> +</span><br><span class="line">                    <span class="string">"resource: "</span> + source.getResourceName() + <span class="string">", options: "</span> + source.getOptionsClass());</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">protected</span> String <span class="title">resourceName</span><span class="params">(Source source)</span> </span>{</span><br><span class="line">        String resourceName = source.getResourceName();</span><br><span class="line">        Validate.isTrue(ConfUtils.isZkResource(resourceName), <span class="string">"invalid zk resource name: "</span> + resourceName);</span><br><span class="line">        <span class="keyword">return</span> resourceName;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">support</span><span class="params">(Source source)</span> </span>{</span><br><span class="line">        <span class="keyword">return</span> StringUtils.startsWithIgnoreCase(<span class="keyword">super</span>.resourceName(source), Constants.ZK_PREFIX);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">int</span> <span class="title">priority</span><span class="params">()</span> </span>{</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">private</span> String <span class="title">toZkPath</span><span class="params">(String resourceName)</span> </span>{</span><br><span class="line">        <span class="keyword">return</span> resourceName.substring(Constants.ZK_PREFIX.length()).trim();</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Register zk data change listener.</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> source</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="keyword">boolean</span> <span class="title">tryRegisterListener</span><span class="params">(<span class="keyword">final</span> Source source)</span> </span>{</span><br><span class="line">        <span class="keyword">if</span> (sourceRegistry.contains(source)) {</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">        }</span><br><span class="line"></span><br><span class="line">        <span class="keyword">final</span> String zkPath = <span class="keyword">this</span>.toZkPath(<span class="keyword">this</span>.resourceName(source));</span><br><span class="line">        log.info(<span class="string">"Register zk data change listener for path[{}]."</span>, zkPath);</span><br><span class="line">        <span class="keyword">try</span> {</span><br><span class="line">            zkClient.getData()</span><br><span class="line">                    .usingWatcher((CuratorWatcher) event -&gt; {</span><br><span class="line">                        <span class="keyword">final</span> Watcher.Event.EventType eventType = event.getType();</span><br><span class="line">                        <span class="comment">// uninterested zk event</span></span><br><span class="line">                        <span class="keyword">if</span> (!Watcher.Event.EventType.NodeDataChanged.equals(eventType)) {</span><br><span class="line">                            log.info(<span class="string">"Uninterested zk event type: {}, and ignore it."</span>, eventType);</span><br><span class="line">                            <span class="keyword">return</span>;</span><br><span class="line">                        }</span><br><span class="line"></span><br><span class="line">                        <span class="keyword">final</span> String eventPath = event.getPath();</span><br><span class="line">                        <span class="keyword">try</span> {</span><br><span class="line">                            <span class="keyword">if</span> (zkPath.equals(eventPath)) {</span><br><span class="line">                                log.info(<span class="string">"Refresh zk configuration, path[{}]."</span>, eventPath);</span><br><span class="line">                                ConfigInjector.getInstance().reload(source);</span><br><span class="line">                            } <span class="keyword">else</span> {</span><br><span class="line">                                log.debug(<span class="string">"[{}] unexpected change, and ignore it, path[{}]."</span>, zkPath, eventPath);</span><br><span class="line">                            }</span><br><span class="line">                        } <span class="keyword">catch</span> (Throwable t) {</span><br><span class="line">                            <span class="keyword">throw</span> <span class="keyword">new</span> ConfigException(<span class="string">"refresh zk configuration error, path: "</span> + eventPath, t);</span><br><span class="line">                        }</span><br><span class="line">                    })</span><br><span class="line">                    .forPath(zkPath);</span><br><span class="line">        } <span class="keyword">catch</span> (Throwable t) {</span><br><span class="line">            log.error(<span class="string">"Try register zk data change listener error, path: {}"</span>, zkPath, t);</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">        }</span><br><span class="line">        sourceRegistry.add(source);</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>然后编写 <code>/META-INF/services/org.zhenchao.theia.source.provider.SourceProvider</code> 文件：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">org.zhenchao.theia.source.provider.ClasspathSourceProvider</span><br><span class="line">org.zhenchao.theia.source.provider.ZkSourceProvider</span><br></pre></td></tr></tbody></table></div></figure>
+<p>最后一步，注册 prefix 标识（不区分大小写）：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ConfUtils.registerPrefix(<span class="string">"ZK"</span>);</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="实现原理">
+          <a href="#实现原理" class="heading-link"><i class="fas fa-link"></i></a>实现原理</h3>
+      <p>Theia 在设计和实现上主要分为两大模块：</p>
+<ol>
+<li>从数据源拉取配置数据，并封装成 Properties 对象；</li>
+<li>基于反射机制从 Properties 对象中获取对应的配置项并注入给目标对象对应的属性上。</li>
+</ol>
+<p>同时监听数据源，当数据源更新时以回调的方式更新本地配置。</p>
+<p>整体设计图如下：</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2020/theia.png" alt="image">
+      </p>
+<p>SourceProvider 用于从数据源加载配置数据并封装成 Properties 对象，同时注册到对应数据源的监听器以监听配置更新。ConfigInjector 会解析 options 配置，并从 Properties 中获取对应的配置项，调用类型转换器 Converter 转成目标类型，并最终注入到目标 options 中。</p>
+
+        <h3 id="注意事项">
+          <a href="#注意事项" class="heading-link"><i class="fas fa-link"></i></a>注意事项</h3>
+      <ol>
+<li>对于同一类 options 而言，不允许注册多个实例，否则会抛出 ConfigException 异常。</li>
+<li>如果希望在注入时支持系统环境变量，可以构造一个 <code>new PropertiesBuilderFactory(true, true)</code> 对象，并调用 <code>ConfigInjector#setBuilderFactory</code> 方法予以设置。</li>
+<li>方法 <code>ConfigInjector#reset</code> 会清空 ConfigInjector 管理的所有 options 实例，但是不会清空对应 options 实例已注入的属性值。</li>
+<li>方法 <code>ConfigManager#reset</code> 会在 <code>ConfigInjector#reset</code> 的基础上清空 ConfigManager 的初始化状态。</li>
+<li>raw 类型是唯一的，且与一般类型互斥。</li>
+<li>不允许注入 static 类型的属性。</li>
+<li>自定义类型转换器的优先级高于系统内建的类型转换器，在实现自定义转换器时请保证代码质量。</li>
+<li>尽量认真实现 <code>Options#validate</code> 方法，对配置的正确性严格控制。</li>
+<li>被 ConfigInjector 管理的 options 实例是可能被多线程共享的，最好只允许配置库对实例进行修改。</li>
+<li>请勿在 Listener、<code>Options#update</code> 和 <code>Options#validate</code> 中实现阻塞逻辑。</li>
+</ol>
+
+        <h3 id="鸣谢">
+          <a href="#鸣谢" class="heading-link"><i class="fas fa-link"></i></a>鸣谢</h3>
+      <p>设计灵感来自 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/rchargel/zlib-config">zlib-config</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>，在此表示感谢。</p>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2020/04/23/java/theia/">https://plotor.github.io/2020/04/23/java/theia/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Theia/">Theia</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2020/06/01/sofa/sofa-jraft-node-startup/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">SOFA-JRaft 源码解析：节点的启动过程</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2020/01/01/protocol/raft/"><span class="paginator-prev__text">理解 Raft 分布式共识算法</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%BF%AB%E9%80%9F%E6%8E%A5%E5%85%A5"><span class="toc-number">1.</span> <span class="toc-text">
+          快速接入</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8%E6%8C%87%E5%8D%97"><span class="toc-number">2.</span> <span class="toc-text">
+          使用指南</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E6%89%A9%E5%B1%95"><span class="toc-number">3.</span> <span class="toc-text">
+          如何扩展</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86"><span class="toc-number">4.</span> <span class="toc-text">
+          实现原理</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9"><span class="toc-number">5.</span> <span class="toc-text">
+          注意事项</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%B8%A3%E8%B0%A2"><span class="toc-number">6.</span> <span class="toc-text">
+          鸣谢</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

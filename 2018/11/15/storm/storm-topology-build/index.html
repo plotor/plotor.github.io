@@ -1,0 +1,465 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="我们按照 Storm 规范开发的 spout 和 bolt 需要使用 TopologyBuilder 构建成有向无环图（拓扑），并指定消息的分组方式，然后提交给 Storm 集群执行，本篇我们将分析 topology 的构建和提交过程。前面分析 Storm 的编程接口时曾介绍过 StormTopology 这个 thrift 类，topology 在构建完成之后会封装成一个 StormTopolo">
+<meta property="og:type" content="article">
+<meta property="og:title" content="JStorm 源码解析：拓扑的构建和提交过程">
+<meta property="og:url" content="https://plotor.github.io/2018/11/15/storm/storm-topology-build/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="我们按照 Storm 规范开发的 spout 和 bolt 需要使用 TopologyBuilder 构建成有向无环图（拓扑），并指定消息的分组方式，然后提交给 Storm 集群执行，本篇我们将分析 topology 的构建和提交过程。前面分析 Storm 的编程接口时曾介绍过 StormTopology 这个 thrift 类，topology 在构建完成之后会封装成一个 StormTopolo">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2018-11-15T05:16:18.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.982Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Storm">
+<meta property="article:tag" content="JStorm">
+<meta name="twitter:card" content="summary"><title>JStorm 源码解析：拓扑的构建和提交过程 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2018/11/15/storm/storm-topology-build/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">JStorm 源码解析：拓扑的构建和提交过程</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2018-11-15</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">3.7k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">18分</span></span></div></header><div class="post-body"><p>我们按照 Storm 规范开发的 spout 和 bolt 需要使用 TopologyBuilder 构建成有向无环图（拓扑），并指定消息的分组方式，然后提交给 Storm 集群执行，本篇我们将分析 topology 的构建和提交过程。前面分析 Storm 的编程接口时曾介绍过 StormTopology 这个 thrift 类，topology 在构建完成之后会封装成一个 StormTopology 对象，并通过 RPC 方法提交给 Storm 集群的 nimbus 节点。<a id="more"></a></p>
+
+        <h3 id="拓扑的构建过程">
+          <a href="#拓扑的构建过程" class="heading-link"><i class="fas fa-link"></i></a>拓扑的构建过程</h3>
+      <p>拓扑结构在 Storm 集群中以 StormTopology 对象的形式表示，这是一个 thrift 类，其定义如下：</p>
+<figure class="highlight thrift"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">StormTopology</span> </span>{</span><br><span class="line">  <span class="number">1</span>: <span class="keyword">required</span> map&lt;<span class="keyword">string</span>, SpoutSpec&gt; spouts; <span class="comment">// topology 中的 spout 集合</span></span><br><span class="line">  <span class="number">2</span>: <span class="keyword">required</span> map&lt;<span class="keyword">string</span>, Bolt&gt; bolts; <span class="comment">// topology 中的 bolt 集合</span></span><br><span class="line">  <span class="number">3</span>: <span class="keyword">required</span> map&lt;<span class="keyword">string</span>, StateSpoutSpec&gt; state_spouts; <span class="comment">// topology 中的 state spout 集合</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>属性 spouts 的 key 是 spout 对应的 ID，value 是 SpoutSpec 类型对象，这也是一个 thrift 类，封装了 spout 的序列化 ComponentObject 对象和通用组件 ComponentCommon 对象。属性 bolts 的 key 是 bolt 对应的 ID，value 是 Bolt 类型对象，Bolt 同样是一个 thrfit 类，封装了 bolt 的序列化 ComponentObject 对象和通用组件 ComponentCommon 对象。</p>
+<p>ComponentObject 是一个 thrift 联合类型（union），在这里主要使用了 serialized_java 字段记录组件的序列化值：</p>
+<figure class="highlight thrift"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">union ComponentObject {</span><br><span class="line">    <span class="number">1</span>: <span class="built_in">binary</span> serialized_java;  <span class="comment">// 序列化后的 java 对象</span></span><br><span class="line">    <span class="number">2</span>: ShellComponent shell;  <span class="comment">// ShellComponent 对象</span></span><br><span class="line">    <span class="number">3</span>: JavaObject java_object;  <span class="comment">// java 对象</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>ComponentCommon 是对组件的抽象表示，spout 和 bolt 在 topology 中统称为组件，topology 构建过程中会将 spout 和 bolt 都封装成为 ComponentCommon 对象：</p>
+<figure class="highlight thrift"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">ComponentCommon</span> </span>{</span><br><span class="line">  <span class="comment">// 组件将从哪些 GlobalStreamId 以何种分组方式接收数据</span></span><br><span class="line">  <span class="number">1</span>: <span class="keyword">required</span> map&lt;GlobalStreamId, Grouping&gt; inputs;</span><br><span class="line">  <span class="comment">// 组件要输出的所有流，key 是 streamId</span></span><br><span class="line">  <span class="number">2</span>: <span class="keyword">required</span> map&lt;<span class="keyword">string</span>, StreamInfo&gt; streams;</span><br><span class="line">  <span class="comment">// 组件并行度（即多少个线程），这些线程可能分布在不同的机器或进程空间中</span></span><br><span class="line">  <span class="number">3</span>: <span class="keyword">optional</span> <span class="built_in">i32</span> parallelism_hint;</span><br><span class="line">  <span class="comment">// 组件相关配置项</span></span><br><span class="line">  <span class="number">4</span>: <span class="keyword">optional</span> <span class="built_in">string</span> json_conf;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>StormTopology 作为 thrift 类在编译成 java 实现时比较冗长，所以 Storm 提供了 TopologyBuilder 构造器类来简化 topology 的构造，其使用形式一般如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">WordCountTopology</span> <span class="keyword">implements</span> <span class="title">ComponentId</span>, <span class="title">FieldName</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String TOPOLOGY_NAME = <span class="string">"wordcount-topology"</span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception </span>{</span><br><span class="line">        SentenceSpout sentenceSpout = <span class="keyword">new</span> SentenceSpout();</span><br><span class="line">        SentenceSplitBolt sentenceSplitBolt = <span class="keyword">new</span> SentenceSplitBolt();</span><br><span class="line">        WordCountBolt wordCountBolt = <span class="keyword">new</span> WordCountBolt();</span><br><span class="line">        ReportBolt reportBolt = <span class="keyword">new</span> ReportBolt();</span><br><span class="line"></span><br><span class="line">        TopologyBuilder builder = <span class="keyword">new</span> TopologyBuilder();</span><br><span class="line">        builder.setSpout(SENTENCE_SPOUT_ID, sentenceSpout);</span><br><span class="line">        builder.setBolt(SENTENCE_SPLIT_BOLT_ID, sentenceSplitBolt).shuffleGrouping(SENTENCE_SPOUT_ID);</span><br><span class="line">        builder.setBolt(WORD_COUNT_BOLT_ID, wordCountBolt).fieldsGrouping(SENTENCE_SPLIT_BOLT_ID, <span class="keyword">new</span> Fields(WORD));</span><br><span class="line">        builder.setBolt(REPORT_BOLT_ID, reportBolt).globalGrouping(WORD_COUNT_BOLT_ID);</span><br><span class="line"></span><br><span class="line">        Config config = <span class="keyword">new</span> Config();</span><br><span class="line">        LocalCluster localCluster = <span class="keyword">new</span> LocalCluster();</span><br><span class="line">        localCluster.submitTopology(TOPOLOGY_NAME, config, builder.createTopology());</span><br><span class="line"></span><br><span class="line">        TimeUnit.MINUTES.sleep(<span class="number">10</span>);</span><br><span class="line"></span><br><span class="line">        localCluster.killTopology(TOPOLOGY_NAME);</span><br><span class="line">        localCluster.shutdown();</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>创建完 TopologyBuilder 实例之后，我们可以调用 <code>setSpout</code> 方法往 topology 中添加并设置 spout 组件，调用 <code>setBolt</code> 方法往 topology 中添加并设置 bolt 组件，并最后通过调用 <code>createTopology</code> 方法来完成 topology 的构建，该方法会返回一个 StormTopology 对象。TopologyBuilder 类中主要关注 3 个属性：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/** 记录拓扑范围内所有的 Bolt 对象 */</span></span><br><span class="line"><span class="keyword">protected</span> Map&lt;String, IRichBolt&gt; _bolts = <span class="keyword">new</span> HashMap&lt;&gt;();</span><br><span class="line"><span class="comment">/** 记录拓扑范围内所有的 Spout 对象 */</span></span><br><span class="line"><span class="keyword">protected</span> Map&lt;String, IRichSpout&gt; _spouts = <span class="keyword">new</span> HashMap&lt;&gt;();</span><br><span class="line"><span class="comment">/** 记录拓扑范围内封装所有的 Spout 和 Bolt 的 ComponentCommon 组件对象 */</span></span><br><span class="line"><span class="keyword">protected</span> Map&lt;String, ComponentCommon&gt; _commons = <span class="keyword">new</span> HashMap&lt;&gt;();</span><br></pre></td></tr></tbody></table></div></figure>
+<p>下面来看一下 spout 和 bolt 的构造过程，即 <code>setSpout</code> 和 <code>setBolt</code> 方法，针对这两类方法，TopologyBuilder 都提供了多种重载版本，其中 <code>setSpout</code> 对应的底层实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> SpoutDeclarer <span class="title">setSpout</span><span class="params">(String id, IRichSpout spout, Number parallelism_hint)</span> <span class="keyword">throws</span> IllegalArgumentException </span>{</span><br><span class="line"><span class="comment">// 保证 id 在 topology 范围内的全局唯一</span></span><br><span class="line"><span class="keyword">this</span>.validateUnusedId(id);</span><br><span class="line"><span class="comment">// 以 ComponentCommon 的形式封装组件，并记录到 _commons 属性中</span></span><br><span class="line"><span class="keyword">this</span>.initCommon(id, spout, parallelism_hint);</span><br><span class="line"><span class="comment">// 记录组件到 _spout 集合中</span></span><br><span class="line">_spouts.put(id, spout);</span><br><span class="line"><span class="keyword">return</span> <span class="keyword">new</span> SpoutGetter(id);</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>方法首先会验证 spoutId 在 topology 范围内的全局唯一性，即没有被已有的 spout 和 bolt 占用，否则会抛出 IllegalArgumentException 异常。<code>initCommon</code> 方法会构造 spout 对应的 ComponentCommon 对象并记录到 <code>_commons</code> 属性中：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">initCommon</span><span class="params">(String id, IComponent component, Number parallelism)</span> <span class="keyword">throws</span> IllegalArgumentException </span>{</span><br><span class="line">    ComponentCommon common = <span class="keyword">new</span> ComponentCommon();</span><br><span class="line">    common.set_inputs(<span class="keyword">new</span> HashMap&lt;GlobalStreamId, Grouping&gt;());</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 设置并行度</span></span><br><span class="line">    <span class="keyword">if</span> (parallelism != <span class="keyword">null</span>) {</span><br><span class="line">        <span class="keyword">int</span> dop = parallelism.intValue();</span><br><span class="line">        <span class="keyword">if</span> (dop &lt; <span class="number">1</span>) {</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> IllegalArgumentException(<span class="string">"Parallelism must be positive."</span>);</span><br><span class="line">        }</span><br><span class="line">        common.set_parallelism_hint(dop); <span class="comment">// 设置组件并行度</span></span><br><span class="line">    } <span class="keyword">else</span> {</span><br><span class="line">        <span class="comment">// 如果没有设置的话，默认设置并行度为 1</span></span><br><span class="line">        common.set_parallelism_hint(<span class="number">1</span>);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 获取组件相关的配置并以 json 的形式记录到 ComponentCommon 对象中</span></span><br><span class="line">    Map conf = component.getComponentConfiguration();</span><br><span class="line">    <span class="keyword">if</span> (conf != <span class="keyword">null</span>) common.set_json_conf(JSONValue.toJSONString(conf));</span><br><span class="line">    _commons.put(id, common);</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>最后将 spout 对象记录到 <code>_spouts</code> 属性中，并构造当前 spout 对应的 SpoutGetter 对象。</p>
+<p>SpoutGetter 可以理解为 spout 对应的属性配置器，用于为当前 spout 加载通用的配置和设置私有的属性值，并最终将所有的配置项序列化为 json 格式记录到封装当前 spout 的 ComponentCommon 对象中（json_conf 属性）。</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">protected</span> <span class="class"><span class="keyword">class</span> <span class="title">SpoutGetter</span> <span class="keyword">extends</span> <span class="title">ConfigGetter</span>&lt;<span class="title">SpoutDeclarer</span>&gt; <span class="keyword">implements</span> <span class="title">SpoutDeclarer</span> </span>{</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">SpoutGetter</span><span class="params">(String id)</span> </span>{</span><br><span class="line">        <span class="keyword">super</span>(id);</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>SpoutGetter 类继承了 ConfigGetter 类，并实现了 SpoutDeclarer 接口，该接口主要是声明了一些 spout 组件相关的配置方法，具体的实现都在 ConfigGetter 的父类 BaseConfigurationDeclarer 中，实现比较简单，不展开说明。ConfigGetter 覆盖实现了父类的 <code>addConfigurations</code> 方法，并在该方法中将当前 spout 所有相关的配置项序列化成 json 记录到对应的 ComponentCommon 对象中：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> T <span class="title">addConfigurations</span><span class="params">(Map conf)</span> </span>{</span><br><span class="line">    <span class="keyword">if</span> (conf != <span class="keyword">null</span> &amp;&amp; conf.containsKey(Config.TOPOLOGY_KRYO_REGISTER)) { <span class="comment">// ${topology.kryo.register}</span></span><br><span class="line">        <span class="comment">// 在通常的非事务流处理中，不允许设置组件的序列化方式</span></span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> IllegalArgumentException(<span class="string">"Cannot set serializations for a component using fluent API"</span>);</span><br><span class="line">    }</span><br><span class="line">    String currConf = _commons.get(_id).get_json_conf();</span><br><span class="line">    <span class="comment">// 将 currConf 与 conf 的配置项合并，并以 json string 的形式记录到对应组件的 json_conf 字段中</span></span><br><span class="line">    _commons.get(_id).set_json_conf(JStormUtils.mergeIntoJson(JStormUtils.parseJson(currConf), conf));</span><br><span class="line">    <span class="keyword">return</span> (T) <span class="keyword">this</span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>下面继续分析 <code>setBolt</code> 方法，上一篇在介绍 Bolt 组件接口时我们知道 Storm 提供了三种基础的 Bolt 组件类型，即 IBolt(or IRichBolt)、IBasicBolt，以及 IBatchBolt。针对每种 Bolt 类型，TopologyBuilder 都有提供相应版本的 <code>setBolt</code> 方法实现，下面以最常见的 IBolt 类型为例，对应的方法实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> BoltDeclarer <span class="title">setBolt</span><span class="params">(String id, IRichBolt bolt, Number parallelism_hint)</span> <span class="keyword">throws</span> IllegalArgumentException </span>{</span><br><span class="line">    <span class="comment">// 保证 id 在 topology 范围内的全局唯一</span></span><br><span class="line">    <span class="keyword">this</span>.validateUnusedId(id);</span><br><span class="line">    <span class="comment">// 以 ComponentCommon 形式封装组件，并记录到 _commons 属性中</span></span><br><span class="line">    <span class="keyword">this</span>.initCommon(id, bolt, parallelism_hint);</span><br><span class="line">    <span class="comment">// 记录 bolt 到 _bolt 集合中</span></span><br><span class="line">    _bolts.put(id, bolt);</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">new</span> BoltGetter(id);</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>流程上与 <code>setSpout</code> 大同小异，不再重复撰述，方法最终会将 bolt 对象记录到 <code>_bolts</code> 属性中，并构造当前 bolt 对应的 BoltGetter 对象。</p>
+<p>前面我们分析了 SpoutGetter，知道其作用主要是为 spout 配置相关属性，BoltGetter 的作用同样如此，不过相对于 SpoutGetter 增加了消息分组方式的配置入口，最后同样将属性序列化为 json 格式记录到与组件相对应的 ComponentCommon 对象中。</p>
+<p>在完成调用 <code>setSpout</code> 和 <code>setBolt</code> 往 topology 中添加 spout 和 bolt 组件之后，我们需要调用 <code>createTopology</code> 方法创建相应的 StormTopology 对象，该方法的实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> StormTopology <span class="title">createTopology</span><span class="params">()</span> </span>{</span><br><span class="line">    Map&lt;String, Bolt&gt; boltSpecs = <span class="keyword">new</span> HashMap&lt;&gt;();</span><br><span class="line">    Map&lt;String, SpoutSpec&gt; spoutSpecs = <span class="keyword">new</span> HashMap&lt;&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 如果当前 topology 中含有 stateful-bolt，就为 topology 自动添加一个 CheckpointSpout</span></span><br><span class="line">    <span class="keyword">this</span>.maybeAddCheckpointSpout();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 遍历处理 bolt，封装 bolt 的序列化形式和 ComponentCommon 形式为 Bolt 对象，并记录到 boltSpecs 中</span></span><br><span class="line">    <span class="keyword">for</span> (String boltId : _bolts.keySet()) {</span><br><span class="line">        IRichBolt bolt = _bolts.get(boltId);</span><br><span class="line">        <span class="comment">// 如果当前 topology 中含有 stateful-bolt，那么针对 non-stateful bolt 都采用 CheckpointTupleForwarder 进行包装</span></span><br><span class="line">        bolt = <span class="keyword">this</span>.maybeAddCheckpointTupleForwarder(bolt);</span><br><span class="line">        ComponentCommon common = <span class="keyword">this</span>.getComponentCommon(boltId, bolt);</span><br><span class="line">        <span class="keyword">try</span> {</span><br><span class="line">            <span class="keyword">this</span>.maybeAddCheckpointInputs(common);</span><br><span class="line">            <span class="keyword">this</span>.maybeAddWatermarkInputs(common, bolt);</span><br><span class="line">            <span class="comment">// 封装 bolt 的序列化形式和 ComponentCommon 形式为 Bolt 对象，并记录到 boltSpecs 中</span></span><br><span class="line">            boltSpecs.put(boltId, <span class="keyword">new</span> Bolt(ComponentObject.serialized_java(Utils.javaSerialize(bolt)), common));</span><br><span class="line">        } <span class="keyword">catch</span> (RuntimeException wrapperCause) {</span><br><span class="line">            <span class="comment">// 省略异常处理逻辑</span></span><br><span class="line">            <span class="keyword">throw</span> wrapperCause;</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 遍历处理 spout，封装 spout 的序列化形式和 ComponentCommon 形式为 SpoutSpec 对象，并记录到 spoutSpecs 中</span></span><br><span class="line">    <span class="keyword">for</span> (String spoutId : _spouts.keySet()) {</span><br><span class="line">        IRichSpout spout = _spouts.get(spoutId);</span><br><span class="line">        ComponentCommon common = <span class="keyword">this</span>.getComponentCommon(spoutId, spout);</span><br><span class="line">        <span class="keyword">try</span> {</span><br><span class="line">            <span class="comment">// 封装 spout 的序列化形式和 ComponentCommon 形式为 SpoutSpec 对象，并记录到 spoutSpecs 中</span></span><br><span class="line">            spoutSpecs.put(spoutId, <span class="keyword">new</span> SpoutSpec(ComponentObject.serialized_java(Utils.javaSerialize(spout)), common));</span><br><span class="line">        } <span class="keyword">catch</span> (RuntimeException wrapperCause) {</span><br><span class="line">            <span class="comment">// 省略异常处理逻辑</span></span><br><span class="line">            <span class="keyword">throw</span> wrapperCause;</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 封装成为 stormTopology 对象返回</span></span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">new</span> StormTopology(spoutSpecs, boltSpecs, <span class="keyword">new</span> HashMap&lt;String, StateSpoutSpec&gt;());</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>整个方法的执行流程可以概括为：</p>
+<ol>
+<li>如果 topology 中存在有状态的 bolt，则为当前 topology 自动添加一个 CheckpointSpout 组件；</li>
+<li>遍历处理之前添加到 topology 中的 bolt，采用 Bolt 封装其序列化对象和 ComponentCommon 组件对象；</li>
+<li>遍历处理之前添加到 topology 中的 spout，采用 SpoutSpec 封装其序列化对象和 ComponentCommon 组件对象；</li>
+<li>构造 StormTopology 对象并返回。</li>
+</ol>
+
+        <h3 id="集群环境下拓扑的提交过程">
+          <a href="#集群环境下拓扑的提交过程" class="heading-link"><i class="fas fa-link"></i></a>集群环境下拓扑的提交过程</h3>
+      <p>当构建完 topology 之后，我们需要以任务的形式将其提交到 Storm 集群运行。此外，为了方便调试，Storm 也支持通过 LocalCluster 在本地提交运行任务，本节我们主要介绍如何向 Storm 集群提交任务。</p>
+<p>Storm 提供了 StormSubmitter 类用于向 Storm 集群提交任务，并提供了两类方法：<code>submitTopology</code> 和 <code>submitTopologyWithProgressBar</code>。后者是对前者的封装，在原版 Storm 中用于支持显示任务的提交进度，但是这一设计在 JStorm 中被移除，所以两类方法实际上是等价的。接下来我们对 <code>submitTopology</code> 方法的实现进行分析，Storm 为该方法提供了多个重载版本，对应的底层实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">submitTopology</span><span class="params">(String name, Map stormConf, StormTopology topology, SubmitOptions opts)</span></span></span><br><span class="line"><span class="function">        <span class="keyword">throws</span> AlreadyAliveException, InvalidTopologyException </span>{</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 验证配置是否为 json 格式</span></span><br><span class="line">    <span class="keyword">if</span> (!Utils.isValidConf(stormConf)) {</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> IllegalArgumentException(<span class="string">"Storm conf is not valid. Must be json-serializable"</span>);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 封装配置（构建 topology 期间添加的、提交 topology 时传入的，以及命令行参数）</span></span><br><span class="line">    Map userTotalConf = <span class="keyword">new</span> HashMap();</span><br><span class="line">    userTotalConf.putAll(TopologyBuilder.getStormConf()); <span class="comment">// add the configuration generated during topology building</span></span><br><span class="line">    userTotalConf.putAll(stormConf);</span><br><span class="line">    userTotalConf.putAll(Utils.readCommandLineOpts());</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 加载配置文件配置</span></span><br><span class="line">    Map conf = Utils.readStormConfig();</span><br><span class="line">    conf.putAll(stormConf);</span><br><span class="line">    putUserInfo(conf, stormConf);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        String serConf = Utils.to_json(userTotalConf); <span class="comment">// 转换成 json 形式</span></span><br><span class="line">        <span class="keyword">if</span> (localNimbus != <span class="keyword">null</span>) {</span><br><span class="line">            <span class="comment">// 本地模式</span></span><br><span class="line">            LOG.info(<span class="string">"Submitting topology "</span> + name + <span class="string">" in local mode"</span>);</span><br><span class="line">            localNimbus.submitTopology(name, <span class="keyword">null</span>, serConf, topology);</span><br><span class="line">        } <span class="keyword">else</span> {</span><br><span class="line">            <span class="comment">// 集群模式</span></span><br><span class="line">            <span class="comment">// 创建 Thrift 客户端</span></span><br><span class="line">            NimbusClient client = NimbusClient.getConfiguredClient(conf);</span><br><span class="line">            <span class="keyword">try</span> {</span><br><span class="line">                <span class="comment">// 是否允许热部署 ${topology.hot.deploy.enable}</span></span><br><span class="line">                <span class="keyword">boolean</span> enableDeploy = ConfigExtension.getTopologyHotDeplogyEnable(userTotalConf);</span><br><span class="line">                <span class="comment">// 是否是灰度发布 ${topology.upgrade}</span></span><br><span class="line">                <span class="keyword">boolean</span> isUpgrade = ConfigExtension.isUpgradeTopology(userTotalConf);</span><br><span class="line">                <span class="comment">// 是否允许动态更新</span></span><br><span class="line">                <span class="keyword">boolean</span> dynamicUpdate = enableDeploy || isUpgrade;</span><br><span class="line"></span><br><span class="line">                <span class="keyword">if</span> (topologyNameExists(client, conf, name) != dynamicUpdate) {</span><br><span class="line">                    <span class="keyword">if</span> (dynamicUpdate) {</span><br><span class="line">                        <span class="comment">// 动态更新，但是对应的 topology 不存在</span></span><br><span class="line">                        <span class="keyword">throw</span> <span class="keyword">new</span> RuntimeException(<span class="string">"Topology with name `"</span> + name + <span class="string">"` does not exist on cluster"</span>);</span><br><span class="line">                    } <span class="keyword">else</span> {</span><br><span class="line">                        <span class="comment">// 提交新任务，但是对应的 topology 已经存在</span></span><br><span class="line">                        <span class="keyword">throw</span> <span class="keyword">new</span> RuntimeException(<span class="string">"Topology with name `"</span> + name + <span class="string">"` already exists on cluster"</span>);</span><br><span class="line">                    }</span><br><span class="line">                }</span><br><span class="line"></span><br><span class="line">                <span class="comment">// 上传 jar 包</span></span><br><span class="line">                submitJar(client, conf);</span><br><span class="line">                LOG.info(<span class="string">"Submitting topology "</span> + name + <span class="string">" in distributed mode with conf "</span> + serConf);</span><br><span class="line"></span><br><span class="line">                <span class="comment">// 提交任务</span></span><br><span class="line">                <span class="keyword">if</span> (opts != <span class="keyword">null</span>) {</span><br><span class="line">                    client.getClient().submitTopologyWithOpts(name, path, serConf, topology, opts);</span><br><span class="line">                } <span class="keyword">else</span> {</span><br><span class="line">                    <span class="comment">// for backward compatibility</span></span><br><span class="line">                    client.getClient().submitTopology(name, path, serConf, topology);</span><br><span class="line">                }</span><br><span class="line">            } <span class="keyword">finally</span> {</span><br><span class="line">                client.close();</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">        LOG.info(<span class="string">"Finished submitting topology: "</span> + name);</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">// 省略 catch 代码块</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>Storm 任务提交的过程本质上是一个与 nimbus 节点进行 RPC 通信的过程，整体流程可以概括为：</p>
+<ol>
+<li>加载与封装配置；</li>
+<li>验证当前 topology 的远程状态；</li>
+<li>上传 topology 的 jar 文件到 nimbus 节点；</li>
+<li>提交 topology 任务。</li>
+</ol>
+<p>配置的加载与封装过程会验证配置是否为 json 格式，并聚合多个来源的配置封装成 map 集合。在任务提交之前会验证当前 topology 在远程集群的状态，如果当前操作是热部署或灰度发布，则必须保证对应的 topology 在远程集群已经存在，而对于新提交的 topology 来说，如果远程集群存在同名的 topology 则会禁止提交。</p>
+<p>Storm 任务的提交分为两个步骤，首先上传 topology 对应的 jar 文件到 nimbus 服务器，上传成功之后才会调用远程方法通知 nimbus 有新任务加入，需要开始为该 topology 制定运行方案。下面先来看一下 jar 报上传的过程，该过程位于 <code>submitJar</code> 方法中：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">submitJar</span><span class="params">(NimbusClient client, Map conf)</span> </span>{</span><br><span class="line">    <span class="keyword">if</span> (submittedJar == <span class="keyword">null</span>) {</span><br><span class="line">        <span class="keyword">try</span> {</span><br><span class="line">            LOG.info(<span class="string">"Jar not uploaded to master yet. Submitting jar..."</span>);</span><br><span class="line">            <span class="comment">// 获取对应的 client jar 名称，例如 jstorm-1.0.0-SNAPSHOT.jar</span></span><br><span class="line">            String localJar = System.getProperty(<span class="string">"storm.jar"</span>);</span><br><span class="line">            <span class="comment">// 为待上传的 jar 包创建存储路径和 Channel，并返回路径值</span></span><br><span class="line">            <span class="comment">// ${storm.local.dir}/nimbus/inbox/${key}</span></span><br><span class="line">            path = client.getClient().beginFileUpload();</span><br><span class="line">            String[] pathCache = path.split(<span class="string">"/"</span>);</span><br><span class="line">            <span class="comment">// ${storm.local.dir}/nimbus/inbox/${key}/stormjar-${key}.jar</span></span><br><span class="line">            String uploadLocation = path + <span class="string">"/stormjar-"</span> + pathCache[pathCache.length - <span class="number">1</span>] + <span class="string">".jar"</span>;</span><br><span class="line"></span><br><span class="line">            <span class="comment">// 如果设置了 lib jar 则先上传 lib jar</span></span><br><span class="line">            List&lt;String&gt; lib = (List&lt;String&gt;) conf.get(GenericOptionsParser.TOPOLOGY_LIB_NAME); <span class="comment">// topology.lib.name</span></span><br><span class="line">            Map&lt;String, String&gt; libPath = (Map&lt;String, String&gt;) conf.get(GenericOptionsParser.TOPOLOGY_LIB_PATH); <span class="comment">// topology.lib.path</span></span><br><span class="line">            <span class="keyword">if</span> (lib != <span class="keyword">null</span> &amp;&amp; lib.size() != <span class="number">0</span>) {</span><br><span class="line">                <span class="keyword">for</span> (String libName : lib) {</span><br><span class="line">                    String jarPath = path + <span class="string">"/lib/"</span> + libName;</span><br><span class="line">                    client.getClient().beginLibUpload(jarPath);</span><br><span class="line">                    submitJar(conf, libPath.get(libName), jarPath, client);</span><br><span class="line">                }</span><br><span class="line">            } <span class="keyword">else</span> {</span><br><span class="line">                <span class="keyword">if</span> (localJar == <span class="keyword">null</span>) {</span><br><span class="line">                    <span class="comment">// no lib, no client jar</span></span><br><span class="line">                    <span class="keyword">throw</span> <span class="keyword">new</span> RuntimeException(<span class="string">"No client app jar found, please upload it"</span>);</span><br><span class="line">                }</span><br><span class="line">            }</span><br><span class="line"></span><br><span class="line">            <span class="comment">// 上传 client jar</span></span><br><span class="line">            <span class="keyword">if</span> (localJar != <span class="keyword">null</span>) {</span><br><span class="line">                submittedJar = submitJar(conf, localJar, uploadLocation, client);</span><br><span class="line">            } <span class="keyword">else</span> {</span><br><span class="line">                <span class="comment">// no client jar, but with lib jar</span></span><br><span class="line">                client.getClient().finishFileUpload(uploadLocation);</span><br><span class="line">            }</span><br><span class="line">        } <span class="keyword">catch</span> (Exception e) {</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> RuntimeException(e);</span><br><span class="line">        }</span><br><span class="line">    } <span class="keyword">else</span> {</span><br><span class="line">        LOG.info(<span class="string">"Jar has already been uploaded to master. Will not submit again."</span>);</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>方法首先会获取 topology 对应的 jar 文件名称（项目打包后对应的 jar 文件），然后调用 thrift 方法 <code>beginFileUpload</code> 为待上传的 jar 文件创建存储路径和传输通道，并返回对应的路径值。在 <code>storm.thrift</code> 文件中定义了一个 service 类型的 Nimbus 类，如果你对 thrift 熟悉就应该知道这是一个 service 接口声明，Nimbus 类声明了一些能够与 nimbus 节点进行远程通信的方法，相应方法实现位于 ServiceHandler 类中，可以在该类中找到 <code>beginFileUpload</code> 方法的实现：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> String <span class="title">beginFileUpload</span><span class="params">()</span> <span class="keyword">throws</span> TException </span>{</span><br><span class="line">    String fileLoc = <span class="keyword">null</span>;</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        String key = UUID.randomUUID().toString();</span><br><span class="line">        String path = StormConfig.masterInbox(conf) + <span class="string">"/"</span> + key; <span class="comment">// ${storm.local.dir}/nimbus/inbox/${key}</span></span><br><span class="line">        FileUtils.forceMkdir(<span class="keyword">new</span> File(path));</span><br><span class="line">        FileUtils.cleanDirectory(<span class="keyword">new</span> File(path));</span><br><span class="line">        fileLoc = path + <span class="string">"/stormjar-"</span> + key + <span class="string">".jar"</span>; <span class="comment">// ${storm.local.dir}/nimbus/inbox/${key}/stormjar-${key}.jar</span></span><br><span class="line">        data.getUploaders().put(fileLoc, Channels.newChannel(<span class="keyword">new</span> FileOutputStream(fileLoc)));</span><br><span class="line">        LOG.info(<span class="string">"Begin upload file from client to "</span> + fileLoc);</span><br><span class="line">        <span class="keyword">return</span> path;</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">// 省略 catch 代码块</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>方法首先会基于 UUID 为本次需要上传的 jar 文件创建一个唯一的名称标识，然后在 nimbus 本地对应的目录下创建 jar 文件存储路径（如下），同时为该路径创建一个传输通道，并返回该路径（不包含文件名称）：</p>
+<blockquote>
+<p>${storm.local.dir}/nimbus/inbox/${key}/stormjar-${key}.jar</p>
+</blockquote>
+<p>接下来就开始执行 jar 文件的上传逻辑，如果我们在自己的代码中提交 topology 时指定了一些依赖包，那么这里首先会上传这些依赖包，然后再上传主程序包。所有的文件上传都位于一个重载版本的 <code>submitJar</code> 方法中，该重载方法会调用远程 <code>uploadChunk</code> 方法执行具体的文件上传操作，并在上传完成之后调用远程 <code>finishFileUpload</code> 方法关闭对应的上传通道。整个过程就是将我们发布机上本地的 topology jar 文件上传到 nimbus 节点对应的本地路径 <code>nimbus/inbox/${key}/stormjar-${key}.jar</code> 下面，其中 key 是一个 UUID 唯一标识。</p>
+<p>接下来方法会调用 <code>submitTopology</code> 方法提交 topology 任务，默认会设置 topology 的初始化状态为 ACTIVE。Nimbus 在接收到 RPC 请求之后开始对提交的任务制定运行方案，主要是依据 topology 配置和集群的运行状态为提交的任务分配 task、worker，以及 supervisor。如果成功则返回对应的 topologyId，否则会抛出相应的异常，我们将在下一篇中对整个 topology 任务分配过程进行深入分析。</p>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2018/11/15/storm/storm-topology-build/">https://plotor.github.io/2018/11/15/storm/storm-topology-build/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Storm/">Storm</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/JStorm/">JStorm</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2018/11/16/storm/storm-topology-assignment/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">JStorm 源码解析：拓扑任务的资源分配过程</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2018/11/14/storm/storm-api/"><span class="paginator-prev__text">JStorm 源码解析：编程接口</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8B%93%E6%89%91%E7%9A%84%E6%9E%84%E5%BB%BA%E8%BF%87%E7%A8%8B"><span class="toc-number">1.</span> <span class="toc-text">
+          拓扑的构建过程</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%9B%86%E7%BE%A4%E7%8E%AF%E5%A2%83%E4%B8%8B%E6%8B%93%E6%89%91%E7%9A%84%E6%8F%90%E4%BA%A4%E8%BF%87%E7%A8%8B"><span class="toc-number">2.</span> <span class="toc-text">
+          集群环境下拓扑的提交过程</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

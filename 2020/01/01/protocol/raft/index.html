@@ -1,0 +1,627 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="Raft 算法是一类基于日志复制的分布式共识算法，旨在提供与 Multi-Paxos 共识算法相同的容错性和性能的前提下，追求更好的可理解性和工程可实现性。Paxos 算法为分布式系统面临的共识问题提供了解决思路，但其难以理解的特性一直被大家所诟病，更不用说工程实现，这也是 Raft 算法诞生的主要动因。 Raft 算法的作者认为可理解性和工程可实现性也是一个优秀分布式共识算法所应该具备的特性，并">
+<meta property="og:type" content="article">
+<meta property="og:title" content="理解 Raft 分布式共识算法">
+<meta property="og:url" content="https://plotor.github.io/2020/01/01/protocol/raft/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="Raft 算法是一类基于日志复制的分布式共识算法，旨在提供与 Multi-Paxos 共识算法相同的容错性和性能的前提下，追求更好的可理解性和工程可实现性。Paxos 算法为分布式系统面临的共识问题提供了解决思路，但其难以理解的特性一直被大家所诟病，更不用说工程实现，这也是 Raft 算法诞生的主要动因。 Raft 算法的作者认为可理解性和工程可实现性也是一个优秀分布式共识算法所应该具备的特性，并">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://plotor.github.io/images/2020/raft-replicated-state-machine.png">
+<meta property="og:image" content="https://plotor.github.io/images/2020/raft-node-lifecycle.png">
+<meta property="og:image" content="https://plotor.github.io/images/2020/raft-log.png">
+<meta property="og:image" content="https://plotor.github.io/images/2020/raft-apply-task.png">
+<meta property="og:image" content="https://plotor.github.io/images/2020/raft-network-partition.png">
+<meta property="article:published_time" content="2020-01-01T06:34:56.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.969Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="分布式">
+<meta property="article:tag" content="分布式共识">
+<meta property="article:tag" content="Raft">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://plotor.github.io/images/2020/raft-replicated-state-machine.png"><title>理解 Raft 分布式共识算法 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2020/01/01/protocol/raft/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">理解 Raft 分布式共识算法</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2020-01-01</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">7.3k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">26分</span></span></div></header><div class="post-body"><p>Raft 算法是一类基于日志复制的分布式共识算法，旨在提供与 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Paxos_(computer_science)">Multi-Paxos</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 共识算法相同的容错性和性能的前提下，追求更好的可理解性和工程可实现性。Paxos 算法为分布式系统面临的共识问题提供了解决思路，但其难以理解的特性一直被大家所诟病，更不用说工程实现，这也是 Raft 算法诞生的主要动因。</p>
+<p>Raft 算法的作者认为可理解性和工程可实现性也是一个优秀分布式共识算法所应该具备的特性，并通过以下两点保证算法的可理解性：</p>
+<ul>
+<li><strong>问题分解</strong> ：将分布式共识问题拆分成主节点选举、日志复制、安全点，以及成员变更 4 个独立子问题逐一进行解决。</li>
+<li><strong>简化状态</strong> ：通过增强某些阶段的一致性程度（例如约束能够成为下一任 Leader 的参选节点条件），以减少算法需要考虑的系统状态数量。</li>
+</ul>
+<a id="more"></a>
+
+<p>要理解 Raft 算法的运行机制，我们应该先对其应用场景有一个感知。以一个简单的分布式 KV 系统为例，在这个系统中会有多个参与节点，其中各个节点都持有数据的完整副本。系统可以响应用户的读写请求，并且能够保证读写操作的线性一致性语义，即当用户成功写入某个 <code>&lt;key, value&gt;</code> 键值对之后，后续不论从哪个节点发起读请求，都能够读取到写入时间点之后的数据。一个典型的分布式 KV 系统往往限制只有 Leader 节点能够响应数据更新请求，但是所有的节点都能够响应读请求，因为大多数的应用场景都具备读多写少的特性。</p>
+<p>如何保证各个节点都持有数据的完整副本是该 KV 系统所面临的问题，这也是分布式系统所面临的典型问题。惯用的解决思路是引入日志文件，每条日志对应用户的一次更新操作（也叫指令）。日志在 Leader 节点生成，并复制给集群中所有的参与节点。如果能够保证每个节点复制的日志都是完整且与 Leader 节点日志具备相同的写入顺序，那么只要在各个节点本地按序重放这些日志所承载的指令，就能够实现让各个节点的数据副本状态在未来的某个时间点达成最终一致。这也是可复制状态机（Replicated State Machines）的基本思想，如下图：</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2020/raft-replicated-state-machine.png" alt="image">
+      </p>
+<p>从目前来看，在这个分布式 KV 系统中我们主要面临两个问题：</p>
+<ol>
+<li>如何正确选举出一个 Leader 节点？</li>
+<li>如何实现日志数据从 Leader 向其它节点有序且一致的复制？</li>
+</ol>
+<p>这也是 Raft 算法要解决的两个基本问题。当然，在解决这两个问题的过程中会面临许多安全问题，我们会专门用一小节去讨论这些问题。</p>
+<p>在正式介绍 Raft 算法的运行机制之前，我们先对 Raft 算法的一些基本属性和关键特性做一个简单的介绍。</p>
+<p>首先来看基本属性，主要包含 term 和 logIndex 这两个概念，说明如下：</p>
+<ul>
+<li><strong>term</strong> ：中文译为“任期”，更加形象一点可以将其理解为“朝代”，而 Leader 节点就是具体某个朝代的君王（不同于实际中一个朝代可能有多任君王，这里限制一个朝代只能有一位君王），当改朝换代时对应的 term 值也会递增（初始为 0，单调递增）。</li>
+<li><strong>logIndex</strong> ：Raft 算法采用日志记录用户的操作指令，并通过为每条日志分配一个 index 以维护日志的顺序性。Raft 算法要求在同一任期内 logIndex 是单调递增且不重复的，一些实现则更进一步要求在整个算法运行期间 logIndex 始终是单调递增且不重复的。</li>
+</ul>
+<p>在一个分布式系统中往往需要引入时钟的概念，并且为了避免物理时钟偏差对于系统正确性的影响，分布式系统往往选用逻辑时钟。属性 term 和 logIndex 结合在一起可以充当 Raft 算法的逻辑时钟，用于衡量一条日志的时间顺序，具体会在下文进一步说明。类比时钟的概念，我们自然也就能够理解 Raft 算法为什么要限制 term 和 logIndex 必须是单调递增的，且不允许重复和被更改。</p>
+<p>关于 logIndex 属性，还有两个特殊的位置值需要说明：</p>
+<ul>
+<li><strong>committedLogIndex</strong> ：一条日志被标记为 committed 的条件是这条日志成功被复制到集群中过半数的节点上，lastCommittedLogIndex 小于等于 lastLogIndex。</li>
+<li><strong>appliedLogIndex</strong> ：一条日志被标记为 applied 的条件是这条日志所承载的指令被成功应用到业务状态机中，lastAppliedLogIndex 小于等于 lastCommittedLogIndex，即一条能够被 applied 的日志前提一定是被 committed 的。</li>
+</ul>
+<p>再来了解一下 Raft 算法的关键特性：</p>
+<ul>
+<li><strong>Strong Leader</strong> ：一个集群在同一任期内只能包含一个 Leader 节点，日志数据仅从 Leader 节点单向流向其它 Follower 节点，这样的设计简化了对日志副本的管理，同时让算法更加易于理解。</li>
+<li><strong>Leader Election</strong> ：基于随机计时器触发 Leader 选举进程，相对于固定周期的超时策略，随机化超时周期这么一个小小的改动却能更加简单和高效的解决选举分裂问题。</li>
+<li><strong>Membership Changes</strong> ：基于联合共识机制处理集群节点的变更事件，在过渡期间允许两种不同的节点配置方案共存，以保证集群在节点变更期间仍然能够正常运行。</li>
+</ul>
+<p>本文我们重点介绍主节点选举、日志复制，以及过程中需要考虑的一些安全点。在介绍主节点选举和日志复制机制时我们重点关注算法的运行流程，一些需要考虑的安全问题将留到安全点小节进行统一探讨。</p>
+
+        <h3 id="主节点选举">
+          <a href="#主节点选举" class="heading-link"><i class="fas fa-link"></i></a>主节点选举</h3>
+      <p>Raft 算法中的节点分为三类角色：Leader、Candidate 和 Follower。一个任期内集群中的所有节点只能包含一个 Leader 节点，剩余的节点均为 Follower 节点，而 Candidate 节点是 Follower 尝试竞选成为下一任 Leader 节点的中间状态。下图演示了一个节点角色演变的过程：</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2020/raft-node-lifecycle.png" alt="image">
+      </p>
+<p>Raft 算法基于心跳机制触发主节点选举进程。一个 Leader 节点在位期间会始终向所有的 Follower 节点发送心跳请求以宣示自己的权威，如果一个 Follower 节点在一段时间内没有收到来自 Leader 节点的心跳，则会认为“皇帝已经驾崩了”，于是切换状态为 Candidate 尝试谋权篡位，竞选成为下一任 Leader。</p>
+<p>Raft 算法基于投票机制实现主节点选举，所以一个节点竞选的过程本质上就是向集群中其它节点征集选票的过程。Raft 集群中的节点一般采用 RPC 的方式进行通信，所以参选节点会向集群中的所有节点发送 RequestVote RPC 请求以征集选票（同时会为自己投上一票），请求内容如下：</p>
+<blockquote>
+<ul>
+<li><strong>term</strong> ：参选节点的任期值（当前任期值加 1），即如果该节点成功当选 Leader 的任期值。</li>
+<li><strong>candidateId</strong> ：参选节点的节点 ID。</li>
+<li><strong>lastLogIndex</strong> ：参选节点本地最后一条日志对应的 logIndex 值。</li>
+<li><strong>lastLogTerm</strong> ：参选节点本地最后一条日志对应的 term 值。</li>
+</ul>
+</blockquote>
+<p>为保证一个任期内只有一个 Leader 节点被选出，Raft 算法要求节点在一个任期内只能投票给一个参选节点，按照先来先服务的原则。如果接收到请求的节点当前未投票给任何参选节点，则会判断请求是否满足：</p>
+<ol>
+<li>参选节点的 term 值大于等于当前节点的 term 值。</li>
+<li>如果 term 值相等，则参选节点的 lastLogIndex 大于等于当前节点的 lastLogIndex 值。</li>
+</ol>
+<p>只有在同时满足上述两个条件时，当前节点才会为参选节点投上自己宝贵的一票，并承诺在当前任期内不会再投票给任何其它参选节点。</p>
+<p>节点针对参选节点的 RequestVote 响应中会携带以下信息：</p>
+<blockquote>
+<ul>
+<li><strong>term</strong> ：当前投票节点的任期值。</li>
+<li><strong>voteGranted</strong> ：是否同意投票。</li>
+</ul>
+</blockquote>
+<p>参选节点在一轮征集选票的过程中可能会遇到以下三种情况：</p>
+<ol>
+<li>参选节点赢得集群中过半数的选票。</li>
+<li>接收到的 RequestVote 响应中包含比自己任期更大的 term 值，说明已有其它节点竞选 Leader 成功。</li>
+<li>没有任何一个节点赢得选票，即本轮竞选没有任何一个节点胜出。</li>
+</ol>
+<p>针对 <strong>情况一</strong> ，说明该参选节点竞选 Leader 成功。为了防止某些节点谋权篡位，该节点需要立即向集群中的所有节点发送心跳请求以宣示自己的权威。</p>
+<p>针对 <strong>情况二</strong> ，如果该 Leader 节点的任期较当前节点更大，则当前节点需要转变为 Follower 节点以服从新 Leader 节点的统治，否则可以无视该“Leader”节点，继续发动革命以推翻其政权。</p>
+<p>针对 <strong>情况三</strong> ，说明有至少两个以上的参选节点同时发起了选举进程，并瓜分了选票，导致没有一个节点赢得过半数的选票。此时，这些节点只能在等待一段时间后继续发起一轮新的选举进程以打破这种僵持的状态。</p>
+<p>为了尽量避免出现第三种情况，一个简单且有效的解决方案就是随机化每个节点发起选举进程的超时时间。只要这些节点不是同一时刻发动革命，那么打成平手的概率将大大降低。</p>
+<p>关于主节点选举还有另外一个需要考虑的问题，即某些节点因为一些原因（比如网络延迟、节点负载较高等）未能正常接收到来自 Leader 节点的权威宣示通知，导致这些节点经常误认为“皇帝驾崩了”，尝试谋权篡位。按照 Raft 算法的主节点选举设计，这些“捣乱”的节点会提升 term 值以发起选举进程，但是因为大多数节点与 Leader 节点的租约是有效的，所以很多时候这些“捣乱”节点的谋权篡位计划只能以失败告终。然而，这类无谓的举动会导致对 term 值的浪费，对集群运行的稳定性构成威胁。</p>
+<p>为了解决此类问题，我们可以将选举进程拆分为预选举和正式选举两个阶段。一个节点在发起正式选举之前必须先经过一轮预选举，预选举区别于正式选举的地方在于参选节点并不会真正递增 term 值，而是尝试以 <code>term + 1</code> 的任期值去试探性的征集选票。如果预选举能够成功才会真正递增 term 值，并进入正式选举环节开始征集选票，否则对集群的运行状态不会构成影响。</p>
+
+        <h3 id="日志复制">
+          <a href="#日志复制" class="heading-link"><i class="fas fa-link"></i></a>日志复制</h3>
+      <p>在正确选举出 Leader 节点之后，接下来 Raft 算法需要解决的核心问题就剩下如何将日志数据有序的从 Leader 节点复制给集群所有的 Follower 节点，并保证各个节点上日志数据的一致性了。</p>
+<p>Raft 算法中的日志分为两类：一类是系统运行期间内部产生的日志，比如集群节点配置变更信息；另外一类就是用户向 Raft 集群提交请求所生成的日志，这类日志会承载用户的操作指令，也是 Raft 日志的主要形式。不过 Raft 算法在执行日志复制时并不区分日志的类型，而是统一处理。</p>
+<p>Leader 节点会以并发的形式向各个 Follower 节点复制日志数据，如果一条日志被集群中过半数的节点成功复制，则视该日志为 committed，即已提交。对于 committed 的日志，节点本地的可复制状态机会解析并应用其中所承载的指令，然后将其标记为 applied。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2020/raft-log.png" alt="image">
+      </p>
+<p>Raft 算法中的日志除了承载操作指令外，至少还包含 term 和 logIndex 两个基本属性（如上图），并且承诺：</p>
+<ol>
+<li>如果两条日志具备相同的 term 和 logIndex，则这两条日志所承载的指令必然是相同的。</li>
+<li>如果两条日志具备相同的 term 和 logIndex，则这两条日志的前置日志也是相同的，即具备相同的 term、logIndex 和指令。</li>
+</ol>
+<p>关于 <strong>承诺一</strong> ，Raft 算法要求在同一个 term 内 logIndex 必须是单调递增且不允许重复和被更改的，所以能够保证。</p>
+<p>关于 <strong>承诺二</strong> ，Raft 算法在发送日志复制请求时会携带前置日志的 term 和 logIndex 值（即 prevLogTerm 和 prevLogIndex），只有在 prevLogTerm 和 prevLogIndex 匹配的情况下才能成功响应请求。如果 prevLogTerm 和 prevLogIndex 不匹配，则说明当前节点可能是新加入的、或者之前服从于其它 Leader，亦或当前节点之前是 Leader 节点。为了兑现承诺二，Leader 节点需要与该 Follower 节点向前追溯找到 term 和 logIndex 匹配的那条日志，并使用 Leader 节点的日志强行覆盖该 Follower 此后的日志数据。</p>
+<p>Leader 节点一般基于 RPC 请求的方式向目标 Follower 节点复制日志数据，对应的复制日志 AppendEntries RPC 请求内容如下：</p>
+<blockquote>
+<ul>
+<li><strong>term</strong> ：Leader 节点的任期值。</li>
+<li><strong>leaderId</strong> ：Leader 节点 ID，Follower 节点可以据此将请求重定向给 Leader 节点。</li>
+<li><strong>prevLogIndex</strong> ：前置日志的 logIndex 值。</li>
+<li><strong>prevLogTerm</strong> ：前置日志的 term 值。</li>
+<li><strong>entries</strong> ：本次请求复制的日志数据集合，如果为空的话可以充当心跳请求。</li>
+<li><strong>leaderCommit</strong> ：Leader 节点的 lastCommittedLogIndex 值。</li>
+</ul>
+</blockquote>
+<p>Follower 节点关于 AppendEntries 响应的内容如下：</p>
+<blockquote>
+<ul>
+<li><strong>term</strong> ：Follower 节点的 term 值，如果相较于 Leader 节点更大，则 Leader 节点会更新自己的 term 值并退位。</li>
+<li><strong>success</strong> ：标识 Follower 节点是否成功复制请求中的日志数据。</li>
+</ul>
+</blockquote>
+<p>Follower 节点在接收到 AppendEntries 请求之后会按照以下流程进行处理：</p>
+<ol>
+<li>如果请求中的 term 值小于自己的 term 值，说明请求来源 Leader 节点已经失效，则拒绝请求，并返回自己的 term 值；</li>
+<li>如果对应 prevLogTerm 和 prevLogIndex 的日志与本地不匹配，则拒绝请求，以兑现承诺二；</li>
+<li>如果本地存在一条日志的 logIndex 和 prevLogIndex 相等，但是对应的 term 值和 prevLogTerm 不相同，则需要删除包含这条日志的所有后继日志，以兑现承诺二。如果采用全局递增的 logIndex 设计，则不会出现此类情况；</li>
+<li>在保证 prevLogTerm 和 prevLogIndex 匹配的情况下，如果本地不包含请求中的日志数据，则往本地追加日志数据；</li>
+<li>如果请求中的 leaderCommit 相较于本地记录的 committedLogIndex 更大，则更新本地 committedLogIndex 值为 <code>min(leaderCommit, lastLogIndex)</code>。</li>
+</ol>
+<p>在实现层面，作为 Leader 节点可以为每个 Follower 节点启动一个线程专门负责往该 Follower 节点复制日志数据并维护心跳。考虑各个 Follower 节点的负载和网络连通性，这样的设计能够保证往各个 Follower 节点复制日志数据进程是相互独立的。如果某个 Follower 节点所属的宿主机或网络出现问题，则对应的线程需要重试 AppendEntries 请求直到成功为止，但这并不会影响往其它 Follower 节点复制日志数据的进程。</p>
+
+        <h3 id="安全点">
+          <a href="#安全点" class="heading-link"><i class="fas fa-link"></i></a>安全点</h3>
+      <p>上面我们介绍了 Raft 算法关于主节点选举和日志数据复制机制的设计，总的来说还是比较容易理解的。然而，到目前为止我们都是建立在一个理想运行环境下，实际运行中我们面临的情况要复杂很多，作为一个分布式共识算法，应该提供在面对复杂环境下的各种容错机制。本小节我们就一起来探讨实际运行过程中可能存在的安全问题，以及 Raft 算法是如何解决的。</p>
+
+        <h4 id="Leader-节点宕机">
+          <a href="#Leader-节点宕机" class="heading-link"><i class="fas fa-link"></i></a>Leader 节点宕机</h4>
+      <p>通过前面对于主节点选举机制的介绍可知，Raft 算法会在 Leader 节点宕机时基于超时机制从集群节点中选举出一个新的 Leader 节点。设想如果新选出的 Leader 节点并未完全同步前任 Leader 节点已经 committed 的日志数据，那么按照 Raft 算法日志复制的规则，新 Leader 节点会强行覆盖集群中其它节点与自己冲突的日志数据。如果某些节点已经将这些被覆盖的日志所承载的指令应用到了自己的状态机中，那么就会导致节点之间数据的不一致，所以在执行主节点选举时不应该赋予所有的节点都有竞选成功的机会。</p>
+<p>Raft 算法解决上述问题的思路是限制只有包含所有已经 committed 日志的节点才有机会竞选成功。这也是为什么参选节点在征集选票时，Raft 算法对于投票节点是否同意投票需要添加如下两条限制：</p>
+<ol>
+<li>参选节点的 term 值大于等于投票节点的 term 值。</li>
+<li>如果 term 值相等，则参选节点的 lastLogIndex 大于等于投票节点的 lastLogIndex 值。</li>
+</ol>
+<p>那么这两个条件就一定能够保证新选出的 Leader 节点一定包含所有已经 committed 的日志吗？我们需要先明确以下两点：</p>
+<ol>
+<li>一条日志被 committed 的条件是这条日志被集群中 <strong>过半数</strong> 以上的节点成功复制。</li>
+<li>一个节点能够竞选 Leader 成功的条件是该节点赢得集群中 <strong>过半数</strong> 以上节点的选票。</li>
+</ol>
+<p>所以上面这两个“过半数”能够保证至少有一个节点既包含最新的一条被 committed 的日志，同时又给参选节点投上了自己的一票。然后附加上主节点选举的约束条件，可以得出新选举出的 Leader 节点的日志一定比该节点更新，所以新选举出的 Leader 节点一定包含最新一条被 committed 的日志。</p>
+<p>上述分析说明在 Leader 切换的过程中，新任 Leader 不会覆盖前任 Leader 已经 committed 的日志，也就不会导致数据不一致。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2020/raft-apply-task.png" alt="image">
+      </p>
+<p>Leader 节点宕机除了影响主节点选举，还会影响日志复制。上面这幅时序图描述了 Raft 集群处理客户端提交指令请求并复制日志的过程，Leader 节点可能在任何阶段发生宕机，下面来探讨一下在 Leader 节点发生宕机时，Raft 算法如何保证数据的一致性。</p>
+<ul>
+<li><strong>Leader 在将日志复制给 Follower 节点之前宕机</strong></li>
+</ul>
+<p>Leader 节点在为指令生成完日志之后会将对应的日志写入本地存储系统，然后开始并发将该日志复制给集群中所有的 Follower 节点。如果 Leader 节点在开始复制之前发生宕机，则对应的日志目前处于 uncommitted 状态。新选举出来的 Leader 节点一定不包含该日志，所以当上一任 Leader 节点从宕机中恢复并以 Follower 角色启动后，新任 Leader 会以本地的日志强行覆盖与其冲突的日志。因为该条日志对应的指令并未被应用到状态机，所以也就不会导致数据不一致。</p>
+<ul>
+<li><strong>Leader 在将日志复制给 Follower 节点之间宕机</strong></li>
+</ul>
+<p>Leader 节点在将日志复制给 Follower 节点之间发生宕机，此时该日志处于 uncommitted 状态。这一阶段分为两种情况：</p>
+<ol>
+<li>复制给了集群中小部分的 Follower 节点。</li>
+<li>复制给了集群中大部分的 Follower 节点。</li>
+</ol>
+<p>对于 <strong>情况一</strong> ，新任 Leader 节点不一定包含该日志，如果包含则按照第二种情况予以处理，如果不包含则新任 Leader 会以本地的日志强行覆盖与其冲突的日志。因为该条日志对应的指令并未被应用到状态机，所以也就不会导致数据不一致。</p>
+<p>对于 <strong>情况二</strong> ，则新任 Leader 节点一定包含该日志，但并不知道前任 Leader 是否已经提交了该日志，所以不能依据前任 Leader 节点的状态做决策，需要继续完成对于该日志的复制。我们可以认为对于已经 committed 的日志，新任 Leader 能够确定这些日志已经或未来一定能够被集群中所有的节点成功复制，但是对于那些 uncommitted 的日志，新任 Leader 节点需要再次尝试将其复制给各个 Follower 节点，并依据自己的复制状态决定是否提交这些日志。</p>
+<p>针对第二情况一种极端的情形就是 Leader 节点在准备提交该日志之前发生宕机。</p>
+<ul>
+<li><strong>Leader 在响应客户端之前宕机</strong></li>
+</ul>
+<p>Leader 节点在响应客户端之前发生宕机，此时该日志在 Leader 本地已经处于 committed 状态，所以新任 Leader 本地一定包含该日志。然而，新任 Leader 可能还未被通知该日志已经被提交，但是按照 Raft 算法的日志复制机制，该日志未来一定会被新任 Leader 标记为 committed。</p>
+<p>此种情形下，客户端会因为等待超时而误认为本次指令提交失败，所以会尝试重新提交指令，客户端需要考虑指令的幂等性问题。</p>
+
+        <h4 id="Follower-或-Candidate-节点宕机">
+          <a href="#Follower-或-Candidate-节点宕机" class="heading-link"><i class="fas fa-link"></i></a>Follower 或 Candidate 节点宕机</h4>
+      <p>相对于 Leader 节点宕机而言，Follower 或 Candidate 节点发生宕机的处理过程要简单许多。Candidate 是节点参与竞选的中间状态，如果出现宕机只会导致该节点竞选失败，不会对集群的运行状态构成影响。Follower 节点在整个算法运行期间始终被动的接收请求，并且 Raft 算法要求当向一个 Follower 节点复制日志失败时，Leader 节点应该循环重试直到复制成功。所以，当一个 Follower 节点从宕机中恢复运行，则会从宕机的位置继续开始复制日志，而不会丢失日志。</p>
+
+        <h4 id="时间层面考量">
+          <a href="#时间层面考量" class="heading-link"><i class="fas fa-link"></i></a>时间层面考量</h4>
+      <p>在设计一个分布式系统时我们往往需要基于时间去判断事件的先后顺序，这里的时间应该依赖于逻辑时钟而非物理时钟。前面曾提及过在整个 Raft 算法的设计中，结合 term 和 logIndex 这两个维度可以充当逻辑时钟的概念。此外，因为 Raft 算法的正常运行依赖于超时策略，所以还需要考虑以下几个层面的时间问题：</p>
+<ul>
+<li><strong>broadcastTime</strong> ：集群机器之间的平均网络延迟。</li>
+<li><strong>electionTimeout</strong> ：Raft 节点的选举超时时间。</li>
+<li><strong>MTBF</strong> ：机器宕机的平均时间间隔。</li>
+</ul>
+<p>如果要保证 Raft 算法的正常运行，则需要满足 <code>broadcastTime &lt;&lt; electionTimeout &lt;&lt; MTBF</code>。</p>
+<p>前面我们介绍了 Leader 节点会周期性的向所有 Follower 节点发送心跳以宣示自己的权威，每轮心跳都是一次 RPC 请求，这中间涉及到网络的延迟开销 broadcastTime。Follower 节点如果在等待 electionTimeout 之后还未收到来自 Leader 的心跳请求则会认为“皇帝驾崩了”，于是尝试执行谋权篡位计划。所以需要保证 broadcastTime 远小于 electionTimeout，以避免网络平均延迟对于集群正常运行的影响。</p>
+<p>此外，在 Leader 宕机与选举出新任 Leader 之间，整个集群处于无主的状态，我们应该尽可能缩短此类状态的持续时间，而控制的参数就是 electionTimeout 的最小值，所以 electionTimeout 需要在保证大于 broadcastTime 的前提下远小于一个集群中机器的平均故障间隔时间 MTBF。</p>
+
+        <h4 id="网络分区问题">
+          <a href="#网络分区问题" class="heading-link"><i class="fas fa-link"></i></a>网络分区问题</h4>
+      <p>在一个分布式系统中，网络分区是我们无法回避的问题。对于 Raft 算法而言，当出现网络分区时会让一个 Raft 集群分裂成两个甚至多个较小的 Raft 集群，好在 Raft 仍然能够保证在网络出现分区时的数据一致性。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2020/raft-network-partition.png" alt="image">
+      </p>
+<p>如上图，假设我们现在有一个包含 5 个节点的 Raft 集群，网络分区导致该集群分裂成了两个小集群 A 和 B，其中 A 包含 3 个节点（L1 是 Leader），B 包含 2 个节点（L2 是 Leader）。当我们向该集群提交指令时，因为存在两个 Leader 节点，所以节点 L1 或 L2 都有可能会响应我们的请求（节点总数为 5）：</p>
+<ul>
+<li>如果请求发送给了 L1 节点，因为节点 L1 所属集群包含 3 个节点，所以提交给该分区的指令对应的日志存在被 committed 的可能性，此时 3 个节点均成功复制了日志。</li>
+<li>如果请求发送给了 L2 节点，因为节点 L2 所属集群包含 2 个节点，所以提交给该集群的指令对应的日志因不满足过半数的条件而无法被提交。</li>
+</ul>
+<p>当网络分区恢复时，因为 L1 节点的日志相对于 L2 节点更新，所以节点 L2 会主动从 Leader 角色切换为 Follower 角色，对应的未提交日志会被 L1 节点强行覆盖掉，集群数据重新恢复一致。因为整个过程中节点 L2 不会提交任何日志，所以也就不会应用任何指令到状态机，但是网络分区期间，L2 所属集群的数据状态滞后于整个集群，路由到该集群的请求读取不到最新的数据状态。</p>
+<p>此外，还有一种导致网络分区的场景并不是因为网络本身出现问题，而是因为集群节点变更所导致。因为 Raft 的主节点选举基于多数投票机制，如果因为新节点的加入导致集群出现两个“大多数”的情况就可能会导致选举出两个 Leader 节点。为了避免此类问题，Raft 算法中提出了一种联合共识（Joint Consensus）的解决思路，允许在集群节点变更期间新旧节点配置共存。然而，事实表明联合共识机制对于工程实现并不友好，所以作者在其博士毕业 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/ongardie/dissertation">论文</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 中又对该机制进行了改进，通过限制一次仅允许增加或移除单个节点来简化工程实现。改进后的策略能够保证在集群节点变更期间，新旧配置中的大多数始终包含一个共同的节点，因为该共同节点只会认可一个 Leader，从而保证在集群配置变更期间不会选举出两个不同的 Leader 节点。关于 Raft 算法集群节点配置变更策略的具体流程，建议读者阅读 Raft 算法作者的博士毕业论文，因这一部分对于整体理解 Raft 算法的影响不大，本文不打算展开说明。</p>
+
+        <h3 id="总结">
+          <a href="#总结" class="heading-link"><i class="fas fa-link"></i></a>总结</h3>
+      <p>本文我们重点分析了 Raft 算法的主节点选举和日志复制机制，这也是 Raft 算法的两大核心所在，同时我们也对算法所面临的安全问题进行了探讨。Raft 算法的宗旨在于保证算法正确性的前提下提升算法的可理解性和工程可实现性，作者也确实做到了这一点。不过如果希望实现一个生产级别的 Raft 算法库，我们还需要考虑的更多，例如日志数据快照、集群节点变更、线性一致性语义，以及算法性能和网络开销优化等。我将在后续的文章中以 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/sofastack/sofa-jraft">SOFA-JRaft</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 为例从源码层面分析如何实现 Raft 算法。</p>
+
+        <h3 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h3>
+      <ol>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://raft.github.io/">The Raft Consensus Algorithm</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://raft.github.io/raft.pdf">In Search of an Understandable Consensus Algorithm (Extended Version)</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/ongardie/dissertation">Consensus: Bridging Theory and Practice</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+</ol>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2020/01/01/protocol/raft/">https://plotor.github.io/2020/01/01/protocol/raft/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/%E5%88%86%E5%B8%83%E5%BC%8F/">分布式</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E5%85%B1%E8%AF%86/">分布式共识</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Raft/">Raft</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2020/04/23/java/theia/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">Theia：可扩展的注解式配置注入组件</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2019/06/26/kafka/kafka-controller/"><span class="paginator-prev__text">Kafka 源码解析：集群协同运行控制器</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%BB%E8%8A%82%E7%82%B9%E9%80%89%E4%B8%BE"><span class="toc-number">1.</span> <span class="toc-text">
+          主节点选举</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%97%A5%E5%BF%97%E5%A4%8D%E5%88%B6"><span class="toc-number">2.</span> <span class="toc-text">
+          日志复制</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%89%E5%85%A8%E7%82%B9"><span class="toc-number">3.</span> <span class="toc-text">
+          安全点</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#Leader-%E8%8A%82%E7%82%B9%E5%AE%95%E6%9C%BA"><span class="toc-number">3.1.</span> <span class="toc-text">
+          Leader 节点宕机</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#Follower-%E6%88%96-Candidate-%E8%8A%82%E7%82%B9%E5%AE%95%E6%9C%BA"><span class="toc-number">3.2.</span> <span class="toc-text">
+          Follower 或 Candidate 节点宕机</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%97%B6%E9%97%B4%E5%B1%82%E9%9D%A2%E8%80%83%E9%87%8F"><span class="toc-number">3.3.</span> <span class="toc-text">
+          时间层面考量</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%BD%91%E7%BB%9C%E5%88%86%E5%8C%BA%E9%97%AE%E9%A2%98"><span class="toc-number">3.4.</span> <span class="toc-text">
+          网络分区问题</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">4.</span> <span class="toc-text">
+          总结</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">5.</span> <span class="toc-text">
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

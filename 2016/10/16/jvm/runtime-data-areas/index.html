@@ -1,0 +1,762 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="JVM 内存区域从概念模型上主要分为 堆、元空间、java 虚拟机栈、本地方法栈、程序计数器 五大模块，其中前两者属于线程共享，而后三者属于线程私有，如下图（以 HotSpot 虚拟机为例）：                  说明：元空间在 java 8 中引入，替换之前的方法区。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="探秘 JVM：运行时数据区">
+<meta property="og:url" content="https://plotor.github.io/2016/10/16/jvm/runtime-data-areas/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="JVM 内存区域从概念模型上主要分为 堆、元空间、java 虚拟机栈、本地方法栈、程序计数器 五大模块，其中前两者属于线程共享，而后三者属于线程私有，如下图（以 HotSpot 虚拟机为例）：                  说明：元空间在 java 8 中引入，替换之前的方法区。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://plotor.github.io/images/2016/jvm-runtime-data-areas.png">
+<meta property="og:image" content="https://plotor.github.io/images/2016/jvm-object-location.png">
+<meta property="og:image" content="https://plotor.github.io/images/2016/jvm-local-variable-table.png">
+<meta property="og:image" content="https://plotor.github.io/images/2016/jvm-operand-stack.png">
+<meta property="article:published_time" content="2016-10-16T03:00:10.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.953Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="JVM">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://plotor.github.io/images/2016/jvm-runtime-data-areas.png"><title>探秘 JVM：运行时数据区 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2016/10/16/jvm/runtime-data-areas/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">探秘 JVM：运行时数据区</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2016-10-16</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">5.9k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">21分</span></span></div></header><div class="post-body"><p>JVM 内存区域从概念模型上主要分为 <strong>堆、元空间、java 虚拟机栈、本地方法栈、程序计数器</strong> 五大模块，其中前两者属于线程共享，而后三者属于线程私有，如下图（以 HotSpot 虚拟机为例）：</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2016/jvm-runtime-data-areas.png" alt="image">
+      </p>
+<p>说明：元空间在 java 8 中引入，替换之前的方法区。</p>
+<a id="more"></a>
+
+<p>各个区域的基本介绍如下：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>区域</th>
+<th>线程共享</th>
+<th>调整参数</th>
+<th>异常类型</th>
+<th>功能描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>堆</td>
+<td>是</td>
+<td>-Xms, -Xmx</td>
+<td>OutOfMemoryError</td>
+<td>主要用于存放对象实例和数组</td>
+</tr>
+<tr>
+<td>方法区</td>
+<td>是</td>
+<td>-XX:PermSize, -XX:MaxPermSize</td>
+<td>OutOfMemoryError</td>
+<td>存储已被虚拟机加载的类型信息、常量、静态变量，以及 JIT 编译后的代码缓存，运行时常量池位于此区域</td>
+</tr>
+<tr>
+<td>虚拟机栈</td>
+<td>否</td>
+<td>-Xss</td>
+<td>StackOverflowError, OutOfMemoryError</td>
+<td>存储局部变量表、操作数栈、动态连接，以及方法出口信息</td>
+</tr>
+<tr>
+<td>本地方法栈</td>
+<td>否</td>
+<td>-Xoss</td>
+<td>StackOverflowError, OutOfMemoryError</td>
+<td>与虚拟机栈功能类似，但是服务于 native 方法</td>
+</tr>
+<tr>
+<td>程序计数器</td>
+<td>否</td>
+<td>无</td>
+<td>无</td>
+<td>用于指定下一条待执行的指令，控制代码的执行流程</td>
+</tr>
+</tbody></table></div>
+
+        <h3 id="线程共享区域">
+          <a href="#线程共享区域" class="heading-link"><i class="fas fa-link"></i></a>线程共享区域</h3>
+      
+        <h4 id="堆">
+          <a href="#堆" class="heading-link"><i class="fas fa-link"></i></a>堆</h4>
+      <p>Java 堆是线程共享的，在虚拟机启动时创建，是存放对象实例和数组的地方，垃圾收集器的主战场。虽然 JVM 规范要求所有的对象实例都要在堆上分配，但是随着 JIT 编译器的发展与逃逸分析技术逐渐成熟，栈上分配、标量替换等技术让对象实例必须在堆上分配逐渐变得不那么绝对。</p>
+
+        <h5 id="堆内存分配策略">
+          <a href="#堆内存分配策略" class="heading-link"><i class="fas fa-link"></i></a>堆内存分配策略</h5>
+      <p>JVM 规范只要求堆在逻辑上连续即可，但是具体是逻辑上连续还是物理上连续要看具体的内存分配算法。</p>
+<ul>
+<li><strong>指针碰撞法</strong></li>
+</ul>
+<p>如果堆中内存是规整的，即使用中的内存放在一边，空闲的内存放在另外一边，中间维护一个指针作为分界指示器。这种情况下如果需要为一个对象分配内存，只要按需将指示器向空闲区域移动相应大小即可。</p>
+<ul>
+<li><strong>空闲列表法</strong></li>
+</ul>
+<p>对于不规整的内存区域，只有在堆中维护一个空闲内存列表，用于标记哪些内存区域是空闲的，然后分配的时候从空闲列表中找到一块对应的足够大的内存区域予以分配。</p>
+<p>堆内存是否规整主要依据采用的垃圾收集器是否具备压缩整理功能。例如使用 Serial、ParNew 等带压缩整理的垃圾收集器时，系统采用的堆内存分配算法是指针碰撞算法；如果使用的是 CMS 这类清除算法垃圾收集器，一般就只能使用空闲列表算法执行堆内存分配。</p>
+<p>除了考虑具体的内存分配算法，我们还需要考虑内存分配的 <strong>线程安全问题</strong> ，毕竟 new 操作是相当频繁的。解决线程安全主要有两种方法：</p>
+<ol>
+<li>采用 CAS 配合失败重试的方式保证分配操作的原子性。</li>
+<li>把堆内存分配成多块（TLAB: Thread Local Allocation Buffer），每块由一个线程维护分配，这样就能够避免线程之间的竞争，只有在分配 TLAB 时才需进行同步。</li>
+</ol>
+
+        <h5 id="对象的内存布局">
+          <a href="#对象的内存布局" class="heading-link"><i class="fas fa-link"></i></a>对象的内存布局</h5>
+      <p>在 HotSpot 中，对象的内存布局分为 3 块：对象头、实例数据，以及对齐填充。</p>
+<p><strong>对象头</strong> 包含两部分数据，第一部分用于存储对象自身的运行时数据（哈希码、GC 分代年龄、锁状态标志、线程持有的锁、偏向线程 ID，偏向时间戳等）；另外一部分则是类型指针，用于定位当前对象是哪个类的实例，但是这部分不是必须的，视具体定位策略。此外，如果对象是一个数组，那么还需要在对象头中保存当前数组的长度。</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">|----------------------------------------------------------------------------------------|--------------------|</span><br><span class="line">|                                    Object Header (64 bits)                             |        State       |</span><br><span class="line">|-------------------------------------------------------|--------------------------------|--------------------|</span><br><span class="line">|                  Mark Word (32 bits)                  |      Klass Word (32 bits)      |                    |</span><br><span class="line">|-------------------------------------------------------|--------------------------------|--------------------|</span><br><span class="line">| identity_hashcode:25 | age:4 | biased_lock:1 | lock:2 |      OOP to metadata object    |       Normal       |</span><br><span class="line">|-------------------------------------------------------|--------------------------------|--------------------|</span><br><span class="line">|  thread:23 | epoch:2 | age:4 | biased_lock:1 | lock:2 |      OOP to metadata object    |       Biased       |</span><br><span class="line">|-------------------------------------------------------|--------------------------------|--------------------|</span><br><span class="line">|               ptr_to_lock_record:30          | lock:2 |      OOP to metadata object    | Lightweight Locked |</span><br><span class="line">|-------------------------------------------------------|--------------------------------|--------------------|</span><br><span class="line">|               ptr_to_heavyweight_monitor:30  | lock:2 |      OOP to metadata object    | Heavyweight Locked |</span><br><span class="line">|-------------------------------------------------------|--------------------------------|--------------------|</span><br><span class="line">|                                              | lock:2 |      OOP to metadata object    |    Marked for GC   |</span><br><span class="line">|-------------------------------------------------------|--------------------------------|--------------------|</span><br></pre></td></tr></tbody></table></div></figure>
+<p>引用自 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://gist.github.com/arturmkrtchyan/43d6135e8a15798cc46c">https://gist.github.com/arturmkrtchyan/43d6135e8a15798cc46c</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></p>
+<p><strong>实例数据</strong> 部分记录了对象的有效信息，即各种类型的字段内容，包括继承的和自定义的。这部分的存储顺序由虚拟机分配策略参数与字段定义顺序决定。</p>
+<p><strong>对齐填充</strong> 不是必须的，仅仅起到占位符的作用，一般来说对象的大小必须是 8 字节的整数倍，所以在不满足时需要进行填充。</p>
+
+        <h5 id="对象的访问定位">
+          <a href="#对象的访问定位" class="heading-link"><i class="fas fa-link"></i></a>对象的访问定位</h5>
+      <p>引用（reference）类型是 JVM 所支持的类型之一，一般而言，虚拟机至少应该基于引用类型做到两件事情：</p>
+<ol>
+<li>根据引用直接或间接的定位对象在 java 堆中数据存放的起始地址或索引。</li>
+<li>根据引用直接或间接的定位对象所属类型在方法区中存储的类型信息。</li>
+</ol>
+<p>在 java 栈中通过引用记录着堆上具体对象的引用，如何基于引用来定位具体的对象是本小节需要讨论的问题，目前主流的定位策略主要分为 <strong>句柄</strong> 和 <strong>直接指针</strong> 两类。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2016/jvm-object-location.png" alt="image">
+      </p>
+<p>如上图所示，左图描绘了基于句柄的定位策略，右图描绘了基于直接指针的定位策略。两种定位的区别在于基于句柄的策略需要在堆中专门分配一块句柄池，用于记录堆中对象实例和方法区中对象类型的真实地址信息，而栈中保存的则是对应堆中的对象句柄地址。基于直接指针的策略则是在栈中保存堆中对象的真实地址信息。</p>
+<p>两种策略各有优略，基于句柄策略的优势在于当对象的地址变更时只要修改句柄池中对应的地址即可，缺点就是每次定位一个对象需要访问两次堆内存；基于直接指针的优缺点则正好相反。HotSpot 虚拟机采用的是基于直接地址的访问策略。</p>
+
+        <h5 id="控制参数">
+          <a href="#控制参数" class="heading-link"><i class="fas fa-link"></i></a>控制参数</h5>
+      <div class="table-container"><table>
+<thead>
+<tr>
+<th>参数</th>
+<th>默认值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-Xms</code></td>
+<td></td>
+<td>设置堆内存初始大小，ms 是 memory start 的缩写</td>
+</tr>
+<tr>
+<td><code>-Xmx</code></td>
+<td></td>
+<td>设置堆内存大小上限，mx 是 memory max 的缩写</td>
+</tr>
+<tr>
+<td><code>-XX:+HeapDumpOnOutOfMemoryError</code></td>
+<td></td>
+<td>当出现 OOM 时 dump 出当前堆内存快照</td>
+</tr>
+<tr>
+<td><code>-XX:HeapDumpPath</code></td>
+<td></td>
+<td>用于指定堆内存快照文件的存储路径，文件名以 <code>.hprof</code> 后缀结尾</td>
+</tr>
+</tbody></table></div>
+<p>说明：<code>-X</code> 前缀代表这是一个 JVM 运行时参数。</p>
+<p>生产环境通常建议将 <code>-Xms</code> 和 <code>-Xmx</code> 这两个参数值设为相同以避免堆内存的伸缩所带来的性能开销。</p>
+<p>如果内存不足该区域会抛出 OutOfMemoryError 异常，并且后面会跟“Java heap space”字样。下面的示例会导致堆内存 OOM：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">List&lt;<span class="keyword">byte</span>[]&gt; bytes = <span class="keyword">new</span> ArrayList&lt;&gt;();</span><br><span class="line"><span class="keyword">while</span> (<span class="keyword">true</span>) {</span><br><span class="line">    bytes.add(<span class="keyword">new</span> <span class="keyword">byte</span>[<span class="number">1024</span> * <span class="number">1024</span>]);</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>当出现堆内存 OOM 时不应该马上调大堆内存，而是应该通过内存映像分析工具（比如 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://www.eclipse.org/mat/">MAT: Eclipse Memory Analyzer</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>）对 dump 出来的堆内存转储快照进行分析，以确定是 <strong>内存泄露</strong> ，还是 <strong>内存溢出</strong> ，如果是前者则调再大也无济于事，此时需要进一步查看对象到 GC Roots 的引用链。</p>
+
+        <h4 id="方法区">
+          <a href="#方法区" class="heading-link"><i class="fas fa-link"></i></a>方法区</h4>
+      <p>方法区同样是线程共享的一块区域，用于存储已被虚拟机加载的 <strong>类型信息、常量、静态变量，以及即时编译器编译后的代码缓存</strong> 等数据。既然是线程共享的，就需要一定的同步策略来保证线程安全，对于方法区来说一个类只能被一个线程加载，且只能被加载一次，从而保证方法区中存储的各个类的类信息只有一份。</p>
+<p>此区域垃圾收集效果不佳，所以 JVM 规范对此区域的垃圾收集不强制要求，一些虚拟机选择在这一区域设置永久代。需要注意的一点是永久代这一概念正在逐步被废弃，因为其设计容易导致内存溢出问题。以 HotSpot 虚拟机为例，在 java 8 中已经完全废弃了永久代的概念，取而代之的是在 <strong>本地内存</strong> 中实现的元空间（Metaspace），这点上基本向 JRockit 和 J9 看齐。</p>
+<p>对于每个被装载的类，虚拟机都会在方法区内记录如下类信息：</p>
+<ol>
+<li>类的全限定名称</li>
+<li>类的直接父类的全限定名称</li>
+<li>类或接口类型标识信息</li>
+<li>类的访问修饰符</li>
+<li>类实现接口的全限定名称有序列表</li>
+<li>类的运行时常量池</li>
+<li>字段信息</li>
+<li>方法信息</li>
+<li>静态（类）变量</li>
+<li>类加载器引用</li>
+<li>类 Class 引用</li>
+</ol>
+<p>下面针对上述列表中的一些名词作进一步解释：</p>
+<ul>
+<li><strong>运行时常量池</strong></li>
+</ul>
+<p>运行时常量池用于存放类或接口中定义的常量，包括直接常量和对其它类型、字段和方法的符号引用，从编译期可知的数值字面量到需要在运行期解析后才能获得的方法或字段的引用。既然命名为运行时常量池，就说明这一块区域是动态的，允许运行时写入，一个典型的示例就是当我们调用 <code>String#intern</code> 方法将字符串写入运行时常量池。</p>
+<p>常量池中的数据项类似数组一样通过索引进行访问，因为存储了类所用到的所有类型、字段和方法的符号引用，所以在动态连接中起着核心作用。</p>
+<ul>
+<li><strong>字段信息</strong></li>
+</ul>
+<p>字段信息包括：字段名称、字段类型，以及字段访问修饰符。比如：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> String name;</span><br></pre></td></tr></tbody></table></div></figure>
+<p>需要注意的是，我们一般也称其为属性，但是实际上两者还是存在一些不同的。通常属性是通过 getter 和 setter 方法推断出来的，比如 <code>getAge()</code>，我们可以认为有一个名为 age 的属性，但是字段就是上面我们真实定义的。除了字段信息之外，字段声明的顺序也记录在方法区中。</p>
+<ul>
+<li><strong>方法信息</strong></li>
+</ul>
+<p>方法信息包括：方法名称、参数列表、返回类型、访问修饰符。对于非 abstract 和非 native 方法，还必须包含：方法字节码、操作数栈和栈帧中局部变量表的大小、异常表。除了方法信息，方法声明的顺序也记录在方法区中。</p>
+
+        <h5 id="控制参数-1">
+          <a href="#控制参数-1" class="heading-link"><i class="fas fa-link"></i></a>控制参数</h5>
+      <div class="table-container"><table>
+<thead>
+<tr>
+<th>参数</th>
+<th>默认值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-XX:PermSize</code></td>
+<td></td>
+<td>设置方法区初始内存大小</td>
+</tr>
+<tr>
+<td><code>-XX:MaxPermSize</code></td>
+<td></td>
+<td>设置方法区内存大小上限</td>
+</tr>
+</tbody></table></div>
+<p>当方法区内存不足时会抛出 OutOfMemoryError 异常，并且后面跟“PermGen space”字样。</p>
+
+        <h4 id="直接内存">
+          <a href="#直接内存" class="heading-link"><i class="fas fa-link"></i></a>直接内存</h4>
+      <p>首先需要声明 <strong>直接内存并不是运行时数据区的一部分，也不是 JVM 规范中定义的内存区域</strong> 。Java 的 NIO 可以通过使用 native 函数库直接分配堆外内存，然后通过一个存储在 java 堆中的 DirectByteBuffer 对象作为这块内存对象的引用，这样可以避免在 java 堆和 native 堆间来回复制数据。</p>
+
+        <h5 id="控制参数-2">
+          <a href="#控制参数-2" class="heading-link"><i class="fas fa-link"></i></a>控制参数</h5>
+      <div class="table-container"><table>
+<thead>
+<tr>
+<th>参数</th>
+<th>默认值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-XX:MaxDirectMemorySize</code></td>
+<td>与 <code>-Xmx</code> 值相同</td>
+<td>设置直接内存大小上限</td>
+</tr>
+</tbody></table></div>
+<p>直接内存大小的分配往往受制于宿主机总内存，如果我们在设置 JVM 参数时忽略了直接内存大小的设置，导致总的内存大小上限超过了宿主机总内存，就会导致 OOM。直接内存溢出的一个明显特征就是堆内存转储文件中没有明显异常，而且一般都是 NIO 引发的。如果发现堆内存 dump 文件很小，且程序中直接或间接使用了 NIO，则可以考虑是不是直接内存溢出。</p>
+
+        <h3 id="线程私有区域">
+          <a href="#线程私有区域" class="heading-link"><i class="fas fa-link"></i></a>线程私有区域</h3>
+      
+        <h4 id="程序计数器（PC-寄存器）">
+          <a href="#程序计数器（PC-寄存器）" class="heading-link"><i class="fas fa-link"></i></a>程序计数器（PC 寄存器）</h4>
+      <p>程序计数器是线程私有的一块内存区域，大小是一个字长（至少应该能够保存一个 returnAddress 类型的数据，或一个与平台相关的本地指针的值），用于控制线程执行代码的流程。我们可以直观上将其理解为线程所执行的字节码的行号指示器，用于指定下一条待执行的指令。</p>
+<blockquote>
+<p>说明：returnAddress 类型目前已经很少使用，该类型主要为字节码指令 jsr、jsr_w 和 ret 服务，指向一条字节码指令的地址，一些较老的 JVM 曾经使用这几条指令来实现异常处理时的跳转，但现在基本都采用变量表予以替换。</p>
+</blockquote>
+<p>JVM 中线程的运行需要依赖于 CPU 分配时间片，拿到时间片的线程切换到运行态。多线程程序在执行时会出现多个线程间切换上下文的情况，所以我们需要一个程序计数器以存储线程下一条需要执行的指令。当线程拿到 CPU 时间片的时候，可以知道该执行什么，从而最终实现 <strong>分支、循环、跳转、异常处理，以及线程恢复等</strong> 基础逻辑。所以程序计数器只能是线程私有的，不然就乱套了，此外程序计数器也是 <strong>唯一一个没有 OOM 的区域</strong> 。</p>
+<p><strong>注意</strong> ：对于 java 方法，计数器存储的是正在执行的虚拟机字节码指令的地址，如果是 native 方法则计数器为空（undefined）。</p>
+
+        <h4 id="Java-虚拟机栈">
+          <a href="#Java-虚拟机栈" class="heading-link"><i class="fas fa-link"></i></a>Java 虚拟机栈</h4>
+      <p>个人觉得命名为 java 方法栈会更加已于理解，与本地方法栈相呼应。</p>
+<p>如果粗略的对虚拟机内存区域进行分类，可以分为 <strong>堆</strong> 和 <strong>栈</strong> 两大块，其中堆就是指前面所介绍的 java 堆，而栈就是指这里的 java 虚拟机栈。Java 虚拟机栈描述的是 java 方法执行的内存模型，它与线程同生命周期，当然也是线程私有的。Java 的每个方法在执行时都会创建一个 <strong>栈帧（Stack Frame）</strong> ，用来存放局部变量表、操作数栈、动态连接，以及方法出口等信息。 <strong>一个方法从调用到执行完成的过程，就对应着一个栈帧在虚拟机中从入栈到出栈的过程</strong> 。</p>
+<p>之所以存在栈帧的概念，是因为 java 编译器输出的指令流基本上是一种 <strong>基于栈的指令集架构</strong> ，因为依赖于栈进行操作，所以这类指令流中的大部分指令都是 <strong>零地址指令</strong> 。与基于栈的指令集架构相对应的是 <strong>基于寄存器的指令集架构</strong> ，相对于该指令集架构而言，基于栈的指令集架构具备可移植性（因为不依赖于寄存器）、代码相对紧凑，以及编译器实现更加简单的优点，但因为执行过程中需要频繁出栈入栈，且执行相同逻辑需要的指令更多，所以在执行速度上要逊色于寄存器指令架构。</p>
+
+        <h5 id="栈帧">
+          <a href="#栈帧" class="heading-link"><i class="fas fa-link"></i></a>栈帧</h5>
+      <p>栈帧用于存储局部变量表、操作数栈、动态连接，以及方法出口信息。栈帧随着方法的被调用而创建，并随着方法的结束运行（不管是正常结束还是异常结束）而被销毁。栈帧是线程本地私有的数据，不可能在一个栈帧中引用另外一个线程的栈帧。</p>
+<ul>
+<li><strong>局部变量表</strong></li>
+</ul>
+<p>局部变量表（Local Variables Table）用于存放方法参数和方法内部定义的局部变量，其容量在编译期确定（因为只存 8 种基本类型变量和对象的引用地址，所以容量可以事先计算），记录在 Code 属性的 <code>max_locals</code> 字段中。当一个方法被调用时，JVM 会使用局部变量表来完成实参到形参的传递。在变量类型层面，支持存放编译期可知的各种基本数据类型、引用类型，以及 returnAddress 类型数据，是一个以字长为单位，从 0 开始计数的数组。一个局部变量表可以保存一个类型为 boolean、byte、char、short、int、folat、reference，或 returnAddress 类型的数据，两个连续的局部变量表可以保存一个类型为 long 或 double 类型的数据，其中 byte、short、char，以及 boolean 都会被转成 int 类型进行存储（只有在堆和方法区中才会以原类型存储）。一个方法的局部变量表所占据的内存空间大小可以在编译期确定，当进入一个方法时会依据该大小值为局部变量表申请分配内存空间，且在方法运行期间不会发生改变。</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 类方法</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">int</span> <span class="title">classMethod</span><span class="params">(<span class="keyword">int</span> i, <span class="keyword">long</span> l, <span class="keyword">float</span> f, <span class="keyword">double</span> d, Object obj, <span class="keyword">byte</span> b)</span> </span>{</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="comment">// 实例方法</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">int</span> <span class="title">instanceMethod</span><span class="params">(<span class="keyword">char</span> c, <span class="keyword">double</span> d, <span class="keyword">short</span> s, <span class="keyword">boolean</span> b, <span class="keyword">float</span> f)</span> </span>{</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>假设某个类包含上面代码块中的两个方法，其中 classMethod 是类方法，而 instanceMethod 是实例方法，则这两个方法在局部变量表中的存储结构如下图所示：</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2016/jvm-local-variable-table.png" alt="image">
+      </p>
+<p>所有的参数都严格按照声明的顺序存储在局部变量表中，对于定义在方法内部的局部变量来说，其存储顺序则不一定按照声明的顺序，甚至在前面声明的局部变量生命周期已经结束的情况下，后面声明的局部变量可以覆盖掉该局部变量在变量表中对应的索引位置。其中需要注意的有 3 点：</p>
+<ol>
+<li>所有的 byte、short、char、boolean 类型都转换成了 int 类型进行存储；</li>
+<li>实例方法的 0 号索引位置是对 this 指针的引用，实例方法是属于具体类实例的，需要通过 this 指针来知晓当前隶属的对象；</li>
+<li>参数 Object 类型在局部变量表中是以 reference 类型进行存储，该引用指向堆中的具体对象， <strong>在局部变量表和操作数栈中永远都不会直接存储对象（包括堆中对象的拷贝）</strong> 。</li>
+</ol>
+<ul>
+<li><strong>操作数栈</strong></li>
+</ul>
+<p>操作数的定义可以简单理解为当前执行计算所操作的对象，在 java 虚拟机栈中没有寄存器的概念，所以计算操作的存储位置基本上都是基于操作数栈来完成的。之所以取名为栈是因为对于操作数栈的操作是完全按照栈的操作出栈、入栈，而不是像局部变量表那样基于索引来定位。</p>
+<p>每一个操作数栈都会拥有一个明确的栈深度用于存储数值，一个 32bit 的数值可以用一个单位的栈深度来存储，而 2 个单位的栈深度则可以保存一个 64bit 的数值。操作数栈所需的容量大小同样可以在编译期被完全确定下来，并保存在方法的 Code 属性中（<code>max_stacks</code> 数据项）。</p>
+<p>虚拟机在操作数栈中存储数据的方式和在局部变量表中是一样的，对于 byte、short、boolean，以及 char 类型的值在压入到操作数栈之前，也会被转换为 int 类型。虚拟机把操作数栈作为它的工作区，大多数指令都要从这里弹出数据，执行运算，最后把结果压回操作数栈。</p>
+<p>假设我们现有下面这样一段简单的求和代码：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">add</span><span class="params">(<span class="keyword">int</span> a, <span class="keyword">int</span> b)</span> </span>{</span><br><span class="line">    <span class="keyword">int</span> c = a + b;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>对应的字节码如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">add</span><span class="params">(<span class="keyword">int</span>, <span class="keyword">int</span>)</span></span>;</span><br><span class="line">    Code:</span><br><span class="line">       <span class="number">0</span>: iload_1</span><br><span class="line">       <span class="number">1</span>: iload_2</span><br><span class="line">       <span class="number">2</span>: iadd</span><br><span class="line">       <span class="number">3</span>: istore_3</span><br><span class="line">       <span class="number">4</span>: <span class="keyword">return</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>整段字节码指令的执行过程如下图所示：</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2016/jvm-operand-stack.png" alt="image">
+      </p>
+<p>执行过程如图示的非常清楚，不再多做描述，可以看到操作数栈就相当于一个栈结构的数据缓存区域，栈顶永远存储着当前操作所需要的操作数。</p>
+<ul>
+<li><strong>动态连接</strong></li>
+</ul>
+<p>每个栈帧都持有一个指向运行时常量池中该栈帧所属方法的引用，用于支持方法调用过程中的动态连接（Dynamic Linking）。字节码中的方法调用指令以常量池中指向方法的符号引用作为参数，这些符号引用一部分会在类加载阶段或首次使用时被解析成直接引用，这种转换被称为 <strong>静态解析</strong> ；另外一部分将在每次运行期间被转换成直接引用，称为 <strong>动态连接</strong> 。</p>
+<ul>
+<li><strong>方法返回地址</strong></li>
+</ul>
+<p>方法的退出分为正常调用完成和异常调用完成两种：</p>
+<ul>
+<li><strong>正常退出</strong> ：执行引擎遇到任意的方法返回指令，退出当前方法，并将返回值传递给上层方法调用者。</li>
+<li><strong>异常退出</strong> ：方法执行期间遇到未被妥善处理的异常，此时不会给上层方法调用者传递返回值。</li>
+</ul>
+<p>不论何种形式的退出，当一个方法退出执行后必须回到最初方法被调用的位置。</p>
+
+        <h5 id="控制参数-3">
+          <a href="#控制参数-3" class="heading-link"><i class="fas fa-link"></i></a>控制参数</h5>
+      <div class="table-container"><table>
+<thead>
+<tr>
+<th>参数</th>
+<th>默认值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-Xss</code></td>
+<td></td>
+<td>设置每个线程的栈内存大小</td>
+</tr>
+</tbody></table></div>
+<p>该区域包含两种异常类型：</p>
+<ul>
+<li>StackOverflowError：线程请求的栈深度超过 java 虚拟机栈所允许的最大深度。</li>
+<li>OutOfMemoryError：执行动态扩容时申请不到足够多的内存，或者在创建新的线程时没有足够多的内容予以分配。</li>
+</ul>
+<p>当我们在递归调用的时候，如果设计不当就很容易触发 StackOverflowError 异常。此外对于多线程应用来说，如果我们将每个线程的栈内存设置得越大，就越容易出现 OOM，因为每个线程都消耗一份内存。当出现这类情况的时候，如果不能减少线程数或者更换 64 位虚拟机（更换 64 位虚拟机可以增大单个进程使用的内存上限，一个 JVM 启动起来就是一个进程，所以 JVM 运行时数据区所使用的内存受制于该上限），则应该减少栈内存。</p>
+<p>JVM 规范既允许 java 虚拟机栈被实现成固定大小，也允许对其进行动态扩容和收缩，HotSpot 虚拟机的栈容量是不允许动态扩容的。</p>
+
+        <h4 id="本地方法栈">
+          <a href="#本地方法栈" class="heading-link"><i class="fas fa-link"></i></a>本地方法栈</h4>
+      <p>本地方法栈和 java 虚拟机栈的作用是相似的，区别在于前者服务于 native 方法，而后者服务于 java 方法（是不是叫 java 方法栈更加容易理解一些）。与 java 虚拟机栈一样，本地方法栈也存在 StackOverflowError 和 OutOfMemoryError 两类异常。</p>
+
+        <h5 id="控制参数-4">
+          <a href="#控制参数-4" class="heading-link"><i class="fas fa-link"></i></a>控制参数</h5>
+      <div class="table-container"><table>
+<thead>
+<tr>
+<th>参数</th>
+<th>默认值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-Xoss</code></td>
+<td></td>
+<td>设置每个线程的栈内存大小</td>
+</tr>
+</tbody></table></div>
+<p>有些虚拟机并不区分虚拟机栈和本地方法栈，例如 HotSpot 就直接将二者合二为一，所以就算设置 <code>-Xoss</code> 参数也是无效的。</p>
+
+        <h3 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h3>
+      <ol>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/26418340/">Java 虚拟机规范（Java SE 8 版）</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/24722612/">深入理解 java 虚拟机（第 2 版）</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/34907497/">深入理解 java 虚拟机（第 3 版）</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+</ol>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2016/10/16/jvm/runtime-data-areas/">https://plotor.github.io/2016/10/16/jvm/runtime-data-areas/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/JVM/">JVM</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2016/10/23/jvm/garbage-collection/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">探秘 JVM：垃圾收集机制</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2016/10/15/design-pattern/singleton/"><span class="paginator-prev__text">Java 语言实现单例模式的若干种方式</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BA%BF%E7%A8%8B%E5%85%B1%E4%BA%AB%E5%8C%BA%E5%9F%9F"><span class="toc-number">1.</span> <span class="toc-text">
+          线程共享区域</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%A0%86"><span class="toc-number">1.1.</span> <span class="toc-text">
+          堆</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E5%A0%86%E5%86%85%E5%AD%98%E5%88%86%E9%85%8D%E7%AD%96%E7%95%A5"><span class="toc-number">1.1.1.</span> <span class="toc-text">
+          堆内存分配策略</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%86%85%E5%AD%98%E5%B8%83%E5%B1%80"><span class="toc-number">1.1.2.</span> <span class="toc-text">
+          对象的内存布局</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E5%AF%B9%E8%B1%A1%E7%9A%84%E8%AE%BF%E9%97%AE%E5%AE%9A%E4%BD%8D"><span class="toc-number">1.1.3.</span> <span class="toc-text">
+          对象的访问定位</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E6%8E%A7%E5%88%B6%E5%8F%82%E6%95%B0"><span class="toc-number">1.1.4.</span> <span class="toc-text">
+          控制参数</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%96%B9%E6%B3%95%E5%8C%BA"><span class="toc-number">1.2.</span> <span class="toc-text">
+          方法区</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E6%8E%A7%E5%88%B6%E5%8F%82%E6%95%B0-1"><span class="toc-number">1.2.1.</span> <span class="toc-text">
+          控制参数</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%9B%B4%E6%8E%A5%E5%86%85%E5%AD%98"><span class="toc-number">1.3.</span> <span class="toc-text">
+          直接内存</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E6%8E%A7%E5%88%B6%E5%8F%82%E6%95%B0-2"><span class="toc-number">1.3.1.</span> <span class="toc-text">
+          控制参数</span></a></li></ol></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BA%BF%E7%A8%8B%E7%A7%81%E6%9C%89%E5%8C%BA%E5%9F%9F"><span class="toc-number">2.</span> <span class="toc-text">
+          线程私有区域</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%A8%8B%E5%BA%8F%E8%AE%A1%E6%95%B0%E5%99%A8%EF%BC%88PC-%E5%AF%84%E5%AD%98%E5%99%A8%EF%BC%89"><span class="toc-number">2.1.</span> <span class="toc-text">
+          程序计数器（PC 寄存器）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#Java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E6%A0%88"><span class="toc-number">2.2.</span> <span class="toc-text">
+          Java 虚拟机栈</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E6%A0%88%E5%B8%A7"><span class="toc-number">2.2.1.</span> <span class="toc-text">
+          栈帧</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E6%8E%A7%E5%88%B6%E5%8F%82%E6%95%B0-3"><span class="toc-number">2.2.2.</span> <span class="toc-text">
+          控制参数</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%9C%AC%E5%9C%B0%E6%96%B9%E6%B3%95%E6%A0%88"><span class="toc-number">2.3.</span> <span class="toc-text">
+          本地方法栈</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E6%8E%A7%E5%88%B6%E5%8F%82%E6%95%B0-4"><span class="toc-number">2.3.1.</span> <span class="toc-text">
+          控制参数</span></a></li></ol></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">3.</span> <span class="toc-text">
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

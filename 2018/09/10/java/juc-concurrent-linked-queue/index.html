@@ -1,0 +1,507 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="ConcurrentLinkedQueue 是线程安全的无界非阻塞队列。在 JUC 包中，线程安全的队列按照实现方式可以分为阻塞队列和非阻塞队列两大类，前者基于锁来保证线程安全，而后者则基于 CAS 机制保证线程安全，阻塞队列一般在类名中都带有 Blocking 的字样。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="深入理解 JUC：ConcurrentLinkedQueue">
+<meta property="og:url" content="https://plotor.github.io/2018/09/10/java/juc-concurrent-linked-queue/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="ConcurrentLinkedQueue 是线程安全的无界非阻塞队列。在 JUC 包中，线程安全的队列按照实现方式可以分为阻塞队列和非阻塞队列两大类，前者基于锁来保证线程安全，而后者则基于 CAS 机制保证线程安全，阻塞队列一般在类名中都带有 Blocking 的字样。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://plotor.github.io/images/2018/juc-concurrent-linked-queue-offer-1.png">
+<meta property="og:image" content="https://plotor.github.io/images/2018/juc-concurrent-linked-queue-offer-2.png">
+<meta property="og:image" content="https://plotor.github.io/images/2018/juc-concurrent-linked-queue-offer-3.png">
+<meta property="og:image" content="https://plotor.github.io/images/2018/juc-concurrent-linked-queue-poll-1.png">
+<meta property="og:image" content="https://plotor.github.io/images/2018/juc-concurrent-linked-queue-poll-2.png">
+<meta property="og:image" content="https://plotor.github.io/images/2018/juc-concurrent-linked-queue-poll-3.png">
+<meta property="article:published_time" content="2018-09-10T01:39:38.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.958Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="并发编程">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://plotor.github.io/images/2018/juc-concurrent-linked-queue-offer-1.png"><title>深入理解 JUC：ConcurrentLinkedQueue | 指  间</title><link ref="canonical" href="https://plotor.github.io/2018/09/10/java/juc-concurrent-linked-queue/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">深入理解 JUC：ConcurrentLinkedQueue</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2018-09-10</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">4k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">17分</span></span></div></header><div class="post-body"><p>ConcurrentLinkedQueue 是线程安全的无界非阻塞队列。在 JUC 包中，线程安全的队列按照实现方式可以分为阻塞队列和非阻塞队列两大类，前者基于锁来保证线程安全，而后者则基于 CAS 机制保证线程安全，阻塞队列一般在类名中都带有 Blocking 的字样。<a id="more"></a></p>
+<p>由 Linked 关键字我们可以推断出 ConcurrentLinkedQueue 底层依赖于链表实现，在 ConcurrentLinkedQueue 的内部实现了一个单链表，用以存放队列元素。其中，结点 Node 类定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="class"><span class="keyword">class</span> <span class="title">Node</span>&lt;<span class="title">E</span>&gt; </span>{</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 结点元素值 */</span></span><br><span class="line">    <span class="keyword">volatile</span> E item;</span><br><span class="line">    <span class="comment">/** 指针，指向下一个结点 */</span></span><br><span class="line">    <span class="keyword">volatile</span> Node&lt;E&gt; next;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// ... 省略方法定义</span></span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>Node 类是一个典型的链表结点定义，此外，Node 类还定义了一些方法用于修改结点的元素值和 next 指针，这些方法均基于 Unsafe 实现。ConcurrentLinkedQueue 的 head 和 tail 字段分别指向队列的头结点和尾结点，如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ConcurrentLinkedQueue</span>&lt;<span class="title">E</span>&gt; <span class="keyword">extends</span> <span class="title">AbstractQueue</span>&lt;<span class="title">E</span>&gt; <span class="keyword">implements</span> <span class="title">Queue</span>&lt;<span class="title">E</span>&gt;, <span class="title">Serializable</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">transient</span> <span class="keyword">volatile</span> Node&lt;E&gt; head;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">transient</span> <span class="keyword">volatile</span> Node&lt;E&gt; tail;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">ConcurrentLinkedQueue</span><span class="params">()</span> </span>{</span><br><span class="line">        head = tail = <span class="keyword">new</span> Node&lt;&gt;(<span class="keyword">null</span>);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// ... 省略方法实现</span></span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>当我们构造一个空的 ConcurrentLinkedQueue 对象时，链表的 head 和 tail 均指向一个元素值为 null 的标记结点。在 ConcurrentLinkedQueue 中不允许添加 null 元素，因为值为 null 的结点在 ConcurrentLinkedQueue 中扮演着特殊的角色。</p>
+
+        <h3 id="Queue-接口">
+          <a href="#Queue-接口" class="heading-link"><i class="fas fa-link"></i></a>Queue 接口</h3>
+      <p>Queue 接口继承自 Collection 接口，增加了队列相关的操作，定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">Queue</span>&lt;<span class="title">E</span>&gt; <span class="keyword">extends</span> <span class="title">Collection</span>&lt;<span class="title">E</span>&gt; </span>{</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">boolean</span> <span class="title">add</span><span class="params">(E e)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">boolean</span> <span class="title">offer</span><span class="params">(E e)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function">E <span class="title">poll</span><span class="params">()</span></span>;</span><br><span class="line">    <span class="function">E <span class="title">peek</span><span class="params">()</span></span>;</span><br><span class="line">    <span class="function">E <span class="title">element</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function">E <span class="title">remove</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>针对各方法的含义说明如下：</p>
+<ul>
+<li><code>add</code>：往队列中添加元素，如果成功则返回 true，对于有界队列来说，如果队列已满则抛出 IllegalStateException 异常。</li>
+<li><code>offer</code>：往队列中添加元素，如果成功则返回 true，对于有界队列来说，如果队列已满则返回 false，而不是抛出异常。</li>
+<li><code>poll</code>：移除队列头结点，并返回结点元素值，如果队列为空则返回 null。</li>
+<li><code>peek</code>：仅获取头结点元素值而不删除结点，如果队列为空则返回 null。</li>
+<li><code>element</code>：仅获取头结点元素值而不删除结点，如果队列为空则抛出 NoSuchElementException 异常。</li>
+<li><code>remove</code>：移除队列头结点，并返回结点元素值，如果队列为空则抛出 NoSuchElementException 异常。</li>
+</ul>
+
+        <h3 id="核心方法实现">
+          <a href="#核心方法实现" class="heading-link"><i class="fas fa-link"></i></a>核心方法实现</h3>
+      <p>ConcurrentLinkedQueue 实现自 Queue 接口，下面来分析一下其针对 Queue 中声明的核心操作方法的实现。</p>
+
+        <h4 id="添加元素：add-amp-offer">
+          <a href="#添加元素：add-amp-offer" class="heading-link"><i class="fas fa-link"></i></a>添加元素：add &amp; offer</h4>
+      <p>ConcurrentLinkedQueue 实现了 Queue 接口中声明的往队列中添加元素方法，即 <code>Queue#add</code> 和 <code>Queue#offer</code>。这两个方法都是往队列末端追加元素，因为 ConcurrentLinkedQueue 没有容量上的限制，所以这两个方法也就不存在队列已满的问题。所以，对于 ConcurrentLinkedQueue 而言，这两个方法在实现上并没有区别。</p>
+<p>下面来看一下 ConcurrentLinkedQueue 针对 <code>Queue#offer</code> 的实现，如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">offer</span><span class="params">(E e)</span> </span>{</span><br><span class="line">    <span class="comment">// 待添加元素不能为 null</span></span><br><span class="line">    checkNotNull(e);</span><br><span class="line">    <span class="comment">// 创建待添加元素对应的 Node 结点</span></span><br><span class="line">    <span class="keyword">final</span> Node&lt;E&gt; newNode = <span class="keyword">new</span> Node&lt;&gt;(e);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 添加到尾结点</span></span><br><span class="line">    <span class="keyword">for</span> (Node&lt;E&gt; t = tail, p = t; ; ) {</span><br><span class="line">        Node&lt;E&gt; q = p.next;</span><br><span class="line">        <span class="keyword">if</span> (q == <span class="keyword">null</span>) { <span class="comment">// 1</span></span><br><span class="line">            <span class="comment">// p 已经是尾结点，基于 CAS 设置结点 newNode 为 p 的 next 结点</span></span><br><span class="line">            <span class="keyword">if</span> (p.casNext(<span class="keyword">null</span>, newNode)) {</span><br><span class="line">                <span class="comment">/*</span></span><br><span class="line"><span class="comment">                 * Successful CAS is the linearization point for e to become an element of this queue,</span></span><br><span class="line"><span class="comment">                 * and for newNode to become "live".</span></span><br><span class="line"><span class="comment">                 */</span></span><br><span class="line">                <span class="keyword">if</span> (p != t) { <span class="comment">// hop two nodes at a time</span></span><br><span class="line">                    <span class="comment">// 更新 tail 结点</span></span><br><span class="line">                    <span class="keyword">this</span>.casTail(t, newNode);  <span class="comment">// Failure is OK.</span></span><br><span class="line">                }</span><br><span class="line">                <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">            }</span><br><span class="line">            <span class="comment">// Lost CAS race to another thread; re-read next</span></span><br><span class="line">        } <span class="keyword">else</span> <span class="keyword">if</span> (p == q) { <span class="comment">// 2</span></span><br><span class="line">            <span class="comment">/*</span></span><br><span class="line"><span class="comment">             * We have fallen off list. If tail is unchanged, it will also be off-list,</span></span><br><span class="line"><span class="comment">             * in which case we need to jump to head, from which all live nodes are always reachable.</span></span><br><span class="line"><span class="comment">             * Else the new tail is a better bet.</span></span><br><span class="line"><span class="comment">             */</span></span><br><span class="line">            p = (t != (t = tail)) ? t : head;</span><br><span class="line">        } <span class="keyword">else</span> { <span class="comment">// 3</span></span><br><span class="line">            <span class="comment">// Check for tail updates after two hops.</span></span><br><span class="line">            p = (p != t &amp;&amp; t != (t = tail)) ? t : q;</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>对于待添加的元素，上述方法首先会判断是否为 null，前面已经提及过 ConcurrentLinkedQueue 不允许向其中添加 null 元素，这主要是因为元素值为 null 的结点在 ConcurrentLinkedQueue 中是一个特殊的标记结点。如果待添加元素不为 null，则上述方法会将元素包装成 Node 结点（令该结点为 N）添加到队列的末端。</p>
+<p>下面通过图示演示各种不同的元素添加场景，本小节中均使用青色表示 head 结点，使用橘黄色表示 tail 结点。假设当前队列的元素构成如下图 (1) 所示，此时 q 结点为 null（说明：本文中所有虚线表示的结点均指代结点本身为 null，而非结点元素值为 null），即运行到上述代码 1 位置。需要基于 CAS 操作将 p 的 next 结点由 null 修改为 N 结点，成功则返回 true。此时 p 不等于 t，操作完成之后队列的元素构成如下图 (2) 所示。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/juc-concurrent-linked-queue-offer-1.png" alt="image">
+      </p>
+<p>考虑上述过程存在多个线程竞争，假设现在有两个线程 A 和 B，其中 A 在执行代码 1 中的 <code>Node#casNext</code> 时成功将 p 的 next 结点由 null 更新为 node1 结点，如下图 (1) 所示。此时线程 B 再执行 <code>Node#casNext</code> 企图将 p 的 next 结点由 null 更新为 node2 结点时将失败，因为 p 的 next 结点此时已经不为 null，所以线程 B 将进入下一轮 for 循环，但此时 q 已经不为 null，且不等于 p，所以进入代码 3，这一步的运行结果就是将 q 赋值给 p，如下图 (2) 所示。接着线程 B 继续进入下一轮 for 循环，执行 <code>Node&lt;E&gt; q = p.next;</code>，如下图 (3) 所示。因为此时 q 等于 null，所以继续执行代码 1 将 p 的 next 结点由 null 修改为 node2，如下图 (4) 所示。但此时的 p 不等于 t，所以需要执行 <code>ConcurrentLinkedQueue#casTail</code> 更新 tail 结点，如下图 (5) 所示。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/juc-concurrent-linked-queue-offer-2.png" alt="image">
+      </p>
+<p>最后再来分析一下什么情况下会执行到代码 2。假设当前队列的元素构成如下图 (1) 所示，此种结构一般由其它线程执行 poll 方法所造成，下一小节会进行分析。此时 tail 结点形成了自引用，开始执行 for 循环时 p 和 t 均指向 tail 结点，当将 p 的 next 结点赋值给 q 时，因为 p 的 next 结点即为 tail 结点自己，所以 q 也指向 tail 结点。此时，q 结点不为 null，且 p 等于 q，所以执行代码 2 将 head 结点赋值给 p，如下图 (2) 所示。所以这一步的目的在于跳出自引用，后续的执行流程参考下图 (3)、(4) 和 (5)，读者可以自行梳理。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/juc-concurrent-linked-queue-offer-3.png" alt="image">
+      </p>
+<p>除了上面介绍的 <code>ConcurrentLinkedQueue#offer</code> 方法，ConcurrentLinkedQueue 还实现了 <code>ConcurrentLinkedQueue#add</code> 方法同样用于往队列末端追加元素，不过因为 ConcurrentLinkedQueue 是无界队列，所以该方法也只是简单的将请求委托给 <code>ConcurrentLinkedQueue#offer</code> 方法执行。</p>
+
+        <h4 id="获取元素：poll-amp-peek-amp-element">
+          <a href="#获取元素：poll-amp-peek-amp-element" class="heading-link"><i class="fas fa-link"></i></a>获取元素：poll &amp; peek &amp; element</h4>
+      <p>针对获取元素的操作，Queue 接口声明了 3 个方法，包括 <code>Queue#poll</code>、<code>Queue#peek</code>，以及 <code>Queue#element</code>。其中 <code>Queue#poll</code> 和 <code>Queue#peek</code> 的区别一般都比较熟悉，而 <code>Queue#element</code> 方法在功能上与 <code>Queue#peek</code> 方法类似，都是获取队列的头结点元素值而不删除结点，区别在于当队列为空时，方法 <code>Queue#peek</code> 返回 null，而 <code>Queue#element</code> 则抛出异常。ConcurrentLinkedQueue 针对 <code>Queue#element</code> 方法的实现实际上也是委托给 <code>ConcurrentLinkedQueue#peek</code> 方法执行的，只是对该方法的返回值进行了处理，如果返回值为 null 则抛出 NoSuchElementException 异常。</p>
+<p>下面首先来看一下 ConcurrentLinkedQueue 针对方法 <code>Queue#poll</code> 的实现，如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> E <span class="title">poll</span><span class="params">()</span> </span>{</span><br><span class="line">    restartFromHead:</span><br><span class="line">    <span class="keyword">for</span> (; ; ) {</span><br><span class="line">        <span class="comment">// 从头结点获取元素</span></span><br><span class="line">        <span class="keyword">for</span> (Node&lt;E&gt; h = head, p = h, q; ; ) {</span><br><span class="line">            E item = p.item;</span><br><span class="line"></span><br><span class="line">            <span class="comment">// 如果当前头结点不为 null，则尝试基于 CAS 将其修改为 null</span></span><br><span class="line">            <span class="keyword">if</span> (item != <span class="keyword">null</span> &amp;&amp; p.casItem(item, <span class="keyword">null</span>)) { <span class="comment">// 1</span></span><br><span class="line">                <span class="comment">// CAS 操作成功</span></span><br><span class="line">                <span class="comment">// Successful CAS is the linearization point for item to be removed from this queue.</span></span><br><span class="line">                <span class="keyword">if</span> (p != h) { <span class="comment">// hop two nodes at a time</span></span><br><span class="line">                    <span class="keyword">this</span>.updateHead(h, ((q = p.next) != <span class="keyword">null</span>) ? q : p);</span><br><span class="line">                }</span><br><span class="line">                <span class="keyword">return</span> item;</span><br><span class="line">            }</span><br><span class="line">            <span class="comment">// 当前队列为空</span></span><br><span class="line">            <span class="keyword">else</span> <span class="keyword">if</span> ((q = p.next) == <span class="keyword">null</span>) { <span class="comment">// 2</span></span><br><span class="line">                <span class="keyword">this</span>.updateHead(h, p);</span><br><span class="line">                <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">            } <span class="keyword">else</span> <span class="keyword">if</span> (p == q) { <span class="comment">// 3</span></span><br><span class="line">                <span class="keyword">continue</span> restartFromHead;</span><br><span class="line">            } <span class="keyword">else</span> { <span class="comment">// 4</span></span><br><span class="line">                p = q;</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">final</span> <span class="keyword">void</span> <span class="title">updateHead</span><span class="params">(Node&lt;E&gt; h, Node&lt;E&gt; p)</span> </span>{</span><br><span class="line">    <span class="comment">// 将头结点由 h 更新为 p</span></span><br><span class="line">    <span class="keyword">if</span> (h != p &amp;&amp; <span class="keyword">this</span>.casHead(h, p)) {</span><br><span class="line">        <span class="comment">// 更新 h 的 next 结点为 h 自己</span></span><br><span class="line">        h.lazySetNext(h);</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述方法使用了 continue 标签语法以控制代码的执行逻辑，其中标签名为 restartFromHead，此外，break 关键字同样支持标签语法，与 continue 一起实现类似 goto 关键字的功能。</p>
+<p>下面同样通过图示演示各种不同的获取元素场景，本小节中均使用青色表示 head 结点，使用橘黄色表示 tail 结点。假设当前队列的元素构成如下图 (1) 所示，此时 p 和 h 均指向 head 结点，而 q 结点未赋值，所以暂未标出。此时 p 所指向的结点元素值不为 null，所以尝试执行 <code>Node#casItem</code> 方法基于 CAS 修改结点元素值为 null，即运行上述代码 1。假设当前线程 CAS 操作成功，如下图 (2) 所示，因为此时 p 等于 h，所以直接返回结点元素值，即出队列成功。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/juc-concurrent-linked-queue-poll-1.png" alt="image">
+      </p>
+<p>继续演示一些其它情况，假设现在队列的头结点元素值为 null，所以直接跳转到代码 2 执行，将 q 赋值为 p 的 next 结点，如下图 (1) 所示，但是因为结点不为 null，所以继续往下执行。此时 p 不等于 q，所以执行代码 4 将 q 赋值给 p，如下图 (2) 所示，然后进入下一轮循环。</p>
+<p>此时结点 p 的元素值不为 null，所以进入代码 1。考虑存在多个线程竞争的场景，假设现在有两个线程 A 和 B，其中 A 在执行代码 1 中的 <code>Node#casItem</code> 时成功将 p 的元素值更新为 null，如下图 (3-1) 所示。因为此时 p 不等于 h，所以执行 <code>ConcurrentLinkedQueue#updateHead</code> 方法将头结点由 h 更新为 p，并重定向 h 的 next 指针指向自己，如下图 (4-1) 所示。最后返回结点元素值，即出队列成功。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/juc-concurrent-linked-queue-poll-2.png" alt="image">
+      </p>
+<p>因为线程 A 已经操作成功，所以线程 B 在执行 <code>Node#casItem</code> 方法时必然失败，于是继续向下执行代码 2，将 q 指向 p 的 next 结点，如上图 (3-2) 所示。因为此时 q 结点为 null，所以执行 <code>ConcurrentLinkedQueue#updateHead</code> 方法将头结点由 h 更新为 p，并重定向 h 的 next 指针指向自己，如上图 (4-2) 所示。最后返回 null 值，即出队列成功。</p>
+<p>最后再来分析一下什么情况下会执行到代码 3。假设当前队列的元素构成如下图 (1) 所示，并且当前有两个线程（A 和 B）竞争执行出队列操作，线程 A 首先执行代码 1 基于 CAS 将结点 p 元素值修改为 null，如下图 (2) 所示。但在线程 A 继续执行代码 1 中的 <code>ConcurrentLinkedQueue#updateHead</code> 方法尝试更新 head 结点之前，B 线程进入了 for 循环，如下图 (3) 所示，此时 B 线程的 h 和 p 指针均指向 head 结点，但是在 B 继续向下执行之前，A 线程执行了 <code>ConcurrentLinkedQueue#updateHead</code> 方法，将 head 结点由 h 更新为 p，并修改 h 的 next 指针指向自己，最后返回元素值，如下图 (4) 所示。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/juc-concurrent-linked-queue-poll-3.png" alt="image">
+      </p>
+<p>此时，如上图 (5) 所示，B 线程再继续执行时发现 p 结点元素值为 null，所以跳转执行代码 2 将 p 的 next 结点赋值给 q，如上图 (6) 所示。因为此时 p 结点不为 null，且是自引用，所以 p 也就等于 q，继续执行代码 3 跳出本次 for 循环从头再来。再次进入 for 循环时，B 线程看到的队列结构就变成了如上图 (7) 所示。</p>
+<p>本小节的最后一起来看一下 <code>ConcurrentLinkedQueue#peek</code> 方法的实现，相对于 <code>ConcurrentLinkedQueue#poll</code> 方法，该方法的区别在于仅获取队头元素，而不移除头结点。方法实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> E <span class="title">peek</span><span class="params">()</span> </span>{</span><br><span class="line">    restartFromHead:</span><br><span class="line">    <span class="keyword">for</span> (; ; ) {</span><br><span class="line">        <span class="keyword">for</span> (Node&lt;E&gt; h = head, p = h, q; ; ) {</span><br><span class="line">            E item = p.item;</span><br><span class="line">            <span class="keyword">if</span> (item != <span class="keyword">null</span> || (q = p.next) == <span class="keyword">null</span>) { <span class="comment">// 1</span></span><br><span class="line">                <span class="keyword">this</span>.updateHead(h, p);</span><br><span class="line">                <span class="keyword">return</span> item;</span><br><span class="line">            } <span class="keyword">else</span> <span class="keyword">if</span> (p == q) { <span class="comment">// 2</span></span><br><span class="line">                <span class="keyword">continue</span> restartFromHead;</span><br><span class="line">            } <span class="keyword">else</span> { <span class="comment">// 3</span></span><br><span class="line">                p = q;</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述实现初看起来似乎不太好理解，但是如果像上面一样结合图示去分析就会一目了然，这里就不再继续演示各个步骤的执行逻辑，感兴趣的读者可以自己动手画一下。</p>
+
+        <h4 id="移除元素：remove">
+          <a href="#移除元素：remove" class="heading-link"><i class="fas fa-link"></i></a>移除元素：remove</h4>
+      <p>针对删除元素操作，Queue 仅声明了 <code>Queue#remove</code> 方法，用于删除队列头结点并返回结点元素值，区别于 <code>Queue#poll</code> 方法返回 null 值，当队列为空时该方法将抛出异常。ConcurrentLinkedQueue 还实现了带参数的 remove 方法（继承自 Collection 接口），该方法用于从当前队列中删除目标元素值对应的结点，如果存在多个则删除第 1 个。下面主要来看一下带参数版本的 remove 方法实现，如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">remove</span><span class="params">(Object o)</span> </span>{</span><br><span class="line">    <span class="keyword">if</span> (o != <span class="keyword">null</span>) {</span><br><span class="line">        Node&lt;E&gt; next, pred = <span class="keyword">null</span>;</span><br><span class="line">        <span class="comment">// 遍历队列中的元素</span></span><br><span class="line">        <span class="keyword">for</span> (Node&lt;E&gt; p = <span class="keyword">this</span>.first(); p != <span class="keyword">null</span>; pred = p, p = next) {</span><br><span class="line">            <span class="keyword">boolean</span> removed = <span class="keyword">false</span>;</span><br><span class="line">            E item = p.item;</span><br><span class="line">            <span class="keyword">if</span> (item != <span class="keyword">null</span>) {</span><br><span class="line">                <span class="comment">// 如果当前遍历元素不是期望删除的元素，则继续获取后继结点</span></span><br><span class="line">                <span class="keyword">if</span> (!o.equals(item)) {</span><br><span class="line">                    next = <span class="keyword">this</span>.succ(p);</span><br><span class="line">                    <span class="keyword">continue</span>;</span><br><span class="line">                }</span><br><span class="line">                <span class="comment">// 当前遍历元素是期望删除的元素，基于 CAS 将该结点置为 null</span></span><br><span class="line">                removed = p.casItem(item, <span class="keyword">null</span>);</span><br><span class="line">            }</span><br><span class="line"></span><br><span class="line">            <span class="comment">/*</span></span><br><span class="line"><span class="comment">             * 指向到这里分为两种情况：</span></span><br><span class="line"><span class="comment">             * 1. 当前结点为 null。</span></span><br><span class="line"><span class="comment">             * 2. 当前结点为待删除结点。</span></span><br><span class="line"><span class="comment">             */</span></span><br><span class="line"></span><br><span class="line">            <span class="comment">// 获取当前结点的后继结点</span></span><br><span class="line">            next = <span class="keyword">this</span>.succ(p);</span><br><span class="line">            <span class="comment">// 更新前驱结点的 next 指针指向当前结点的后继结点</span></span><br><span class="line">            <span class="keyword">if</span> (pred != <span class="keyword">null</span> &amp;&amp; next != <span class="keyword">null</span>) { <span class="comment">// unlink</span></span><br><span class="line">                pred.casNext(p, next);</span><br><span class="line">            }</span><br><span class="line">            <span class="keyword">if</span> (removed) {</span><br><span class="line">                <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>删除的过程从队列头部开始遍历，并在遇到待删除元素时基于 CAS 将对应结点元素值更新为 null，在遍历过程中会剔除掉所有元素值为 null 的结点。</p>
+
+        <h4 id="其它操作：size-amp-contains">
+          <a href="#其它操作：size-amp-contains" class="heading-link"><i class="fas fa-link"></i></a>其它操作：size &amp; contains</h4>
+      <p>ConcurrentLinkedQueue 提供了 <code>ConcurrentLinkedQueue#size</code> 方法用于获取队列的长度，该方法在实现上会从头开始对队列进行遍历，并计数元素值不为 null 的结点，并以 <code>Integer.MAX_VALUE</code> 作为计数值上界。需要注意的一点是不同于一般的集合，ConcurrentLinkedQueue 整个计算队列大小的过程时间复杂度为 <code>O(n)</code>，并且结果是不准确的。如果期间有其它线程对队列执行增删操作，将不会在 <code>ConcurrentLinkedQueue#size</code> 方法的返回值中体现。</p>
+<p>方法 <code>ConcurrentLinkedQueue#contains</code> 用于判断队列中是否包含参数指定的元素值，在实现上与 <code>ConcurrentLinkedQueue#size</code> 方法思想想通，都需要从头开始遍历队列并对元素值进行比对。</p>
+
+        <h3 id="总结">
+          <a href="#总结" class="heading-link"><i class="fas fa-link"></i></a>总结</h3>
+      <p>本文分析了 ConcurrentLinkedQueue 的设计与实现，并运用图示梳理了队列元素添加、获取，以及删除的过程。ConcurrentLinkedQueue 底层依赖于单链表作为存储结构，并基于 CAS 对链表的结点进行修改，从而实现在不阻塞的前提下保证线程安全，避免线程阻塞和唤醒所带来的性能开销。ConcurrentLinkedQueue 的设计思路还是比较简单明了的，难点在于访问结点过程中对链表的操作，并不是特别直观，所以本文引入了大量的图示演示相关的操作过程，希望能够简化理解。</p>
+
+        <h3 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h3>
+      <ol>
+<li>JDK 1.8 源码</li>
+</ol>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2018/09/10/java/juc-concurrent-linked-queue/">https://plotor.github.io/2018/09/10/java/juc-concurrent-linked-queue/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Java/">Java</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/">并发编程</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2018/09/12/java/juc-linked-blocking-queue/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">深入理解 JUC：LinkedBlockingQueue</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2018/09/05/java/juc-cow-array-list/"><span class="paginator-prev__text">深入理解 JUC：CopyOnWriteArrayList</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#Queue-%E6%8E%A5%E5%8F%A3"><span class="toc-number">1.</span> <span class="toc-text">
+          Queue 接口</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E6%96%B9%E6%B3%95%E5%AE%9E%E7%8E%B0"><span class="toc-number">2.</span> <span class="toc-text">
+          核心方法实现</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%B7%BB%E5%8A%A0%E5%85%83%E7%B4%A0%EF%BC%9Aadd-amp-offer"><span class="toc-number">2.1.</span> <span class="toc-text">
+          添加元素：add &amp; offer</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%8E%B7%E5%8F%96%E5%85%83%E7%B4%A0%EF%BC%9Apoll-amp-peek-amp-element"><span class="toc-number">2.2.</span> <span class="toc-text">
+          获取元素：poll &amp; peek &amp; element</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%A7%BB%E9%99%A4%E5%85%83%E7%B4%A0%EF%BC%9Aremove"><span class="toc-number">2.3.</span> <span class="toc-text">
+          移除元素：remove</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%85%B6%E5%AE%83%E6%93%8D%E4%BD%9C%EF%BC%9Asize-amp-contains"><span class="toc-number">2.4.</span> <span class="toc-text">
+          其它操作：size &amp; contains</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">3.</span> <span class="toc-text">
+          总结</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">4.</span> <span class="toc-text">
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

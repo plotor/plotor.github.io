@@ -1,0 +1,840 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="Seq 是一个特质类型（定义如下），用于表示按照一定顺序排列的元素序列，Seq 继承了偏函数 PartialFunction 特质，所以一个序列本质上也是一个偏函数，对应的函数类型是 Int &#x3D;&gt; A，其中 A 是对应 Seq 的元素类型，而输入参数是 Seq 的下标。 12345trait Seq[+A] extends PartialFunction[Int, A]">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Scala 集合：Seq API">
+<meta property="og:url" content="https://plotor.github.io/2018/05/17/scala/scala-collection-seq/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="Seq 是一个特质类型（定义如下），用于表示按照一定顺序排列的元素序列，Seq 继承了偏函数 PartialFunction 特质，所以一个序列本质上也是一个偏函数，对应的函数类型是 Int &#x3D;&gt; A，其中 A 是对应 Seq 的元素类型，而输入参数是 Seq 的下标。 12345trait Seq[+A] extends PartialFunction[Int, A]">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2018-05-17T07:56:10.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.974Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Scala">
+<meta name="twitter:card" content="summary"><title>Scala 集合：Seq API | 指  间</title><link ref="canonical" href="https://plotor.github.io/2018/05/17/scala/scala-collection-seq/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">Scala 集合：Seq API</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2018-05-17</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">5.3k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">28分</span></span></div></header><div class="post-body"><p>Seq 是一个特质类型（定义如下），用于表示按照一定顺序排列的元素序列，Seq 继承了偏函数 PartialFunction 特质，所以一个序列本质上也是一个偏函数，对应的函数类型是 <code>Int =&gt; A</code>，其中 A 是对应 Seq 的元素类型，而输入参数是 Seq 的下标。</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">trait</span> <span class="title">Seq</span>[+<span class="type">A</span>] <span class="keyword">extends</span> <span class="title">PartialFunction</span>[<span class="type">Int</span>, <span class="type">A</span>]</span></span><br><span class="line"><span class="class">                      <span class="keyword">with</span> <span class="title">Iterable</span>[<span class="type">A</span>]</span></span><br><span class="line"><span class="class">                      <span class="keyword">with</span> <span class="title">GenSeq</span>[<span class="type">A</span>]</span></span><br><span class="line"><span class="class">                      <span class="keyword">with</span> <span class="title">GenericTraversableTemplate</span>[<span class="type">A</span>, <span class="type">Seq</span>]</span></span><br><span class="line"><span class="class">                      <span class="keyword">with</span> <span class="title">SeqLike</span>[<span class="type">A</span>, <span class="type">Seq</span>[<span class="type">A</span>]]</span></span><br></pre></td></tr></tbody></table></div></figure>
+<a id="more"></a>
+
+<p>Seq 同样分为可变和不可变两大类，此外还派生出 IndexedSeq 和 LinearSeq 两个重要的子特质：</p>
+<ul>
+<li><strong>IndexedSeq</strong> ：代表索引序列，对于基于索引的操作来说效率较高，一般底层依赖于数组实现。</li>
+<li><strong>LinearSeq</strong> ：代表线性序列，对于 head、tail，以及 isEmpty 一类的方法效率较高，一般底层依赖于链表实现。</li>
+</ul>
+<p>IndexedSeq 特质典型的实现类有 ArraySeq、Vector，以及 Range 等，其中 Vector 基于 Trie 树实现，在随机读和随机更新方面进行了权衡，虽然随机读的时间相对于数组略长，但是随机更新性能要优于数组和链表，是 iimmutable IndexedSeq 的默认实现。</p>
+<p>LinearSeq 特质的典型实现类就是 List 类型，不过 List 是一个抽象类，默认基于 ListBuffer 构建。ListBuffer 的父特质 Buffer 也是 Seq 派生的一个重要子特质，Buffer 特质声明为 mutable，用于定义可变的 Seq 集合，除了 ListBuffer 实现类，Scala 主要还提供了基于数组的 ArrayBuffer 实现。</p>
+<p>本文我们主要介绍 Seq 系的集合，包括 Seq、Buffer、List、Stack，以及 Queue。</p>
+
+        <h3 id="一-Seq">
+          <a href="#一-Seq" class="heading-link"><i class="fas fa-link"></i></a>一. Seq</h3>
+      
+        <h4 id="1-1-获取集合索引">
+          <a href="#1-1-获取集合索引" class="heading-link"><i class="fas fa-link"></i></a>1.1 获取集合索引</h4>
+      
+        <h5 id="1-1-1-indexOf-amp-lastIndexOf">
+          <a href="#1-1-1-indexOf-amp-lastIndexOf" class="heading-link"><i class="fas fa-link"></i></a>1.1.1 indexOf &amp; lastIndexOf</h5>
+      <p>函数 indexOf 和 lastIndexOf 均用于从给定 Seq 对象中检索指定元素的下标值（如果不存在则返回 -1），区别在于 indexOf 从左至右开始检索，而 lastIndexOf 则从右至左开始检索，同时这两个方法均允许指定检索的起始下标。函数定义如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">indexOf</span></span>[<span class="type">B</span> &gt;: <span class="type">A</span>](elem: <span class="type">B</span>): <span class="type">Int</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">indexOf</span></span>[<span class="type">B</span> &gt;: <span class="type">A</span>](elem: <span class="type">B</span>, from: <span class="type">Int</span>): <span class="type">Int</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">lastIndexOf</span></span>[<span class="type">B</span> &gt;: <span class="type">A</span>](elem: <span class="type">B</span>): <span class="type">Int</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">lastIndexOf</span></span>[<span class="type">B</span> &gt;: <span class="type">A</span>](elem: <span class="type">B</span>, end: <span class="type">Int</span>): <span class="type">Int</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> seq = <span class="type">Seq</span>('a' to 'z': _*)</span><br><span class="line">seq.indexOf('c') <span class="comment">// 输出：2</span></span><br><span class="line">seq.lastIndexOf('h') <span class="comment">// 输出：7</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h5 id="1-1-2-indexWhere-amp-lastIndexWhere">
+          <a href="#1-1-2-indexWhere-amp-lastIndexWhere" class="heading-link"><i class="fas fa-link"></i></a>1.1.2 indexWhere &amp; lastIndexWhere</h5>
+      <p>函数 indexWhere 和 lastIndexWhere 相对于 indexOf 和 lastIndexOf 更加灵活一些，这两个函数均允许指定谓词 <code>A =&gt; Boolean</code> 来对集合中的元素进行筛选，并返回满足条件的第 1 个元素对应的下标。函数定义如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">indexWhere</span></span>(p: <span class="type">A</span> =&gt; <span class="type">Boolean</span>, from: <span class="type">Int</span>): <span class="type">Int</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">indexWhere</span></span>(p: <span class="type">A</span> =&gt; <span class="type">Boolean</span>): <span class="type">Int</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">lastIndexWhere</span></span>(p: <span class="type">A</span> =&gt; <span class="type">Boolean</span>): <span class="type">Int</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">lastIndexWhere</span></span>(p: <span class="type">A</span> =&gt; <span class="type">Boolean</span>, end: <span class="type">Int</span>): <span class="type">Int</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> seq = <span class="type">Seq</span>(<span class="number">1</span> to <span class="number">9</span>: _*)</span><br><span class="line">seq.indexWhere(x =&gt; x % <span class="number">2</span> == <span class="number">0</span> &amp;&amp; x &gt; <span class="number">5</span>) <span class="comment">// 输出：5</span></span><br><span class="line">seq.lastIndexWhere(x =&gt; x % <span class="number">2</span> == <span class="number">1</span> &amp;&amp; x &lt; <span class="number">5</span>) <span class="comment">// 输出：2</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>实际上 indexOf 和 lastIndexOf 底层分别使用 indexWhere 和 lastIndexWhere 进行实现。</p>
+
+        <h5 id="1-1-3-indexOfSlice-amp-lastIndexOfSlice">
+          <a href="#1-1-3-indexOfSlice-amp-lastIndexOfSlice" class="heading-link"><i class="fas fa-link"></i></a>1.1.3 indexOfSlice &amp; lastIndexOfSlice</h5>
+      <p>函数 indexOfSlice 和 lastIndexOfSlice 用于检索给定的子序列在 Seq 对象中的位置，并返回子序列第 1 个元素对应的下标，如果不存在则返回 -1。函数定义如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">indexOfSlice</span></span>[<span class="type">B</span> &gt;: <span class="type">A</span>](that: <span class="type">GenSeq</span>[<span class="type">B</span>]): <span class="type">Int</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">indexOfSlice</span></span>[<span class="type">B</span> &gt;: <span class="type">A</span>](that: <span class="type">GenSeq</span>[<span class="type">B</span>], from: <span class="type">Int</span>): <span class="type">Int</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">lastIndexOfSlice</span></span>[<span class="type">B</span> &gt;: <span class="type">A</span>](that: <span class="type">GenSeq</span>[<span class="type">B</span>]): <span class="type">Int</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">lastIndexOfSlice</span></span>[<span class="type">B</span> &gt;: <span class="type">A</span>](that: <span class="type">GenSeq</span>[<span class="type">B</span>], end: <span class="type">Int</span>): <span class="type">Int</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> seq = <span class="type">Seq</span>(<span class="number">1</span> to <span class="number">9</span>: _*)</span><br><span class="line">seq.indexOfSlice(<span class="type">Seq</span>(<span class="number">7</span>, <span class="number">8</span>)) <span class="comment">// 输出：6</span></span><br><span class="line">seq.lastIndexOfSlice(<span class="type">Seq</span>(<span class="number">7</span>, <span class="number">8</span>)) <span class="comment">// 输出：6</span></span><br><span class="line">seq.indexOfSlice(<span class="type">Seq</span>(<span class="number">1</span>, <span class="number">8</span>)) <span class="comment">// 输出：-1</span></span><br><span class="line">seq.lastIndexOfSlice(<span class="type">Seq</span>(<span class="number">1</span>, <span class="number">8</span>)) <span class="comment">// 输出：-1</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h5 id="1-1-4-indices">
+          <a href="#1-1-4-indices" class="heading-link"><i class="fas fa-link"></i></a>1.1.4 indices</h5>
+      <p>函数 indices 用于获取 Seq 对象的索引集合，返回一个 Range 对象，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> seq = <span class="type">Seq</span>(<span class="string">"A"</span>, <span class="string">"B"</span>, <span class="string">"C"</span>)</span><br><span class="line">seq.indices <span class="comment">// 输出：Range 0 until 3</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="1-2-获取集合长度">
+          <a href="#1-2-获取集合长度" class="heading-link"><i class="fas fa-link"></i></a>1.2 获取集合长度</h4>
+      
+        <h5 id="1-2-1-length-amp-size">
+          <a href="#1-2-1-length-amp-size" class="heading-link"><i class="fas fa-link"></i></a>1.2.1 length &amp; size</h5>
+      <p>函数 length 和 size 都可以返回当前 Seq 对象的长度，区别在于 size 是 Traversable 中定义的方法，而 length 是 Seq 中定义的方法，二者在功能上是等价的。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> seq = <span class="type">Seq</span>(<span class="number">1</span> to <span class="number">9</span>: _*)</span><br><span class="line">seq.size <span class="comment">// 输出：9</span></span><br><span class="line">seq.length <span class="comment">// 输出：9</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h5 id="1-2-2-lengthCompare">
+          <a href="#1-2-2-lengthCompare" class="heading-link"><i class="fas fa-link"></i></a>1.2.2 lengthCompare</h5>
+      <p>函数 lengthCompare 接收一个参数 n，用于将当前 Seq 对象的长度 l 与该参数进行比较，如果 <code>l &gt; n</code> 则返回 1，如果 <code>l == n</code> 则返回 0，如果 <code>l &lt; n</code> 则返回 <code>l - n</code>。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> seq = <span class="type">Seq</span>(<span class="number">1</span> to <span class="number">9</span>: _*)</span><br><span class="line">seq.lengthCompare(<span class="number">8</span>) <span class="comment">// 输出：1</span></span><br><span class="line">seq.lengthCompare(<span class="number">9</span>) <span class="comment">// 输出：0</span></span><br><span class="line">seq.lengthCompare(<span class="number">18</span>) <span class="comment">// 输出：-1</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>为什么 <code>seq.lengthCompare(18)</code> 的结果是 -1，而不是 -9 呢，这是因为这里实际使用的实现类 List 覆盖实现了该方法，强制返回 -1。</p>
+
+        <h5 id="1-2-3-segmentLength-amp-prefixLength">
+          <a href="#1-2-3-segmentLength-amp-prefixLength" class="heading-link"><i class="fas fa-link"></i></a>1.2.3 segmentLength &amp; prefixLength</h5>
+      <p>函数 segmentLength 接收一个谓词 <code>A =&gt; Boolean</code>，用于从指定下标 from 开始往右检索连续满足条件的子序列的最大长度，函数定义如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">segmentLength</span></span>(p: <span class="type">A</span> =&gt; <span class="type">Boolean</span>, from: <span class="type">Int</span>): <span class="type">Int</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>而函数 prefixLength 是 segmentLength 的特殊版本，其 from 参数设置为 0，表示从头开始检索，即检索集合满足给定条件的最长前缀子序列，并返回其长度。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> seq = <span class="type">Seq</span>(<span class="number">1</span> to <span class="number">9</span>: _*)</span><br><span class="line">seq.segmentLength(_ &lt; <span class="number">5</span>, <span class="number">2</span>) <span class="comment">// 输出：2</span></span><br><span class="line">seq.prefixLength(_ &lt; <span class="number">5</span>) <span class="comment">// 输出：4</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="1-3-查询操作">
+          <a href="#1-3-查询操作" class="heading-link"><i class="fas fa-link"></i></a>1.3 查询操作</h4>
+      
+        <h5 id="1-3-1-apply">
+          <a href="#1-3-1-apply" class="heading-link"><i class="fas fa-link"></i></a>1.3.1 apply</h5>
+      <p>函数 apply 用于从 Seq 对象中获取指定下标的元素，例如 <code>seq.apply(2)</code> 用于获取下标为 2 的元素，也可以简写为 <code>seq(2)</code>，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> seq = <span class="type">Seq</span>(<span class="string">"A"</span>, <span class="string">"B"</span>, <span class="string">"C"</span>)</span><br><span class="line">seq.apply(<span class="number">2</span>) <span class="comment">// 输出：C</span></span><br><span class="line">seq(<span class="number">2</span>) <span class="comment">// 输出：C</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="1-4-插入操作">
+          <a href="#1-4-插入操作" class="heading-link"><i class="fas fa-link"></i></a>1.4 插入操作</h4>
+      
+        <h5 id="1-4-1-amp">
+          <a href="#1-4-1-amp" class="heading-link"><i class="fas fa-link"></i></a>1.4.1 +: &amp; :+</h5>
+      <p>函数 <code>+:</code> 和 <code>:+</code> 均用于往 Seq 对象中追加元素，并返回一个新的集合对象，区别在于 <code>+:</code> 是前置追加，而 <code>:+</code> 是后置追加，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> seq = <span class="type">Seq</span>(<span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>)</span><br><span class="line"><span class="number">1</span> +: seq <span class="comment">// 输出：List(1, 2, 3, 4)</span></span><br><span class="line">seq :+ <span class="number">5</span> <span class="comment">// 输出：List(2, 3, 4, 5)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h5 id="1-4-2-padTo">
+          <a href="#1-4-2-padTo" class="heading-link"><i class="fas fa-link"></i></a>1.4.2 padTo</h5>
+      <p>函数 padTo 用于将当前 Seq 对象中的前 len 个元素复制到新集合中，并在集合元素不够时使用给定的 elem 默认值填充。函数定义如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">padTo</span></span>[<span class="type">B</span> &gt;: <span class="type">A</span>, <span class="type">That</span>](len: <span class="type">Int</span>, elem: <span class="type">B</span>)(<span class="keyword">implicit</span> bf: <span class="type">CanBuildFrom</span>[<span class="type">Repr</span>, <span class="type">B</span>, <span class="type">That</span>]): <span class="type">That</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> seq = <span class="type">Seq</span>(<span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>)</span><br><span class="line">seq.padTo(<span class="number">5</span>, <span class="number">0</span>) <span class="comment">// 输出：List(2, 3, 4, 0, 0)</span></span><br><span class="line">seq.padTo(<span class="number">2</span>, <span class="number">0</span>) <span class="comment">// 输出：List(2, 3, 4)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="1-5-更新操作">
+          <a href="#1-5-更新操作" class="heading-link"><i class="fas fa-link"></i></a>1.5 更新操作</h4>
+      
+        <h5 id="1-5-1-updated">
+          <a href="#1-5-1-updated" class="heading-link"><i class="fas fa-link"></i></a>1.5.1 updated</h5>
+      <p>函数 updated 用于更新 Seq 对象中指定下标位置的元素值，对于不可变集合的修改会创建出一个新的集合，而对于可变集合来说则是原地修改，所以对于可变集合可以简写为 <code>()</code> 操作符。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> seq = <span class="type">Seq</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>)</span><br><span class="line">seq.updated(<span class="number">2</span>, <span class="number">8</span>) <span class="comment">// 输出：List(1, 2, 8)</span></span><br><span class="line"><span class="keyword">val</span> mseq = mutable.<span class="type">Seq</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>)</span><br><span class="line">mseq(<span class="number">2</span>) = <span class="number">8</span></span><br><span class="line">mseq <span class="comment">// 输出：ArrayBuffer(1, 2, 8)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h5 id="1-5-2-patch">
+          <a href="#1-5-2-patch" class="heading-link"><i class="fas fa-link"></i></a>1.5.2 patch</h5>
+      <p>函数 patch 使用给定的元素序列 patch 替换 Seq 对象中 <code>[from, from + replaced)</code> 下标的元素。函数定义如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">patch</span></span>[<span class="type">B</span> &gt;: <span class="type">A</span>, <span class="type">That</span>](from: <span class="type">Int</span>, patch: <span class="type">GenSeq</span>[<span class="type">B</span>], replaced: <span class="type">Int</span>)(<span class="keyword">implicit</span> bf: <span class="type">CanBuildFrom</span>[<span class="type">Repr</span>, <span class="type">B</span>, <span class="type">That</span>]): <span class="type">That</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> seq = <span class="type">Seq</span>(<span class="number">1</span> to <span class="number">9</span>: _*)</span><br><span class="line">seq.patch(<span class="number">3</span>, <span class="type">Seq</span>(<span class="number">8</span>, <span class="number">8</span>, <span class="number">8</span>, <span class="number">8</span>, <span class="number">8</span>), <span class="number">2</span>) <span class="comment">// 输出：List(1, 2, 3, 8, 8, 8, 8, 8, 6, 7, 8, 9)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="1-6-排序操作">
+          <a href="#1-6-排序操作" class="heading-link"><i class="fas fa-link"></i></a>1.6 排序操作</h4>
+      
+        <h5 id="1-6-1-sorted-amp-sortBy-amp-sortWith">
+          <a href="#1-6-1-sorted-amp-sortBy-amp-sortWith" class="heading-link"><i class="fas fa-link"></i></a>1.6.1 sorted &amp; sortBy &amp; sortWith</h5>
+      <p>函数 sorted、sortBy 和 sortWith 均用于对 Seq 对象中的元素进行排序操作，区别在于：</p>
+<ul>
+<li><strong>sorted</strong> ：按照元素的值从小到大进行排序。</li>
+<li><strong>sortBy</strong> ：按照指定的因子从小到大对集合中的元素进行排序。</li>
+<li><strong>sortWith</strong> ：接收一个比较函数 <code>(A, A) =&gt; Boolean</code>，已该函数对集合中的元素进行排序。</li>
+</ul>
+<p>示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> seq = <span class="type">Seq</span>.fill(<span class="number">10</span>)(<span class="type">Random</span>.nextInt(<span class="number">100</span>))</span><br><span class="line">seq.sorted <span class="comment">// 输出：List(28, 36, 42, 43, 63, 66, 69, 84, 85, 88)</span></span><br><span class="line">seq.sortBy(_ % <span class="number">10</span>) <span class="comment">// 输出：List(42, 63, 43, 84, 85, 66, 36, 88, 28, 69)</span></span><br><span class="line">seq.sortWith((x, y) =&gt; y &lt; x) <span class="comment">// 输出：List(88, 85, 84, 69, 66, 63, 43, 42, 36, 28)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="1-7-反转操作">
+          <a href="#1-7-反转操作" class="heading-link"><i class="fas fa-link"></i></a>1.7 反转操作</h4>
+      
+        <h5 id="1-7-1-reverse-amp-reverseIterator-amp-reverseMap">
+          <a href="#1-7-1-reverse-amp-reverseIterator-amp-reverseMap" class="heading-link"><i class="fas fa-link"></i></a>1.7.1 reverse &amp; reverseIterator &amp; reverseMap</h5>
+      <p>函数 reverse 用于对 Seq 对象中的元素执行反转操作，而函数 reverseIterator 同样执行反转操作，只是返回的是一个迭代器对象，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> seq = <span class="type">Seq</span>(<span class="number">1</span> to <span class="number">5</span>: _*)</span><br><span class="line">seq.reverse <span class="comment">// 输出：List(5, 4, 3, 2, 1)</span></span><br><span class="line">seq.reverseIterator <span class="comment">// 输出：&lt;iterator&gt;</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>函数 reverseMap 相当于 reverse 和 map 的组合，不过执行效率更高，用于对反转的集合执行 map 操作，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> seq = <span class="type">Seq</span>(<span class="number">1</span> to <span class="number">5</span>: _*)</span><br><span class="line">seq.reverseMap(_ - <span class="number">5</span>) <span class="comment">// 输出：List(0, -1, -2, -3, -4)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="1-8-包含检查">
+          <a href="#1-8-包含检查" class="heading-link"><i class="fas fa-link"></i></a>1.8 包含检查</h4>
+      
+        <h5 id="1-8-1-contains-amp-containsSlice">
+          <a href="#1-8-1-contains-amp-containsSlice" class="heading-link"><i class="fas fa-link"></i></a>1.8.1 contains &amp; containsSlice</h5>
+      <p>函数 contains 用于检查 Seq 对象是否包含指定单个元素，而函数 containsSlice 用于检查是否包含给定的元素序列，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> seq = <span class="type">Seq</span>(<span class="number">1</span> to <span class="number">5</span>: _*)</span><br><span class="line">seq.contains(<span class="number">3</span>) <span class="comment">// 输出：true</span></span><br><span class="line">seq.containsSlice(<span class="type">Seq</span>(<span class="number">1</span>, <span class="number">2</span>)) <span class="comment">// 输出：true</span></span><br><span class="line">seq.containsSlice(<span class="type">Seq</span>(<span class="number">2</span>, <span class="number">1</span>)) <span class="comment">// 输出：false</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="1-9-转换操作">
+          <a href="#1-9-转换操作" class="heading-link"><i class="fas fa-link"></i></a>1.9 转换操作</h4>
+      
+        <h5 id="1-9-1-transform">
+          <a href="#1-9-1-transform" class="heading-link"><i class="fas fa-link"></i></a>1.9.1 transform</h5>
+      <p>对于集合来说一般使用 map 函数执行转换操作，但是对于 <strong>可变</strong> Seq 对象来说，Scala 还提供了 transform 函数，用于原地转换，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> seq = mutable.<span class="type">Seq</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>)</span><br><span class="line">seq.transform(_ * <span class="number">10</span>)</span><br><span class="line">seq <span class="comment">// 输出：ArrayBuffer(10, 20, 30)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="1-10-集合运算">
+          <a href="#1-10-集合运算" class="heading-link"><i class="fas fa-link"></i></a>1.10 集合运算</h4>
+      
+        <h5 id="1-10-1-intersect">
+          <a href="#1-10-1-intersect" class="heading-link"><i class="fas fa-link"></i></a>1.10.1 intersect</h5>
+      <p>函数 intersect 用于求解两个集合的 <strong>交集</strong> ，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> seq1 = <span class="type">Seq</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">3</span>)</span><br><span class="line"><span class="keyword">val</span> seq2 = <span class="type">Seq</span>(<span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>)</span><br><span class="line">seq1.intersect(seq2) <span class="comment">// 输出：List(2, 3)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>注意</strong> ：如果两个集合包含重复元素，假设该元素在集合 A 中出现 x 次，在集合 B 中出现 y 次，则该元素在交集结果中出现 <code>min(x, y)</code> 次。</p>
+
+        <h5 id="1-10-2-union">
+          <a href="#1-10-2-union" class="heading-link"><i class="fas fa-link"></i></a>1.10.2 union</h5>
+      <p>函数 union 用于求解两个集合的 <strong>并集</strong> ，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> seq1 = <span class="type">Seq</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">3</span>)</span><br><span class="line"><span class="keyword">val</span> seq2 = <span class="type">Seq</span>(<span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>)</span><br><span class="line">seq1.union(seq2) <span class="comment">// 输出：List(1, 2, 3, 3, 2, 3, 4, 5)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>并集等价于 <code>++</code> 操作。</p>
+
+        <h5 id="1-10-3-diff">
+          <a href="#1-10-3-diff" class="heading-link"><i class="fas fa-link"></i></a>1.10.3 diff</h5>
+      <p>函数 diff 用于求解两个集合的 <strong>差集</strong> ，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> seq1 = <span class="type">Seq</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">3</span>)</span><br><span class="line"><span class="keyword">val</span> seq2 = <span class="type">Seq</span>(<span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>)</span><br><span class="line">seq1.diff(seq2) <span class="comment">// 输出：List(1, 3)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>注意</strong> ：如果两个集合包含重复元素，假设该元素在集合 A 中出现 x 次，在集合 B 中出现 y 次，则该元素在差集结果中出现 <code>max(0, x - y)</code> 次。</p>
+
+        <h4 id="1-11-排列组合">
+          <a href="#1-11-排列组合" class="heading-link"><i class="fas fa-link"></i></a>1.11 排列组合</h4>
+      
+        <h5 id="1-11-1-permutations">
+          <a href="#1-11-1-permutations" class="heading-link"><i class="fas fa-link"></i></a>1.11.1 permutations</h5>
+      <p>函数 permutations 用于获取一个 Seq 对象中元素的全排列，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> seq = <span class="type">Seq</span>(<span class="number">1</span>, <span class="number">1</span>, <span class="number">3</span>)</span><br><span class="line">seq.permutations.foreach(println)</span><br></pre></td></tr></tbody></table></div></figure>
+<p>输出：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">List(1, 1, 3)</span><br><span class="line">List(1, 3, 1)</span><br><span class="line">List(3, 1, 1)</span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>注意</strong> ：如果输入集合中包含重复元素，则在全排列时会出现重复的排列，函数 permutations 会对结果去重。</p>
+
+        <h5 id="1-11-2-combinations">
+          <a href="#1-11-2-combinations" class="heading-link"><i class="fas fa-link"></i></a>1.11.2 combinations</h5>
+      <p>函数 combinations 按照顺序从 Seq 对象中选取指定个数的元素进行组合，下面的示例按照顺序每次选择 3 个元素构建组合：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> seq = <span class="type">Seq</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>)</span><br><span class="line">seq.combinations(<span class="number">3</span>).foreach(println)</span><br></pre></td></tr></tbody></table></div></figure>
+<p>输出：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">List(1, 2, 3)</span><br><span class="line">List(1, 2, 4)</span><br><span class="line">List(1, 3, 4)</span><br><span class="line">List(2, 3, 4)</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="1-12-检查两个序列对应的元素是否满足给定条件">
+          <a href="#1-12-检查两个序列对应的元素是否满足给定条件" class="heading-link"><i class="fas fa-link"></i></a>1.12 检查两个序列对应的元素是否满足给定条件</h4>
+      
+        <h5 id="1-12-1-corresponds">
+          <a href="#1-12-1-corresponds" class="heading-link"><i class="fas fa-link"></i></a>1.12.1 corresponds</h5>
+      <p>函数 corresponds 用于接收一个序列 that 作为参数，并接收一个谓词 <code>(A,B) =&gt; Boolean</code>，函数会按照下标对两个集合中的元素逐一比对是否满足给定条件，如果全部满足则返回 true，函数定义如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">corresponds</span></span>[<span class="type">B</span>](that: <span class="type">GenSeq</span>[<span class="type">B</span>])(p: (<span class="type">A</span>,<span class="type">B</span>) =&gt; <span class="type">Boolean</span>): <span class="type">Boolean</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> seq1 = <span class="type">Seq</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>)</span><br><span class="line"><span class="keyword">val</span> seq2 = <span class="type">Seq</span>.range(<span class="number">2</span>, <span class="number">7</span>, <span class="number">2</span>)</span><br><span class="line">seq1.corresponds(seq2)(_ * <span class="number">2</span> == _) <span class="comment">// 输出：true</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="二-Buffer">
+          <a href="#二-Buffer" class="heading-link"><i class="fas fa-link"></i></a>二. Buffer</h3>
+      <p>Buffer 是一个可变的序列类（继承自 Seq 特质），其定义如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">trait</span> <span class="title">Buffer</span>[<span class="type">A</span>] <span class="keyword">extends</span> <span class="title">Seq</span>[<span class="type">A</span>]</span></span><br><span class="line"><span class="class">                   <span class="keyword">with</span> <span class="title">GenericTraversableTemplate</span>[<span class="type">A</span>, <span class="type">Buffer</span>]</span></span><br><span class="line"><span class="class">                   <span class="keyword">with</span> <span class="title">BufferLike</span>[<span class="type">A</span>, <span class="type">Buffer</span>[<span class="type">A</span>]]</span></span><br><span class="line"><span class="class">                   <span class="keyword">with</span> <span class="title">scala</span>.<span class="title">Cloneable</span> </span>{</span><br><span class="line">  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">companion</span></span>: <span class="type">GenericCompanion</span>[<span class="type">Buffer</span>] = <span class="type">Buffer</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>Buffer 的子类中最重要的两个类分别是 ListBuffer 和 ArrayBuffer：</p>
+<ul>
+<li><strong>ListBuffer</strong> ：底层依赖于 <code>immutable.List</code>，以链表的形式实现，对于头部和尾部的操作的时间复杂度是 <code>O(1)</code>，因为内部使用变量保存了长度，所以 length 和 size 操作的时间复杂度也是 <code>O(1)</code>，对于其它操作基本上都是 <code>O(n)</code> 的时间复杂度。</li>
+<li><strong>ArrayBuffer</strong> ：底层依赖于 ResizableArray 实现，对于尾部操作、更新，以及随机访问操作的时间复杂度都是 <code>O(1)</code>，对于头部和移除操作因为涉及到元素的移动，时间复杂度为 <code>O(n)</code>。</li>
+</ul>
+
+        <h4 id="2-1-查询操作">
+          <a href="#2-1-查询操作" class="heading-link"><i class="fas fa-link"></i></a>2.1 查询操作</h4>
+      <p>函数 apply 用于从 Buffer 对象中获取指定下标对应的元素值，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> buf = mutable.<span class="type">Buffer</span>(<span class="number">1</span> to <span class="number">9</span>: _*)</span><br><span class="line">buf.apply(<span class="number">3</span>) <span class="comment">// 输出：4</span></span><br><span class="line">buf(<span class="number">3</span>) <span class="comment">// 输出：4</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>函数 apply 可以简写为 <code>()</code> 表达式。</p>
+
+        <h4 id="2-2-插入操作">
+          <a href="#2-2-插入操作" class="heading-link"><i class="fas fa-link"></i></a>2.2 插入操作</h4>
+      
+        <h5 id="2-2-1-amp">
+          <a href="#2-2-1-amp" class="heading-link"><i class="fas fa-link"></i></a>2.2.1 +: &amp; :+</h5>
+      <p>函数 <code>+:</code> 和 <code>:+</code> 用于往 Buffer 对象中添加单个元素，区别在于一个是前置添加，一个是后置添加，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> buf = mutable.<span class="type">Buffer</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>)</span><br><span class="line"><span class="number">0</span> +: buf <span class="comment">// 输出：ArrayBuffer(0, 1, 2, 3)</span></span><br><span class="line">buf :+ <span class="number">4</span> <span class="comment">// 输出：ArrayBuffer(1, 2, 3, 4)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>注意</strong> ：虽然 Buffer 本身是可变集合，但是考虑一致性，函数 <code>+:</code> 和 <code>:+</code> 均会返回一个新的集合，而非原地修改。</p>
+
+        <h5 id="2-2-2-amp">
+          <a href="#2-2-2-amp" class="heading-link"><i class="fas fa-link"></i></a>2.2.2 ++ &amp; ++:</h5>
+      <p>函数 <code>++</code> 和 <code>++:</code> 用于往 Buffer 对象中添加一个集合元素，区别在于一个是前置添加，一个是后置添加，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> buf = mutable.<span class="type">Buffer</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>)</span><br><span class="line">buf ++ <span class="type">Seq</span>(<span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>) <span class="comment">// 输出：ArrayBuffer(1, 2, 3, 4, 5, 6)</span></span><br><span class="line"><span class="type">Seq</span>(<span class="number">-2</span>, <span class="number">-1</span>, <span class="number">0</span>) ++: buf <span class="comment">// 输出：ArrayBuffer(-2, -1, 0, 1, 2, 3)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>注意</strong> ：虽然 Buffer 本身是可变集合，但是考虑一致性，函数 <code>++</code> 和 <code>++:</code> 均会返回一个新的集合，而非原地修改。</p>
+
+        <h5 id="2-2-3-amp-amp-amp">
+          <a href="#2-2-3-amp-amp-amp" class="heading-link"><i class="fas fa-link"></i></a>2.2.3 += &amp; +=: &amp; ++= &amp; ++=:</h5>
+      <p>函数 <code>+=</code> 和 <code>+=:</code> 均用于对 Buffer 对象执行原地修改，其中 <code>+=</code> 对标 <code>+</code>，而 <code>+=:</code> 对标 <code>+:</code>；函数 <code>++=</code> 和 <code>++=:</code> 同样用于对 Buffer 对象执行原地修改，其中 <code>++=</code> 对标 <code>++</code>，而 <code>++=:</code> 对标 <code>++:</code>。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> buf = mutable.<span class="type">Buffer</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>)</span><br><span class="line">buf += <span class="number">4</span></span><br><span class="line"><span class="number">0</span> +=: buf</span><br><span class="line">buf <span class="comment">// 输出：ArrayBuffer(0, 1, 2, 3, 4)</span></span><br><span class="line">buf ++= <span class="type">Seq</span>(<span class="number">6</span>, <span class="number">7</span>)</span><br><span class="line"><span class="type">Seq</span>(<span class="number">-2</span>, <span class="number">-1</span>) ++=: buf</span><br><span class="line">buf <span class="comment">// 输出：ArrayBuffer(-2, -1, 0, 1, 2, 3, 4, 6, 7)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h5 id="2-2-4-append-amp-appendAll-amp-prepend-amp-prependAll">
+          <a href="#2-2-4-append-amp-appendAll-amp-prepend-amp-prependAll" class="heading-link"><i class="fas fa-link"></i></a>2.2.4 append &amp; appendAll &amp; prepend &amp; prependAll</h5>
+      <p>函数 append 对标 <code>+=</code>，函数 appendAll 对标 <code>++=</code>；函数 prepend 对标 <code>+=:</code>，函数 prependAll 对标 <code>++=:</code>，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> buf = mutable.<span class="type">Buffer</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>)</span><br><span class="line">buf.append(<span class="number">4</span>, <span class="number">5</span>)</span><br><span class="line">buf.appendAll(<span class="type">Seq</span>(<span class="number">7</span>, <span class="number">8</span>))</span><br><span class="line">buf <span class="comment">// 输出：ArrayBuffer(1, 2, 3, 4, 5, 7, 8)</span></span><br><span class="line">buf.prepend(<span class="number">-1</span>, <span class="number">0</span>)</span><br><span class="line">buf.prependAll(<span class="type">Seq</span>(<span class="number">-3</span>, <span class="number">-2</span>))</span><br><span class="line">buf <span class="comment">// 输出：ArrayBuffer(-3, -2, -1, 0, 1, 2, 3, 4, 5, 7, 8)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h5 id="2-2-5-insert-amp-insertAll">
+          <a href="#2-2-5-insert-amp-insertAll" class="heading-link"><i class="fas fa-link"></i></a>2.2.5 insert &amp; insertAll</h5>
+      <p>函数 insert 用于将一个或多个元素插入到 Buffer 对象的指定位置，而函数 insertAll 用于将一个集合中的元素插入到 Buffer 的指定位置，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> buf = mutable.<span class="type">Buffer</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>)</span><br><span class="line">buf.insert(<span class="number">0</span>, <span class="number">-1</span>, <span class="number">0</span>)</span><br><span class="line">buf.insertAll(<span class="number">0</span>, mutable.<span class="type">Seq</span>(<span class="number">-3</span>, <span class="number">-2</span>))</span><br><span class="line">buf <span class="comment">// 输出：ArrayBuffer(-3, -2, -1, 0, 1, 2, 3)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="2-3-更新操作">
+          <a href="#2-3-更新操作" class="heading-link"><i class="fas fa-link"></i></a>2.3 更新操作</h4>
+      
+        <h5 id="2-3-1-update">
+          <a href="#2-3-1-update" class="heading-link"><i class="fas fa-link"></i></a>2.3.1 update</h5>
+      <p>函数 update 用于对 Buffer 对象执行原地修改，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> buf = mutable.<span class="type">Buffer</span>(<span class="number">1</span> to <span class="number">9</span>: _*)</span><br><span class="line">buf.update(<span class="number">0</span>, <span class="number">-1</span>)</span><br><span class="line">buf <span class="comment">// 输出：ArrayBuffer(-1, 2, 3, 4, 5, 6, 7, 8, 9)</span></span><br><span class="line">buf(<span class="number">0</span>) = <span class="number">1</span></span><br><span class="line">buf <span class="comment">// 输出：ArrayBuffer(1, 2, 3, 4, 5, 6, 7, 8, 9)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>函数 update 可以使用 <code>()</code> 表达式简写。</p>
+
+        <h4 id="2-4-删除操作">
+          <a href="#2-4-删除操作" class="heading-link"><i class="fas fa-link"></i></a>2.4 删除操作</h4>
+      
+        <h5 id="2-4-1-amp">
+          <a href="#2-4-1-amp" class="heading-link"><i class="fas fa-link"></i></a>2.4.1 - &amp; --</h5>
+      <p>函数 <code>-</code> 用于从 Buffer 对象中移除一个或多个元素，而函数 <code>--</code> 则接收一个 GenTraversableOnce 类型参数，任何实现了该特质的集合都可以作为参数使用，并从 Buffer 对象中移除集合中给定的所有元素。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> buf = mutable.<span class="type">Buffer</span>(<span class="number">1</span> to <span class="number">9</span>: _*)</span><br><span class="line">buf - <span class="number">1</span> <span class="comment">// 输出：ArrayBuffer(2, 3, 4, 5, 6, 7, 8, 9)</span></span><br><span class="line">buf - (<span class="number">1</span>, <span class="number">2</span>) <span class="comment">// 输出：ArrayBuffer(3, 4, 5, 6, 7, 8, 9)</span></span><br><span class="line">buf -- <span class="type">Seq</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>) <span class="comment">// 输出：ArrayBuffer(4, 5, 6, 7, 8, 9)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>注意</strong> ：</p>
+<ol>
+<li>如果 Buffer 包含重复元素，则移除第一个匹配的元素。</li>
+<li>虽然 Buffer 本身是可变集合，但是考虑一致性，函数 <code>-</code> 和 <code>--</code> 均会返回一个新的集合，而非原地修改。</li>
+</ol>
+
+        <h5 id="2-4-2-amp">
+          <a href="#2-4-2-amp" class="heading-link"><i class="fas fa-link"></i></a>2.4.2 -= &amp; --=</h5>
+      <p>函数 <code>-=</code> 用于从 Buffer 对象中原地移除一个或多个元素，而函数 <code>--=</code> 接收一个 TraversableOnce 类型参数，任何实现了该特质的集合都可以作为参数使用，并从 Buffer 对象中原地移除集合中给定的所有元素。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> buf = mutable.<span class="type">Buffer</span>(<span class="number">1</span> to <span class="number">9</span>: _*)</span><br><span class="line">buf -= <span class="number">1</span></span><br><span class="line">buf -= (<span class="number">2</span>, <span class="number">3</span>)</span><br><span class="line">buf --= <span class="type">Seq</span>(<span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>)</span><br><span class="line">buf <span class="comment">// 输出：ArrayBuffer(7, 8, 9)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h5 id="2-4-3-remove">
+          <a href="#2-4-3-remove" class="heading-link"><i class="fas fa-link"></i></a>2.4.3 remove</h5>
+      <p>函数 remove 用于从 Buffer 对象中移除给定下标 n 的元素，相应的重载版本允许指定参数 count，用于对指定下标 n 的位置重复执行 count 次删除操作，函数定义如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">remove</span></span>(n: <span class="type">Int</span>): <span class="type">A</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">remove</span></span>(n: <span class="type">Int</span>, count: <span class="type">Int</span>)</span><br></pre></td></tr></tbody></table></div></figure>
+<p>示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> buf = mutable.<span class="type">Buffer</span>(<span class="number">1</span> to <span class="number">9</span>: _*)</span><br><span class="line">buf.remove(<span class="number">0</span>)</span><br><span class="line">buf <span class="comment">// 输出：ArrayBuffer(2, 3, 4, 5, 6, 7, 8, 9)</span></span><br><span class="line">buf.remove(<span class="number">0</span>, <span class="number">3</span>)</span><br><span class="line">buf <span class="comment">// 输出：ArrayBuffer(5, 6, 7, 8, 9)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="2-5-剥离（trim）操作">
+          <a href="#2-5-剥离（trim）操作" class="heading-link"><i class="fas fa-link"></i></a>2.5 剥离（trim）操作</h4>
+      
+        <h5 id="2-5-1-trimStart-amp-trimEnd">
+          <a href="#2-5-1-trimStart-amp-trimEnd" class="heading-link"><i class="fas fa-link"></i></a>2.5.1 trimStart &amp; trimEnd</h5>
+      <p>函数 trimStart 和 trimEnd 均接收一个参数 n，分别用于从 Buffer 对象的前部移除 n 个元素和从 Buffer 对象的后部移除 n 个元素，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> buf = mutable.<span class="type">Buffer</span>(<span class="number">1</span> to <span class="number">9</span>: _*)</span><br><span class="line">buf.trimStart(<span class="number">2</span>)</span><br><span class="line">buf <span class="comment">// 输出：ArrayBuffer(3, 4, 5, 6, 7, 8, 9)</span></span><br><span class="line">buf.trimEnd(<span class="number">2</span>)</span><br><span class="line">buf <span class="comment">// 输出：ArrayBuffer(3, 4, 5, 6, 7)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="三-List">
+          <a href="#三-List" class="heading-link"><i class="fas fa-link"></i></a>三. List</h3>
+      <p>List 表示具备固定的 <strong>不可变链表</strong> 结构，同样继承自 Seq 特质，定义如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">sealed</span> <span class="keyword">abstract</span> <span class="class"><span class="keyword">class</span> <span class="title">List</span>[+<span class="type">A</span>] <span class="keyword">extends</span> <span class="title">AbstractSeq</span>[<span class="type">A</span>]</span></span><br><span class="line"><span class="class">                                  <span class="keyword">with</span> <span class="title">LinearSeq</span>[<span class="type">A</span>]</span></span><br><span class="line"><span class="class">                                  <span class="keyword">with</span> <span class="title">Product</span></span></span><br><span class="line"><span class="class">                                  <span class="keyword">with</span> <span class="title">GenericTraversableTemplate</span>[<span class="type">A</span>, <span class="type">List</span>]</span></span><br><span class="line"><span class="class">                                  <span class="keyword">with</span> <span class="title">LinearSeqOptimized</span>[<span class="type">A</span>, <span class="type">List</span>[<span class="type">A</span>]]</span></span><br><span class="line"><span class="class">                                  <span class="keyword">with</span> <span class="title">scala</span>.<span class="title">Serializable</span></span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>List 中定义了两个样例类 Nil 和 <code>::</code>，注意不要和 <code>::</code> 函数混淆，其中 Nil 表示一个空的 List 对象，而 <code>::</code> 类则用来建立一种链表结构。这两个类的定义如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">case</span> <span class="class"><span class="keyword">object</span> <span class="title">Nil</span> <span class="keyword">extends</span> <span class="title">List</span>[<span class="type">Nothing</span>] </span>{</span><br><span class="line">  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">isEmpty</span> </span>= <span class="literal">true</span></span><br><span class="line">  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">head</span></span>: <span class="type">Nothing</span> = <span class="keyword">throw</span> <span class="keyword">new</span> <span class="type">NoSuchElementException</span>(<span class="string">"head of empty list"</span>)</span><br><span class="line">  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">tail</span></span>: <span class="type">List</span>[<span class="type">Nothing</span>] = <span class="keyword">throw</span> <span class="keyword">new</span> <span class="type">UnsupportedOperationException</span>(<span class="string">"tail of empty list"</span>)</span><br><span class="line">  <span class="comment">// Removal of equals method here might lead to an infinite recursion similar to IntMap.equals.</span></span><br><span class="line">  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">equals</span></span>(that: <span class="type">Any</span>) = that <span class="keyword">match</span> {</span><br><span class="line">    <span class="keyword">case</span> that1: scala.collection.<span class="type">GenSeq</span>[_] =&gt; that1.isEmpty</span><br><span class="line">    <span class="keyword">case</span> _ =&gt; <span class="literal">false</span></span><br><span class="line">  }</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="keyword">final</span> <span class="keyword">case</span> <span class="class"><span class="keyword">class</span> </span>::[<span class="type">B</span>](<span class="keyword">override</span> <span class="keyword">val</span> head: <span class="type">B</span>, <span class="keyword">private</span>[scala] <span class="keyword">var</span> tl: <span class="type">List</span>[<span class="type">B</span>]) <span class="keyword">extends</span> <span class="type">List</span>[<span class="type">B</span>] {</span><br><span class="line">  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">tail</span> </span>: <span class="type">List</span>[<span class="type">B</span>] = tl</span><br><span class="line">  <span class="keyword">override</span> <span class="function"><span class="keyword">def</span> <span class="title">isEmpty</span></span>: <span class="type">Boolean</span> = <span class="literal">false</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>之所以定义 <code>::</code> 类，是为了支持模式匹配中的中缀操作模式，从而与 <code>::</code> 操作符实现统一，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> list = <span class="type">List</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>)</span><br><span class="line">list <span class="keyword">match</span> {</span><br><span class="line">    <span class="keyword">case</span> a :: b :: c :: tails =&gt; println(<span class="string">s"a=<span class="subst">$a</span>, b=<span class="subst">$b</span>, c=<span class="subst">$c</span>, tails=<span class="subst">$tails</span>"</span>)</span><br><span class="line">    <span class="keyword">case</span> <span class="type">Nil</span> =&gt; println(<span class="string">"empty list"</span>)</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>输出：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">a=1, b=2, c=3, tails=List(4, 5)</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="3-1-插入操作">
+          <a href="#3-1-插入操作" class="heading-link"><i class="fas fa-link"></i></a>3.1 插入操作</h4>
+      
+        <h5 id="3-1-1-amp">
+          <a href="#3-1-1-amp" class="heading-link"><i class="fas fa-link"></i></a>3.1.1 :: &amp; :::</h5>
+      <p>函数 <code>::</code> 用于往 List 对象的前部追加元素，而函数 <code>:::</code> 则用于将两个 List 对象进行连接，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> list = <span class="type">List</span>(<span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>)</span><br><span class="line"><span class="number">1</span> :: <span class="number">2</span> :: list <span class="comment">// 输出：List(1, 2, 3, 4, 5)</span></span><br><span class="line"><span class="keyword">val</span> list2 = <span class="type">List</span>(<span class="number">6</span>, <span class="number">7</span>, <span class="number">8</span>)</span><br><span class="line">list ::: list2 <span class="comment">// 输出：List(3, 4, 5, 6, 7, 8)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h5 id="3-1-2-reverse">
+          <a href="#3-1-2-reverse" class="heading-link"><i class="fas fa-link"></i></a>3.1.2 reverse_:::</h5>
+      <p>函数 <code>reverse_:::</code> 用于对左边的集合反转之后，再与右边的集合执行连接操作，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> list = <span class="type">List</span>(<span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>)</span><br><span class="line"><span class="keyword">val</span> list2 = <span class="type">List</span>(<span class="number">6</span>, <span class="number">7</span>, <span class="number">8</span>)</span><br><span class="line">list reverse_::: list2 <span class="comment">// 输出：List(5, 4, 3, 6, 7, 8)</span></span><br><span class="line">list.reverse_:::(list2) <span class="comment">// 输出：List(8, 7, 6, 3, 4, 5)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>注意</strong> ：<code>list reverse_::: list2</code> 等价于 <code>list2.reverse_:::(list)</code>，而不是 <code>list.reverse_:::(list2)</code>。</p>
+<p>虽然 <code>list reverse_::: list2</code> 在结果上等价于 <code>list.reverse ::: list2</code>，但是前者效率更高。</p>
+
+        <h3 id="四-Stack">
+          <a href="#四-Stack" class="heading-link"><i class="fas fa-link"></i></a>四. Stack</h3>
+      <p>栈（stack）是一种后进先出的数据结构，Scala 的 Stack 类在实现上同样继承自 Seq 特质，本质上是一种序列类型，默认采用链表实现。虽然 Stack 也区分可变和不可变，但是常用的还是可变的栈类型（不可变的栈定义已被标记为 <code>@deprecated</code>，因为栈的特性需要频繁被修改，而每次都创建一个新对象的设计，效率较低），定义如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Stack</span>[<span class="type">A</span>] <span class="title">private</span> (<span class="params">var elems: <span class="type">List</span>[<span class="type">A</span>]</span>) <span class="keyword">extends</span> <span class="title">AbstractSeq</span>[<span class="type">A</span>]</span></span><br><span class="line"><span class="class">   <span class="keyword">with</span> <span class="title">Seq</span>[<span class="type">A</span>]</span></span><br><span class="line"><span class="class">   <span class="keyword">with</span> <span class="title">SeqLike</span>[<span class="type">A</span>, <span class="type">Stack</span>[<span class="type">A</span>]]</span></span><br><span class="line"><span class="class">   <span class="keyword">with</span> <span class="title">GenericTraversableTemplate</span>[<span class="type">A</span>, <span class="type">Stack</span>]</span></span><br><span class="line"><span class="class">   <span class="keyword">with</span> <span class="title">Cloneable</span>[<span class="type">Stack</span>[<span class="type">A</span>]]</span></span><br><span class="line"><span class="class">   <span class="keyword">with</span> <span class="title">Serializable</span></span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="4-1-出栈操作">
+          <a href="#4-1-出栈操作" class="heading-link"><i class="fas fa-link"></i></a>4.1 出栈操作</h4>
+      
+        <h5 id="4-1-1-top-amp-pop">
+          <a href="#4-1-1-top-amp-pop" class="heading-link"><i class="fas fa-link"></i></a>4.1.1 top &amp; pop</h5>
+      <p>函数 top 和 pop 均可用于获取栈顶操作，区别在于 pop 在获取栈顶元素的同时会移除对应的元素，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> stack = mutable.<span class="type">Stack</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>)</span><br><span class="line">stack.top <span class="comment">// 输出：1</span></span><br><span class="line">stack <span class="comment">// 输出：Stack(1, 2, 3)</span></span><br><span class="line">stack.pop() <span class="comment">// 输出：1</span></span><br><span class="line">stack <span class="comment">// 输出：Stack(2, 3)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>如果栈为空，则会抛出 NoSuchElementException 异常。</p>
+
+        <h4 id="4-2-入栈操作">
+          <a href="#4-2-入栈操作" class="heading-link"><i class="fas fa-link"></i></a>4.2 入栈操作</h4>
+      
+        <h5 id="4-2-1-push-amp-pushAll">
+          <a href="#4-2-1-push-amp-pushAll" class="heading-link"><i class="fas fa-link"></i></a>4.2.1 push &amp; pushAll</h5>
+      <p>函数 push 用于将一个或多个元素压入栈顶，而函数 pushAll 接收一个 TraversableOnce 类型的集合参数，用于将集合中的所有元素逐一压栈，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> stack = mutable.<span class="type">Stack</span>[<span class="type">Int</span>]()</span><br><span class="line">stack.push(<span class="number">1</span>)</span><br><span class="line">stack.push(<span class="number">2</span>, <span class="number">3</span>)</span><br><span class="line">stack.pushAll(<span class="type">Seq</span>(<span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>))</span><br><span class="line">stack <span class="comment">// 输出：Stack(6, 5, 4, 3, 2, 1)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="4-3-更新操作">
+          <a href="#4-3-更新操作" class="heading-link"><i class="fas fa-link"></i></a>4.3 更新操作</h4>
+      
+        <h5 id="4-3-1-update">
+          <a href="#4-3-1-update" class="heading-link"><i class="fas fa-link"></i></a>4.3.1 update</h5>
+      <p>函数 update 用于更新栈指定位置的元素，下标计数从栈顶开始，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> stack = mutable.<span class="type">Stack</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>)</span><br><span class="line">stack.update(<span class="number">0</span>, <span class="number">-1</span>)</span><br><span class="line">stack <span class="comment">// 输出：Stack(-1, 2, 3)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="五-Queue">
+          <a href="#五-Queue" class="heading-link"><i class="fas fa-link"></i></a>五. Queue</h3>
+      <p>队列（queue）是一种先进先出的数据结构，Scala 的 Queue 类在实现上同样继承自 Seq 特质，本质上是一种序列类型。虽然 Queue 也区分可变和不可变，但是常用的还是可变的队列类型（不可变队列虽然没有被标记为 <code>@deprecated</code>，但是因为不可变的设计在这种频繁修改的场景下效率较低，所以不建议使用），定义如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Queue</span>[<span class="type">A</span>] <span class="keyword">extends</span> <span class="title">MutableList</span>[<span class="type">A</span>]</span></span><br><span class="line"><span class="class">   <span class="keyword">with</span> <span class="title">LinearSeqOptimized</span>[<span class="type">A</span>, <span class="type">Queue</span>[<span class="type">A</span>]]</span></span><br><span class="line"><span class="class">   <span class="keyword">with</span> <span class="title">GenericTraversableTemplate</span>[<span class="type">A</span>, <span class="type">Queue</span>]</span></span><br><span class="line"><span class="class">   <span class="keyword">with</span> <span class="title">Cloneable</span>[<span class="type">Queue</span>[<span class="type">A</span>]]</span></span><br><span class="line"><span class="class">   <span class="keyword">with</span> <span class="title">Serializable</span></span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="5-1-出队列操作">
+          <a href="#5-1-出队列操作" class="heading-link"><i class="fas fa-link"></i></a>5.1 出队列操作</h4>
+      
+        <h5 id="5-1-1-front">
+          <a href="#5-1-1-front" class="heading-link"><i class="fas fa-link"></i></a>5.1.1 front</h5>
+      <p>函数 front 用于从队列中获取头部元素，但是不移除该元素，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> queue = mutable.<span class="type">Queue</span>(<span class="number">1</span> to <span class="number">9</span>: _*)</span><br><span class="line">queue.front <span class="comment">// 输出：1</span></span><br><span class="line">queue <span class="comment">// 输出：Queue(1, 2, 3, 4, 5, 6, 7, 8, 9)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h5 id="5-1-2-dequeue-amp-dequeueFirst-amp-dequeueAll">
+          <a href="#5-1-2-dequeue-amp-dequeueFirst-amp-dequeueAll" class="heading-link"><i class="fas fa-link"></i></a>5.1.2 dequeue &amp; dequeueFirst &amp; dequeueAll</h5>
+      <p>函数 dequeue、dequeueFirst 和 dequeueAll 均用于从队列中获取并移除满足条件的元素，其中 dequeue 用于获取并移除队头元素，而函数 dequeueFirst 和 dequeueAll 均接收一个谓词 <code>A =&gt; Boolean</code> 参数，其中 dequeueFirst 用于获取并满足条件的第一个元素，而 dequeueAll 则用于获取并移除满足条件的所有元素。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> queue = mutable.<span class="type">Queue</span>(<span class="number">1</span> to <span class="number">9</span>: _*)</span><br><span class="line">queue.dequeue() <span class="comment">// 输出：1</span></span><br><span class="line">queue <span class="comment">// 输出：Queue(2, 3, 4, 5, 6, 7, 8, 9)</span></span><br><span class="line">queue.dequeueFirst(_ % <span class="number">2</span> == <span class="number">1</span>) <span class="comment">// 输出：Some(3)</span></span><br><span class="line">queue <span class="comment">// 输出：Queue(2, 4, 5, 6, 7, 8, 9)</span></span><br><span class="line">queue.dequeueAll(_ % <span class="number">2</span> == <span class="number">0</span>) <span class="comment">// 输出：ArrayBuffer(2, 4, 6, 8)</span></span><br><span class="line">queue <span class="comment">// 输出：Queue(5, 7, 9)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="5-2-入队列操作">
+          <a href="#5-2-入队列操作" class="heading-link"><i class="fas fa-link"></i></a>5.2 入队列操作</h4>
+      
+        <h5 id="5-2-1-enqueue">
+          <a href="#5-2-1-enqueue" class="heading-link"><i class="fas fa-link"></i></a>5.2.1 enqueue</h5>
+      <p>函数 enqueue 用于执行入队列操作，可以将一个或多个元素追加到队列尾部，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> queue = mutable.<span class="type">Queue</span>[<span class="type">Int</span>]()</span><br><span class="line">queue.enqueue(<span class="number">1</span>)</span><br><span class="line">queue.enqueue(<span class="number">2</span>, <span class="number">3</span>)</span><br><span class="line">queue <span class="comment">// 输出：Queue(1, 2, 3)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h3>
+      <ul>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://docs.scala-lang.org/">Scala Documentation</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/26819038/">Scala 集合技术手册</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+</ul>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2018/05/17/scala/scala-collection-seq/">https://plotor.github.io/2018/05/17/scala/scala-collection-seq/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Scala/">Scala</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2018/05/18/scala/scala-collection-set/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">Scala 集合：Set API</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2018/05/16/scala/scala-collection-common/"><span class="paginator-prev__text">Scala 集合：基础 API</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%80-Seq"><span class="toc-number">1.</span> <span class="toc-text">
+          一. Seq</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#1-1-%E8%8E%B7%E5%8F%96%E9%9B%86%E5%90%88%E7%B4%A2%E5%BC%95"><span class="toc-number">1.1.</span> <span class="toc-text">
+          1.1 获取集合索引</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1-1-1-indexOf-amp-lastIndexOf"><span class="toc-number">1.1.1.</span> <span class="toc-text">
+          1.1.1 indexOf &amp; lastIndexOf</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#1-1-2-indexWhere-amp-lastIndexWhere"><span class="toc-number">1.1.2.</span> <span class="toc-text">
+          1.1.2 indexWhere &amp; lastIndexWhere</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#1-1-3-indexOfSlice-amp-lastIndexOfSlice"><span class="toc-number">1.1.3.</span> <span class="toc-text">
+          1.1.3 indexOfSlice &amp; lastIndexOfSlice</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#1-1-4-indices"><span class="toc-number">1.1.4.</span> <span class="toc-text">
+          1.1.4 indices</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#1-2-%E8%8E%B7%E5%8F%96%E9%9B%86%E5%90%88%E9%95%BF%E5%BA%A6"><span class="toc-number">1.2.</span> <span class="toc-text">
+          1.2 获取集合长度</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1-2-1-length-amp-size"><span class="toc-number">1.2.1.</span> <span class="toc-text">
+          1.2.1 length &amp; size</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#1-2-2-lengthCompare"><span class="toc-number">1.2.2.</span> <span class="toc-text">
+          1.2.2 lengthCompare</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#1-2-3-segmentLength-amp-prefixLength"><span class="toc-number">1.2.3.</span> <span class="toc-text">
+          1.2.3 segmentLength &amp; prefixLength</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#1-3-%E6%9F%A5%E8%AF%A2%E6%93%8D%E4%BD%9C"><span class="toc-number">1.3.</span> <span class="toc-text">
+          1.3 查询操作</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1-3-1-apply"><span class="toc-number">1.3.1.</span> <span class="toc-text">
+          1.3.1 apply</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#1-4-%E6%8F%92%E5%85%A5%E6%93%8D%E4%BD%9C"><span class="toc-number">1.4.</span> <span class="toc-text">
+          1.4 插入操作</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1-4-1-amp"><span class="toc-number">1.4.1.</span> <span class="toc-text">
+          1.4.1 +: &amp; :+</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#1-4-2-padTo"><span class="toc-number">1.4.2.</span> <span class="toc-text">
+          1.4.2 padTo</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#1-5-%E6%9B%B4%E6%96%B0%E6%93%8D%E4%BD%9C"><span class="toc-number">1.5.</span> <span class="toc-text">
+          1.5 更新操作</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1-5-1-updated"><span class="toc-number">1.5.1.</span> <span class="toc-text">
+          1.5.1 updated</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#1-5-2-patch"><span class="toc-number">1.5.2.</span> <span class="toc-text">
+          1.5.2 patch</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#1-6-%E6%8E%92%E5%BA%8F%E6%93%8D%E4%BD%9C"><span class="toc-number">1.6.</span> <span class="toc-text">
+          1.6 排序操作</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1-6-1-sorted-amp-sortBy-amp-sortWith"><span class="toc-number">1.6.1.</span> <span class="toc-text">
+          1.6.1 sorted &amp; sortBy &amp; sortWith</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#1-7-%E5%8F%8D%E8%BD%AC%E6%93%8D%E4%BD%9C"><span class="toc-number">1.7.</span> <span class="toc-text">
+          1.7 反转操作</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1-7-1-reverse-amp-reverseIterator-amp-reverseMap"><span class="toc-number">1.7.1.</span> <span class="toc-text">
+          1.7.1 reverse &amp; reverseIterator &amp; reverseMap</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#1-8-%E5%8C%85%E5%90%AB%E6%A3%80%E6%9F%A5"><span class="toc-number">1.8.</span> <span class="toc-text">
+          1.8 包含检查</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1-8-1-contains-amp-containsSlice"><span class="toc-number">1.8.1.</span> <span class="toc-text">
+          1.8.1 contains &amp; containsSlice</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#1-9-%E8%BD%AC%E6%8D%A2%E6%93%8D%E4%BD%9C"><span class="toc-number">1.9.</span> <span class="toc-text">
+          1.9 转换操作</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1-9-1-transform"><span class="toc-number">1.9.1.</span> <span class="toc-text">
+          1.9.1 transform</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#1-10-%E9%9B%86%E5%90%88%E8%BF%90%E7%AE%97"><span class="toc-number">1.10.</span> <span class="toc-text">
+          1.10 集合运算</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1-10-1-intersect"><span class="toc-number">1.10.1.</span> <span class="toc-text">
+          1.10.1 intersect</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#1-10-2-union"><span class="toc-number">1.10.2.</span> <span class="toc-text">
+          1.10.2 union</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#1-10-3-diff"><span class="toc-number">1.10.3.</span> <span class="toc-text">
+          1.10.3 diff</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#1-11-%E6%8E%92%E5%88%97%E7%BB%84%E5%90%88"><span class="toc-number">1.11.</span> <span class="toc-text">
+          1.11 排列组合</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1-11-1-permutations"><span class="toc-number">1.11.1.</span> <span class="toc-text">
+          1.11.1 permutations</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#1-11-2-combinations"><span class="toc-number">1.11.2.</span> <span class="toc-text">
+          1.11.2 combinations</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#1-12-%E6%A3%80%E6%9F%A5%E4%B8%A4%E4%B8%AA%E5%BA%8F%E5%88%97%E5%AF%B9%E5%BA%94%E7%9A%84%E5%85%83%E7%B4%A0%E6%98%AF%E5%90%A6%E6%BB%A1%E8%B6%B3%E7%BB%99%E5%AE%9A%E6%9D%A1%E4%BB%B6"><span class="toc-number">1.12.</span> <span class="toc-text">
+          1.12 检查两个序列对应的元素是否满足给定条件</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1-12-1-corresponds"><span class="toc-number">1.12.1.</span> <span class="toc-text">
+          1.12.1 corresponds</span></a></li></ol></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BA%8C-Buffer"><span class="toc-number">2.</span> <span class="toc-text">
+          二. Buffer</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#2-1-%E6%9F%A5%E8%AF%A2%E6%93%8D%E4%BD%9C"><span class="toc-number">2.1.</span> <span class="toc-text">
+          2.1 查询操作</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-2-%E6%8F%92%E5%85%A5%E6%93%8D%E4%BD%9C"><span class="toc-number">2.2.</span> <span class="toc-text">
+          2.2 插入操作</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#2-2-1-amp"><span class="toc-number">2.2.1.</span> <span class="toc-text">
+          2.2.1 +: &amp; :+</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2-2-2-amp"><span class="toc-number">2.2.2.</span> <span class="toc-text">
+          2.2.2 ++ &amp; ++:</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2-2-3-amp-amp-amp"><span class="toc-number">2.2.3.</span> <span class="toc-text">
+          2.2.3 +&#x3D; &amp; +&#x3D;: &amp; ++&#x3D; &amp; ++&#x3D;:</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2-2-4-append-amp-appendAll-amp-prepend-amp-prependAll"><span class="toc-number">2.2.4.</span> <span class="toc-text">
+          2.2.4 append &amp; appendAll &amp; prepend &amp; prependAll</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2-2-5-insert-amp-insertAll"><span class="toc-number">2.2.5.</span> <span class="toc-text">
+          2.2.5 insert &amp; insertAll</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-3-%E6%9B%B4%E6%96%B0%E6%93%8D%E4%BD%9C"><span class="toc-number">2.3.</span> <span class="toc-text">
+          2.3 更新操作</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#2-3-1-update"><span class="toc-number">2.3.1.</span> <span class="toc-text">
+          2.3.1 update</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-4-%E5%88%A0%E9%99%A4%E6%93%8D%E4%BD%9C"><span class="toc-number">2.4.</span> <span class="toc-text">
+          2.4 删除操作</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#2-4-1-amp"><span class="toc-number">2.4.1.</span> <span class="toc-text">
+          2.4.1 - &amp; --</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2-4-2-amp"><span class="toc-number">2.4.2.</span> <span class="toc-text">
+          2.4.2 -&#x3D; &amp; --&#x3D;</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2-4-3-remove"><span class="toc-number">2.4.3.</span> <span class="toc-text">
+          2.4.3 remove</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-5-%E5%89%A5%E7%A6%BB%EF%BC%88trim%EF%BC%89%E6%93%8D%E4%BD%9C"><span class="toc-number">2.5.</span> <span class="toc-text">
+          2.5 剥离（trim）操作</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#2-5-1-trimStart-amp-trimEnd"><span class="toc-number">2.5.1.</span> <span class="toc-text">
+          2.5.1 trimStart &amp; trimEnd</span></a></li></ol></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%89-List"><span class="toc-number">3.</span> <span class="toc-text">
+          三. List</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#3-1-%E6%8F%92%E5%85%A5%E6%93%8D%E4%BD%9C"><span class="toc-number">3.1.</span> <span class="toc-text">
+          3.1 插入操作</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#3-1-1-amp"><span class="toc-number">3.1.1.</span> <span class="toc-text">
+          3.1.1 :: &amp; :::</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#3-1-2-reverse"><span class="toc-number">3.1.2.</span> <span class="toc-text">
+          3.1.2 reverse_:::</span></a></li></ol></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9B%9B-Stack"><span class="toc-number">4.</span> <span class="toc-text">
+          四. Stack</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#4-1-%E5%87%BA%E6%A0%88%E6%93%8D%E4%BD%9C"><span class="toc-number">4.1.</span> <span class="toc-text">
+          4.1 出栈操作</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#4-1-1-top-amp-pop"><span class="toc-number">4.1.1.</span> <span class="toc-text">
+          4.1.1 top &amp; pop</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#4-2-%E5%85%A5%E6%A0%88%E6%93%8D%E4%BD%9C"><span class="toc-number">4.2.</span> <span class="toc-text">
+          4.2 入栈操作</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#4-2-1-push-amp-pushAll"><span class="toc-number">4.2.1.</span> <span class="toc-text">
+          4.2.1 push &amp; pushAll</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#4-3-%E6%9B%B4%E6%96%B0%E6%93%8D%E4%BD%9C"><span class="toc-number">4.3.</span> <span class="toc-text">
+          4.3 更新操作</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#4-3-1-update"><span class="toc-number">4.3.1.</span> <span class="toc-text">
+          4.3.1 update</span></a></li></ol></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BA%94-Queue"><span class="toc-number">5.</span> <span class="toc-text">
+          五. Queue</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#5-1-%E5%87%BA%E9%98%9F%E5%88%97%E6%93%8D%E4%BD%9C"><span class="toc-number">5.1.</span> <span class="toc-text">
+          5.1 出队列操作</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#5-1-1-front"><span class="toc-number">5.1.1.</span> <span class="toc-text">
+          5.1.1 front</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#5-1-2-dequeue-amp-dequeueFirst-amp-dequeueAll"><span class="toc-number">5.1.2.</span> <span class="toc-text">
+          5.1.2 dequeue &amp; dequeueFirst &amp; dequeueAll</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#5-2-%E5%85%A5%E9%98%9F%E5%88%97%E6%93%8D%E4%BD%9C"><span class="toc-number">5.2.</span> <span class="toc-text">
+          5.2 入队列操作</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#5-2-1-enqueue"><span class="toc-number">5.2.1.</span> <span class="toc-text">
+          5.2.1 enqueue</span></a></li></ol></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">6.</span> <span class="toc-text">
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

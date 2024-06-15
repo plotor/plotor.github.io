@@ -1,0 +1,478 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="上一篇我们分析了 supervisor 节点的启动和运行过程，提及到 supervisor 的核心工作就是基于 ZK 从 nimbus 节点领取分配给它的任务，并启动 worker 执行。一个 worker 就是一个 JVM 进程，运行在 supervisor 节点上，多个 task 可以同时运行在一个 worker 进程之中，每个 task 都对应一个线程。 Worker 进程的启动位于 Wor">
+<meta property="og:type" content="article">
+<meta property="og:title" content="JStorm 源码解析：Worker 的启动和运行机制">
+<meta property="og:url" content="https://plotor.github.io/2018/11/20/storm/storm-worker/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="上一篇我们分析了 supervisor 节点的启动和运行过程，提及到 supervisor 的核心工作就是基于 ZK 从 nimbus 节点领取分配给它的任务，并启动 worker 执行。一个 worker 就是一个 JVM 进程，运行在 supervisor 节点上，多个 task 可以同时运行在一个 worker 进程之中，每个 task 都对应一个线程。 Worker 进程的启动位于 Wor">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2018-11-20T02:50:58.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.983Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Storm">
+<meta property="article:tag" content="JStorm">
+<meta name="twitter:card" content="summary"><title>JStorm 源码解析：Worker 的启动和运行机制 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2018/11/20/storm/storm-worker/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">JStorm 源码解析：Worker 的启动和运行机制</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2018-11-20</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">3.3k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">15分</span></span></div></header><div class="post-body"><p>上一篇我们分析了 supervisor 节点的启动和运行过程，提及到 supervisor 的核心工作就是基于 ZK 从 nimbus 节点领取分配给它的任务，并启动 worker 执行。一个 worker 就是一个 JVM 进程，运行在 supervisor 节点上，多个 task 可以同时运行在一个 worker 进程之中，每个 task 都对应一个线程。</p>
+<p>Worker 进程的启动位于 Worker 类中，前面我们在分析 supervisor 节点的启动过程时提及到了对于 Worker 类 main 函数的触发，supervisor 在启动相应 worker 进程时会指定 topologyId、supervisorId、workerPort、workerId，以及 classpath 等参数，worker 在拿到这些参数之后会先获取当前机器上端口对应的老进程，并逐一 kill 掉，然后调用 <code>Worker#mk_worker</code> 方法创建并启动对应的 worker 实例，<a id="more"></a>该方法的核心实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Worker w = <span class="keyword">new</span> Worker(conf, context, topologyId, supervisorId, port, workerId, jarPath);</span><br><span class="line"><span class="keyword">return</span> w.execute();</span><br></pre></td></tr></tbody></table></div></figure>
+<p>Worker 类仅包含一个实例属性 WorkerData，它封装了所有与 worker 运行相关的属性，实例化 Worker 对象的过程也是初始化 WorkerData 属性的过程，该过程主要包含以下工作：</p>
+<ol>
+<li>初始化基本属性（包括运行基本配置项、消息上下文对象等），同时设置初始状态；</li>
+<li>检查当前运行模式，对于集群模式会在本地创建相应的工作目录 <code>workers/${worker_id}/pids</code>；</li>
+<li>从 ZK 获取当前集群的运行状态；</li>
+<li>加载 topology 配置信息，并注册相应的配置动态更新监听器；</li>
+<li>注册一系列 mertics 监控项，用于打点 worker 的运行状态；</li>
+<li>加载当前 topology 对应的序列化对象；</li>
+<li>创建并初始化相关的消息传输队列。</li>
+</ol>
+<p>初始化完成之后会调用 <code>Worker#execute</code> 方法创建并启动 worker 进程，该方法主要的执行流程可以概括如下：</p>
+<ol>
+<li>为当前 worker 创建并启动一个 socket 连接，用于接收消息并分发给名下的 task 线程；</li>
+<li>启动一个线程用于维护当前 worker 状态变更时，更新与其它 worker 之间的连接关系；</li>
+<li>启动一个线程用于定期获取当前 topology 在 ZK 上的基本信息，当 topology 状态发生变更时触发本地相应操作；</li>
+<li>启动一个线程循环消费当前 worker 的 tuple 队列发送给对应的下游 task 线程；</li>
+<li>启动一个线程用于定期更新本地的 worker 心跳信息；</li>
+<li>创建并启动当前 worker 下所有的 task 任务。</li>
+</ol>
+<p>方法实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> WorkerShutdown <span class="title">execute</span><span class="params">()</span> <span class="keyword">throws</span> Exception </span>{</span><br><span class="line">    List&lt;AsyncLoopThread&gt; threads = <span class="keyword">new</span> ArrayList&lt;&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 1. 为 worker 创建一个 socket 连接，接收和分发消息给对应的 task</span></span><br><span class="line">    AsyncLoopThread controlRvThread = <span class="keyword">this</span>.startDispatchThread();</span><br><span class="line">    threads.add(controlRvThread);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2. 创建线程用于在 worker 关闭或者新启动时更新与其他 worker 之间的连接信息</span></span><br><span class="line">    RefreshConnections refreshConn = <span class="keyword">this</span>.makeRefreshConnections();</span><br><span class="line">    AsyncLoopThread refreshConnLoopThread = <span class="keyword">new</span> AsyncLoopThread(refreshConn, <span class="keyword">false</span>, Thread.MIN_PRIORITY, <span class="keyword">true</span>);</span><br><span class="line">    threads.add(refreshConnLoopThread);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 3. 获取 topology 在 ZK 上的状态，当状态发生变更时更新本地 task 状态</span></span><br><span class="line">    RefreshActive refreshZkActive = <span class="keyword">new</span> RefreshActive(workerData);</span><br><span class="line">    AsyncLoopThread refreshZk = <span class="keyword">new</span> AsyncLoopThread(refreshZkActive, <span class="keyword">false</span>, Thread.MIN_PRIORITY, <span class="keyword">true</span>);</span><br><span class="line">    threads.add(refreshZk);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 4. 创建一个线程循环消费 tuple 队列发送给对应的下游 task</span></span><br><span class="line">    DrainerCtrlRunnable drainerCtrlRunnable = <span class="keyword">new</span> DrainerCtrlRunnable(workerData, MetricDef.SEND_THREAD);</span><br><span class="line">    AsyncLoopThread controlSendThread = <span class="keyword">new</span> AsyncLoopThread(drainerCtrlRunnable, <span class="keyword">false</span>, Thread.MAX_PRIORITY, <span class="keyword">true</span>);</span><br><span class="line">    threads.add(controlSendThread);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Sync heartbeat to Apsara Container</span></span><br><span class="line">    AsyncLoopThread syncContainerHbThread = SyncContainerHb.mkWorkerInstance(workerData.getStormConf());</span><br><span class="line">    <span class="keyword">if</span> (syncContainerHbThread != <span class="keyword">null</span>) {</span><br><span class="line">        threads.add(syncContainerHbThread);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    JStormMetricsReporter metricReporter = <span class="keyword">new</span> JStormMetricsReporter(workerData);</span><br><span class="line">    metricReporter.init();</span><br><span class="line">    workerData.setMetricsReporter(metricReporter);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 5. 更新本地心跳信息</span></span><br><span class="line">    RunnableCallback heartbeatFn = <span class="keyword">new</span> WorkerHeartbeatRunnable(workerData);</span><br><span class="line">    AsyncLoopThread hb = <span class="keyword">new</span> AsyncLoopThread(heartbeatFn, <span class="keyword">false</span>, <span class="keyword">null</span>, Thread.NORM_PRIORITY, <span class="keyword">true</span>);</span><br><span class="line">    threads.add(hb);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 6. 创建并启动当前 worker 下所有的 task</span></span><br><span class="line">    List&lt;TaskShutdownDaemon&gt; shutdownTasks = <span class="keyword">this</span>.createTasks();</span><br><span class="line">    workerData.setShutdownTasks(shutdownTasks);</span><br><span class="line"></span><br><span class="line">    List&lt;AsyncLoopThread&gt; serializeThreads = workerData.setSerializeThreads();</span><br><span class="line">    threads.addAll(serializeThreads);</span><br><span class="line">    List&lt;AsyncLoopThread&gt; deserializeThreads = workerData.setDeserializeThreads();</span><br><span class="line">    threads.addAll(deserializeThreads);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">new</span> WorkerShutdown(workerData, threads);</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="消息接收与分发">
+          <a href="#消息接收与分发" class="heading-link"><i class="fas fa-link"></i></a>消息接收与分发</h3>
+      <p>Storm 会为 worker 基于 Netty 创建并返回一个 socket 连接用于接收消息，同时 worker 与名下所有 task 之间会维持一个传输队列，并启动一个线程循环消费接收到的消息投递给对应 task 的传输队列中。该过程位于 <code>Worker#startDispatchThread</code> 方法中，该方法实现如下（去掉了一些非关键代码）：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> AsyncLoopThread <span class="title">startDispatchThread</span><span class="params">()</span> </span>{</span><br><span class="line">    IContext context = workerData.getContext(); <span class="comment">// 获取消息上下文：NettyContext</span></span><br><span class="line">    String topologyId = workerData.getTopologyId();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 1. 创建一个接收消息的消息队列（disruptor）</span></span><br><span class="line">    Map stormConf = workerData.getStormConf();</span><br><span class="line">    <span class="keyword">long</span> timeout = JStormUtils.parseLong(stormConf.get(Config.TOPOLOGY_DISRUPTOR_WAIT_TIMEOUT), <span class="number">10</span>); <span class="comment">// 默认 10ms</span></span><br><span class="line">    WaitStrategy waitStrategy = <span class="keyword">new</span> TimeoutBlockingWaitStrategy(timeout, TimeUnit.MILLISECONDS); <span class="comment">// 10ms</span></span><br><span class="line">    <span class="keyword">int</span> queueSize = JStormUtils.parseInt(stormConf.get(Config.TOPOLOGY_CTRL_BUFFER_SIZE), <span class="number">256</span>);</span><br><span class="line">    DisruptorQueue recvControlQueue = DisruptorQueue.mkInstance(<span class="string">"Dispatch-control"</span>, ProducerType.MULTI, queueSize, waitStrategy, <span class="keyword">false</span>, <span class="number">0</span>, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2. 为当前 worker 基于 Netty 创建并返回一个 Socket 连接用于接收消息</span></span><br><span class="line">    IConnection recvConnection = context.bind(</span><br><span class="line">            topologyId, workerData.getPort(), workerData.getDeserializeQueues(), recvControlQueue, <span class="keyword">false</span>, workerData.getTaskIds());</span><br><span class="line">    workerData.setRecvConnection(recvConnection);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 3. 启动一个线程循环消费 worker 接收到的消息，并应用 DisruptorRunnable.onEvent 方法,</span></span><br><span class="line">    <span class="comment">//    最终调用的是 VirtualPortCtrlDispatch.handleEvent 方法，将消息投递给指定 task 的消息队列</span></span><br><span class="line">    RunnableCallback recvControlDispatcher = <span class="keyword">new</span> VirtualPortCtrlDispatch(</span><br><span class="line">            workerData, recvConnection, recvControlQueue, MetricDef.RECV_THREAD);</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">new</span> AsyncLoopThread(recvControlDispatcher, <span class="keyword">false</span>, Thread.MAX_PRIORITY, <span class="keyword">true</span>);</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>这里的消息队列底层都依赖于 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/LMAX-Exchange/disruptor">disruptor</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 实现，最终对于接收到的消息都会调用 <code>VirtualPortCtrlDispatch#handleEvent</code> 方法进行处理：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">handleEvent</span><span class="params">(Object event, <span class="keyword">boolean</span> endOfBatch)</span> <span class="keyword">throws</span> Exception </span>{</span><br><span class="line">    TaskMessage message = (TaskMessage) event;</span><br><span class="line">    <span class="keyword">int</span> task = message.task(); <span class="comment">// 获取当前消息对应的 taskId</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 消息反序列化</span></span><br><span class="line">    Object tuple = <span class="keyword">null</span>;</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="comment">// there might be errors when calling update_topology</span></span><br><span class="line">        tuple = <span class="keyword">this</span>.deserialize(message.message(), task);</span><br><span class="line">    } <span class="keyword">catch</span> (Throwable e) {</span><br><span class="line">        <span class="keyword">if</span> (Utils.exceptionCauseIsInstanceOf(KryoException.class, e)) {</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> RuntimeException(e);</span><br><span class="line">        }</span><br><span class="line">        LOG.warn(<span class="string">"serialize msg error"</span>, e);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 获取 taskId 对应的消息通道</span></span><br><span class="line">    DisruptorQueue queue = controlQueues.get(task);</span><br><span class="line">    <span class="keyword">if</span> (queue == <span class="keyword">null</span>) {</span><br><span class="line">        LOG.warn(<span class="string">"Received invalid control message for task-{}, Dropping...{} "</span>, task, tuple);</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">if</span> (tuple != <span class="keyword">null</span>) {</span><br><span class="line">        <span class="comment">// 将消息投递给对应的 task 传输队列</span></span><br><span class="line">        queue.publish(tuple);</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="创建并启动用于维护-worker-之间连接关系的线程">
+          <a href="#创建并启动用于维护-worker-之间连接关系的线程" class="heading-link"><i class="fas fa-link"></i></a>创建并启动用于维护 worker 之间连接关系的线程</h3>
+      <p>在这一步会创建一个 RefreshConnections 对象，它继承了 RunnableCallback 类，所以同样是被异步循环线程模型接管（按照指定间隔循环调用其 <code>RefreshConnections#run</code> 方法），Storm 会定期检测 ZK 上的 topology 任务分配信息是否有更新，如果有比本地更新的任务分配（依赖于任务分配时间戳进行判定）则会判断新任务分配的类型来相应的更新本地的信息。</p>
+<p>如果当前的任务分配类型仅仅是更新集群上已有的 topology，则 Storm 会遍历通知各个 task 执行相应的更新操作，同时会回调已注册的所有更新监听器以更新配置信息，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 当前任务分配已经更新且是更新 topology 操作，则通知所有的 task</span></span><br><span class="line">List&lt;TaskShutdownDaemon&gt; taskShutdowns = workerData.getShutdownTasks();</span><br><span class="line">Map newConf = StormConfig.read_supervisor_topology_conf(conf, topologyId);</span><br><span class="line">workerData.getStormConf().putAll(newConf);</span><br><span class="line"><span class="keyword">for</span> (TaskShutdownDaemon taskSD : taskShutdowns) {</span><br><span class="line">    <span class="comment">// 通知所有的 task</span></span><br><span class="line">    taskSD.update(newConf);</span><br><span class="line">}</span><br><span class="line"><span class="comment">// disable/enable metrics on the fly</span></span><br><span class="line">workerData.getUpdateListener().update(newConf); <span class="comment">// 回调更新监听器，更新配置</span></span><br><span class="line">workerData.setAssignmentType(AssignmentType.UpdateTopology);</span><br></pre></td></tr></tbody></table></div></figure>
+<p>如果当前是更新以外的任务分配类型（Assign、ScaleTopology），则 Storm 会从新的任务分配信息中分别获取新增的、待删除的，以及需要更新的 taskId 列表，并执行相应的创建、删除，以及更新 task 操作，同时会更新 worker 上所有 task 的下游 task 列表信息。部分代码实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 获取新增的 taskId 列表</span></span><br><span class="line">Set&lt;Integer&gt; addedTasks = <span class="keyword">this</span>.getAddedTasks(assignment);</span><br><span class="line"><span class="comment">// 获取待删除的 taskId 列表</span></span><br><span class="line">Set&lt;Integer&gt; removedTasks = <span class="keyword">this</span>.getRemovedTasks(assignment);</span><br><span class="line"><span class="comment">// 获取待更新的 taskId 列表</span></span><br><span class="line">Set&lt;Integer&gt; updatedTasks = <span class="keyword">this</span>.getUpdatedTasks(assignment);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 基于新任务分配信息更新 workerData</span></span><br><span class="line">workerData.updateWorkerData(assignment);</span><br><span class="line">workerData.updateKryoSerializer();</span><br><span class="line"></span><br><span class="line"><span class="comment">// 关闭需要移除的 task</span></span><br><span class="line"><span class="keyword">this</span>.shutdownTasks(removedTasks);</span><br><span class="line"><span class="comment">// 创建新增的 task</span></span><br><span class="line"><span class="keyword">this</span>.createTasks(addedTasks);</span><br><span class="line"><span class="comment">// 更新已有需要被更新的 task</span></span><br><span class="line"><span class="keyword">this</span>.updateTasks(updatedTasks);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 更新当前 worker 上所有 task 的下游 task 列表信息</span></span><br><span class="line">Set&lt;Integer&gt; tmpOutboundTasks = Worker.worker_output_tasks(workerData);</span><br><span class="line"><span class="keyword">if</span> (!outboundTasks.equals(tmpOutboundTasks)) {</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> taskId : tmpOutboundTasks) {</span><br><span class="line">        <span class="keyword">if</span> (!outboundTasks.contains(taskId)) {</span><br><span class="line">            workerData.addOutboundTaskStatusIfAbsent(taskId);</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> taskId : workerData.getOutboundTaskStatus().keySet()) {</span><br><span class="line">        <span class="keyword">if</span> (!tmpOutboundTasks.contains(taskId)) {</span><br><span class="line">            workerData.removeOutboundTaskStatus(taskId);</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">    workerData.setOutboundTasks(tmpOutboundTasks);</span><br><span class="line">    outboundTasks = tmpOutboundTasks;</span><br><span class="line">}</span><br><span class="line">workerData.setAssignmentType(AssignmentType.Assign);</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="创建并启动定期获取-topology-基本信息的线程">
+          <a href="#创建并启动定期获取-topology-基本信息的线程" class="heading-link"><i class="fas fa-link"></i></a>创建并启动定期获取 topology 基本信息的线程</h3>
+      <p>在这一步会创建一个 RefreshActive 对象，它同样继承了 RunnableCallback 类，所以同样也是被异步循环线程模型接管（按照指定间隔循环调用其 <code>RefreshActive#run</code> 方法），Storm 会定期获取当前 topology 在 ZK 上的基本信息，当 topology 状态发生变更时触发本地执行相应的操作。</p>
+<p>如果 topology 状态信息变为 active、upgrading，或者 rollback 时，Storm 会依次将本地 task 的状态设置为 <code>TaskStatus.RUN</code>，如果当前 task 对应的组件是 spout，则会触发 <code>ISpout#activate</code> 方法。如果当前 topology 状态不为 inactive 时，Storm 会依次将本地的 task 状态设置为 <code>TaskStatus.PAUSE</code>，如果当前 task 对应的组件是 spout，则会触发 <code>ISpout#deactivate</code> 方法。最后更新本地记录的 topology 状态。相关实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (newTopologyStatus.equals(StatusType.active) <span class="comment">// 激活</span></span><br><span class="line">        || newTopologyStatus.equals(StatusType.upgrading) <span class="comment">// 灰度</span></span><br><span class="line">        || newTopologyStatus.equals(StatusType.rollback)) { <span class="comment">// 回滚</span></span><br><span class="line">    <span class="keyword">for</span> (TaskShutdownDaemon task : tasks) {</span><br><span class="line">        <span class="keyword">if</span> (task.getTask().getTaskStatus().isInit()) {</span><br><span class="line">            task.getTask().getTaskStatus().setStatus(TaskStatus.RUN);</span><br><span class="line">        } <span class="keyword">else</span> {</span><br><span class="line">            task.active();</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">} <span class="keyword">else</span> <span class="keyword">if</span> (oldTopologyStatus == <span class="keyword">null</span> || !oldTopologyStatus.equals(StatusType.inactive)) {</span><br><span class="line">    <span class="keyword">for</span> (TaskShutdownDaemon task : tasks) {</span><br><span class="line">        <span class="keyword">if</span> (task.getTask().getTaskStatus().isInit()) {</span><br><span class="line">            task.getTask().getTaskStatus().setStatus(TaskStatus.PAUSE);</span><br><span class="line">        } <span class="keyword">else</span> {</span><br><span class="line">            task.deactive();</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">}</span><br><span class="line">workerData.setTopologyStatus(newTopologyStatus);</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="创建并启动循环消费-worker-tuple-队列的线程">
+          <a href="#创建并启动循环消费-worker-tuple-队列的线程" class="heading-link"><i class="fas fa-link"></i></a>创建并启动循环消费 worker tuple 队列的线程</h3>
+      <p>在这一步会创建一个 DrainerCtrlRunnable 对象，它同样继承了 RunnableCallback 类，所以同样也是被异步循环线程模型接管（按照指定间隔循环调用其 <code>DrainerCtrlRunnable#run</code> 方法），Storm 会循环消费当前 worker 的 tuple 队列 transferCtrlQueue，并最终调用 <code>DrainerCtrlRunnable#handleEvent</code> 方法对拿到的消息进行处理，该方法的实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">handleEvent</span><span class="params">(Object event, <span class="keyword">boolean</span> endOfBatch)</span> <span class="keyword">throws</span> Exception </span>{</span><br><span class="line">    <span class="keyword">if</span> (event == <span class="keyword">null</span>) {</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    }</span><br><span class="line">    ITupleExt tuple = (ITupleExt) event;</span><br><span class="line">    <span class="keyword">int</span> targetTask = tuple.getTargetTaskId();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 获取与下游 task 的连接</span></span><br><span class="line">    IConnection conn = <span class="keyword">this</span>.getConnection(targetTask);</span><br><span class="line">    <span class="keyword">if</span> (conn != <span class="keyword">null</span>) {</span><br><span class="line">        <span class="keyword">byte</span>[] tupleMessage = <span class="keyword">null</span>;</span><br><span class="line">        <span class="keyword">try</span> {</span><br><span class="line">            <span class="comment">// there might be errors when calling update_topology</span></span><br><span class="line">            tupleMessage = <span class="keyword">this</span>.serialize(tuple); <span class="comment">// 序列化数据</span></span><br><span class="line">        } <span class="keyword">catch</span> (Throwable e) {</span><br><span class="line">            <span class="comment">// 省略异常处理</span></span><br><span class="line">        }</span><br><span class="line">        <span class="comment">// 基于 netty 发送数据</span></span><br><span class="line">        TaskMessage message = <span class="keyword">new</span> TaskMessage(TaskMessage.CONTROL_MESSAGE, targetTask, tupleMessage);</span><br><span class="line">        conn.sendDirect(message);</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>方法的逻辑比较简单，拿到当前 tuple 对应的下游 taskId，然后与之建立连接（netty）并将 tuple 发送给它。</p>
+
+        <h3 id="创建并启动当前-worker-下所有的-task-线程">
+          <a href="#创建并启动当前-worker-下所有的-task-线程" class="heading-link"><i class="fas fa-link"></i></a>创建并启动当前 worker 下所有的 task 线程</h3>
+      <p>方法 <code>Worker#createTasks</code> 用于为当前 worker 下的所有 task 任务创建一个 Task 对象，并为每个 task 启动一个线程执行，同时为每个 task 任务创建一个 TaskShutdownDaemon 对象用于管理对应的 task 线程，方法的实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> List&lt;TaskShutdownDaemon&gt; <span class="title">createTasks</span><span class="params">()</span> <span class="keyword">throws</span> Exception </span>{</span><br><span class="line">    List&lt;TaskShutdownDaemon&gt; shutdownTasks = <span class="keyword">new</span> ArrayList&lt;&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 获取当前 worker 下所有的 taskId</span></span><br><span class="line">    Set&lt;Integer&gt; taskIds = workerData.getTaskIds();</span><br><span class="line"></span><br><span class="line">    Set&lt;Thread&gt; threads = <span class="keyword">new</span> HashSet&lt;&gt;();</span><br><span class="line">    List&lt;Task&gt; taskArrayList = <span class="keyword">new</span> ArrayList&lt;&gt;();</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> taskId : taskIds) {</span><br><span class="line">        <span class="comment">// 创建并启动 task</span></span><br><span class="line">        Task task = <span class="keyword">new</span> Task(workerData, taskId);</span><br><span class="line">        Thread thread = <span class="keyword">new</span> Thread(task);</span><br><span class="line">        threads.add(thread);</span><br><span class="line">        taskArrayList.add(task);</span><br><span class="line">        thread.start(); <span class="comment">// 启动 task</span></span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">for</span> (Thread thread : threads) {</span><br><span class="line">        thread.join();</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">for</span> (Task t : taskArrayList) {</span><br><span class="line">        shutdownTasks.add(t.getTaskShutdownDameon());</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">return</span> shutdownTasks;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>Task 类实现了 Runnable 接口，其 run 方法中简单调用了 <code>Task#execute</code> 方法，该方法首先会向系统 bolt 发送一条“startup”消息，然后依据当前的组件类型创建对应的任务执行器，创建的过程位于 <code>Task#mkExecutor</code> 方法中：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> BaseExecutors <span class="title">mkExecutor</span><span class="params">()</span> </span>{</span><br><span class="line">    BaseExecutors baseExecutor = <span class="keyword">null</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (taskObj <span class="keyword">instanceof</span> IBolt) {</span><br><span class="line">        <span class="keyword">if</span> (taskId == topologyContext.getTopologyMasterId()) {</span><br><span class="line">            baseExecutor = <span class="keyword">new</span> TopologyMasterBoltExecutors(<span class="keyword">this</span>);</span><br><span class="line">        } <span class="keyword">else</span> {</span><br><span class="line">            baseExecutor = <span class="keyword">new</span> BoltExecutors(<span class="keyword">this</span>);</span><br><span class="line">        }</span><br><span class="line">    } <span class="keyword">else</span> <span class="keyword">if</span> (taskObj <span class="keyword">instanceof</span> ISpout) {</span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">this</span>.isSingleThread(stormConf)) {</span><br><span class="line">            baseExecutor = <span class="keyword">new</span> SingleThreadSpoutExecutors(<span class="keyword">this</span>);</span><br><span class="line">        } <span class="keyword">else</span> {</span><br><span class="line">            baseExecutor = <span class="keyword">new</span> MultipleThreadSpoutExecutors(<span class="keyword">this</span>);</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> baseExecutor;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>BaseExecutors 类是一个 RunnableCallback 类，所以其 run 方法会被异步循环调用。继承自 BaseExecutors 类有 5 个（如下），而 <code>Task#mkExecutor</code> 方法基于组件类型分别选择了相应的实现类进行实例化。</p>
+<ul>
+<li>BoltExecutors</li>
+<li>TopologyMasterBoltExecutors</li>
+<li>SpoutExecutors</li>
+<li>SingleThreadSpoutExecutors</li>
+<li>MultipleThreadSpoutExecutors</li>
+</ul>
+<p>先来看一下 BoltExecutors 和 TopologyMasterBoltExecutors，这是 bolt 组件的任务执行器，其中 TopologyMasterBoltExecutors 继承自 BoltExecutors，所以接下来我们主要来看一下 BoltExecutors 的实现。BoltExecutors 类的 run 方法实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>{</span><br><span class="line">    <span class="keyword">if</span> (!isFinishInit) {</span><br><span class="line">        <span class="comment">// 执行初始化操作，主要是调用了 IBolt.prepare 方法</span></span><br><span class="line">        <span class="keyword">this</span>.initWrapper();</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">while</span> (!taskStatus.isShutdown()) {</span><br><span class="line">        <span class="keyword">try</span> {</span><br><span class="line">            <span class="comment">// 循环消费当前 task 的消息队列</span></span><br><span class="line">            <span class="keyword">this</span>.consumeExecuteQueue();</span><br><span class="line">        } <span class="keyword">catch</span> (Throwable e) {</span><br><span class="line">            <span class="comment">// 省略异常处理逻辑</span></span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>方法首先会判定是否完成了初始化操作，如果未完成则会调用 <code>BaseExecutors#initWrapper</code> 执行初始化，这期间主要是调用了 <code>IBolt#prepare</code> 方法，这也是我们在实现一个 bolt 时执行初始化的方法。如果当前 task 线程没有被销毁，则会一直循环调用 <code>BoltExecutors#consumeExecuteQueue</code> 消费当前 task 的消息队列。前面的分析我们知道 worker 会对接收到的消息按照 taskId 投递给对应 task 的消息队列，而消息队列的消费过程就在这里发生。针对接收到消息会逐条进行处理，这里最终调用的是 <code>BoltExecutors#onEvent</code> 方法，处理的消息就是我们熟悉的 Tuple 对象，而该方法的核心就是调用 <code>IBolt#execute</code> 方法，也就是调用用户自定义的策略对收到的 tuple 进行处理。</p>
+<p>再来看一下 SingleThreadSpoutExecutors 和 MultipleThreadSpoutExecutors，这两类都继承自 SpoutExecutors 类，区别仅在于对于消息的附加处理和正常的业务逻辑是否位于同一个线程中，而核心逻辑都是调用 <code>ISpout#nextTuple</code> 方法，也就是执行用户自定义的业务逻辑。</p>
+<p>针对 worker 的运行机制就分析到这里，但是 Storm 对于消息的处理并没有结束，下一篇我们将一起探寻 ack 机制，看看 Storm 如何保证消息至少被执行一次（at least once）。</p>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2018/11/20/storm/storm-worker/">https://plotor.github.io/2018/11/20/storm/storm-worker/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Storm/">Storm</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/JStorm/">JStorm</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2018/11/21/storm/storm-ack/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">JStorm 源码解析：ACK 机制</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2018/11/19/storm/storm-supervisor/"><span class="paginator-prev__text">JStorm 源码解析：Supervisor 的启动和运行机制</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%B6%88%E6%81%AF%E6%8E%A5%E6%94%B6%E4%B8%8E%E5%88%86%E5%8F%91"><span class="toc-number">1.</span> <span class="toc-text">
+          消息接收与分发</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA%E5%B9%B6%E5%90%AF%E5%8A%A8%E7%94%A8%E4%BA%8E%E7%BB%B4%E6%8A%A4-worker-%E4%B9%8B%E9%97%B4%E8%BF%9E%E6%8E%A5%E5%85%B3%E7%B3%BB%E7%9A%84%E7%BA%BF%E7%A8%8B"><span class="toc-number">2.</span> <span class="toc-text">
+          创建并启动用于维护 worker 之间连接关系的线程</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA%E5%B9%B6%E5%90%AF%E5%8A%A8%E5%AE%9A%E6%9C%9F%E8%8E%B7%E5%8F%96-topology-%E5%9F%BA%E6%9C%AC%E4%BF%A1%E6%81%AF%E7%9A%84%E7%BA%BF%E7%A8%8B"><span class="toc-number">3.</span> <span class="toc-text">
+          创建并启动定期获取 topology 基本信息的线程</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA%E5%B9%B6%E5%90%AF%E5%8A%A8%E5%BE%AA%E7%8E%AF%E6%B6%88%E8%B4%B9-worker-tuple-%E9%98%9F%E5%88%97%E7%9A%84%E7%BA%BF%E7%A8%8B"><span class="toc-number">4.</span> <span class="toc-text">
+          创建并启动循环消费 worker tuple 队列的线程</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA%E5%B9%B6%E5%90%AF%E5%8A%A8%E5%BD%93%E5%89%8D-worker-%E4%B8%8B%E6%89%80%E6%9C%89%E7%9A%84-task-%E7%BA%BF%E7%A8%8B"><span class="toc-number">5.</span> <span class="toc-text">
+          创建并启动当前 worker 下所有的 task 线程</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

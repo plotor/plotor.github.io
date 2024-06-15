@@ -1,0 +1,480 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="Spring 中的标签分为默认标签和自定义标签两类，上一篇我们分析了默认标签的解析过程，当然在分析过程中我们也看到默认标签中嵌套了对自定义标签的解析，这是因为默认标签中可以嵌套使用自定义标签。然而，这和本篇所要讨论的自定义标签还是有些区别的，上一篇中介绍的自定义标签可以看作是 &lt;bean &#x2F;&gt; 标签的子标签元素，而本篇所要分析的自定义标签是与 &lt;bean &#x2F;&gt; 这类标签平级">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Spring IoC 源码解析：自定义标签的解析过程">
+<meta property="og:url" content="https://plotor.github.io/2017/05/19/spring/spring-ioc-custom-element/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="Spring 中的标签分为默认标签和自定义标签两类，上一篇我们分析了默认标签的解析过程，当然在分析过程中我们也看到默认标签中嵌套了对自定义标签的解析，这是因为默认标签中可以嵌套使用自定义标签。然而，这和本篇所要讨论的自定义标签还是有些区别的，上一篇中介绍的自定义标签可以看作是 &lt;bean &#x2F;&gt; 标签的子标签元素，而本篇所要分析的自定义标签是与 &lt;bean &#x2F;&gt; 这类标签平级">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2017-05-19T15:55:08.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.987Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Spring">
+<meta name="twitter:card" content="summary"><title>Spring IoC 源码解析：自定义标签的解析过程 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2017/05/19/spring/spring-ioc-custom-element/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">Spring IoC 源码解析：自定义标签的解析过程</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2017-05-19</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">2.8k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">14分</span></span></div></header><div class="post-body"><p>Spring 中的标签分为默认标签和自定义标签两类，上一篇我们分析了默认标签的解析过程，当然在分析过程中我们也看到默认标签中嵌套了对自定义标签的解析，这是因为默认标签中可以嵌套使用自定义标签。然而，这和本篇所要讨论的自定义标签还是有些区别的，上一篇中介绍的自定义标签可以看作是 <code>&lt;bean /&gt;</code> 标签的子标签元素，而本篇所要分析的自定义标签是与 <code>&lt;bean /&gt;</code> 这类标签平级的标签。<a id="more"></a></p>
+
+        <h3 id="自定义标签的定义与使用">
+          <a href="#自定义标签的定义与使用" class="heading-link"><i class="fas fa-link"></i></a>自定义标签的定义与使用</h3>
+      <p>在开始分析自定义标签的解析过程之前，我们还是通过示例演示一下自定义标签的定义和使用方式，整体与上一篇所介绍的类似，但还是有些许差别。自定义标签分为 5 步：</p>
+<ol>
+<li>创建标签实体类；</li>
+<li>定义标签的描述 XSD 文件；</li>
+<li>创建一个标签元素解析器，实现 BeanDefinitionParser 接口；</li>
+<li>创建一个 handler 类，继承自 NamespaceHandlerSupport 抽象类；</li>
+<li>编写 spring.handlers 和 spring.schemas 文件。</li>
+</ol>
+<p>本节我们自定义实现一个与 <code>&lt;alias /&gt;</code> 标签功能类似的自定义标签，用于为指定的 bean 添加别名。第一步，先创建标签对应的实体类：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Alias</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> String name;</span><br><span class="line">    <span class="keyword">private</span> String alias;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// ... 省略 getter 和 setter</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>第二步，定义标签的 XSD 文件 custom-alias.xsd，如下：</p>
+<figure class="highlight xml"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">schema</span> <span class="attr">xmlns</span>=<span class="string">"http://www.w3.org/2001/XMLSchema"</span></span></span><br><span class="line"><span class="tag">        <span class="attr">targetNamespace</span>=<span class="string">"http://www.zhenchao.org/schema/alias"</span></span></span><br><span class="line"><span class="tag">        <span class="attr">xmlns:tns</span>=<span class="string">"http://www.zhenchao.org/schema/alias"</span></span></span><br><span class="line"><span class="tag">        <span class="attr">elementFormDefault</span>=<span class="string">"qualified"</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">element</span> <span class="attr">name</span>=<span class="string">"alias"</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">complexType</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">attribute</span> <span class="attr">name</span>=<span class="string">"id"</span> <span class="attr">type</span>=<span class="string">"string"</span>/&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">attribute</span> <span class="attr">name</span>=<span class="string">"name"</span> <span class="attr">type</span>=<span class="string">"string"</span>/&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">attribute</span> <span class="attr">name</span>=<span class="string">"parentName"</span> <span class="attr">type</span>=<span class="string">"string"</span>/&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">attribute</span> <span class="attr">name</span>=<span class="string">"c_name"</span> <span class="attr">type</span>=<span class="string">"string"</span>/&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">attribute</span> <span class="attr">name</span>=<span class="string">"c_alias"</span> <span class="attr">type</span>=<span class="string">"string"</span>/&gt;</span></span><br><span class="line">        <span class="tag">&lt;/<span class="name">complexType</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">element</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">schema</span>&gt;</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>第三步，创建标签元素解析器。解析器需要实现 BeanDefinitionParser 接口，这里我们继承该接口的抽象子类 AbstractSingleBeanDefinitionParser，并覆盖相应的方法：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">CustomBeanDefinitionParser</span> <span class="keyword">extends</span> <span class="title">AbstractSingleBeanDefinitionParser</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> Class&lt;?&gt; getBeanClass(Element element) {</span><br><span class="line">        <span class="keyword">return</span> Alias.class;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">doParse</span><span class="params">(Element element, ParserContext parserContext, BeanDefinitionBuilder builder)</span> </span>{</span><br><span class="line">        String beanName = element.getAttribute(<span class="string">"c_name"</span>);</span><br><span class="line">        Assert.hasText(beanName, <span class="string">"The 'name' in alias tag is missing!"</span>);</span><br><span class="line">        Assert.isTrue(parserContext.getRegistry().containsBeanDefinition(beanName), <span class="string">"No bean name "</span> + beanName + <span class="string">" exist!"</span>);</span><br><span class="line">        String alias = element.getAttribute(<span class="string">"c_alias"</span>);</span><br><span class="line">        Assert.hasText(beanName, <span class="string">"The 'alias' in alias tag is missing!"</span>);</span><br><span class="line">        String[] aliasArray = alias.replaceAll(<span class="string">"\\s+"</span>, <span class="string">""</span>).split(<span class="string">"[,;]"</span>);</span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">final</span> String ali : aliasArray) {</span><br><span class="line">            parserContext.getRegistry().registerAlias(beanName, ali);</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述方法首先会判断对应的 beanName 是否存在，如果存在的话就建立 beanName 与 alias 之间的映射关系。</p>
+<p>第四步，创建标签 handler 类，继承自 NamespaceHandlerSupport 抽象类，用于注册第三步中定义的标签解析器：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">CustomNamespaceHandler</span> <span class="keyword">extends</span> <span class="title">NamespaceHandlerSupport</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">init</span><span class="params">()</span> </span>{</span><br><span class="line">        <span class="keyword">this</span>.registerBeanDefinitionParser(<span class="string">"alias"</span>, <span class="keyword">new</span> CustomBeanDefinitionParser());</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>第五步，编写 spring.handlers 和 spring.schemas 文件：</p>
+<ul>
+<li>spring.handlers</li>
+</ul>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">http://www.zhenchao.org/schema/alias=org.zhenchao.handler.CustomNamespaceHandler</span><br></pre></td></tr></tbody></table></div></figure>
+<ul>
+<li>spring.schemas</li>
+</ul>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">http://www.zhenchao.org/schema/alias.xsd=META-INF/custom-alias.xsd</span><br></pre></td></tr></tbody></table></div></figure>
+<p>最后，演示一下如何使用上述自定义标签，首先需要在 <code>&lt;beans /&gt;</code> 标签属性中定义标签的命名空间：</p>
+<figure class="highlight xml"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">beans</span> <span class="attr">xmlns</span>=<span class="string">"http://www.springframework.org/schema/beans"</span></span></span><br><span class="line"><span class="tag">       <span class="attr">xmlns:xsi</span>=<span class="string">"http://www.w3.org/2001/XMLSchema-instance"</span></span></span><br><span class="line"><span class="tag">       <span class="attr">xmlns:myalias</span>=<span class="string">"http://www.zhenchao.org/schema/alias"</span></span></span><br><span class="line"><span class="tag">       <span class="attr">xsi:schemaLocation</span>=</span></span><br><span class="line"><span class="tag">               "<span class="attr">http:</span>//<span class="attr">www.springframework.org</span>/<span class="attr">schema</span>/<span class="attr">beans</span> <span class="attr">http:</span>//<span class="attr">www.springframework.org</span>/<span class="attr">schema</span>/<span class="attr">beans</span>/<span class="attr">spring-beans.xsd</span></span></span><br><span class="line"><span class="tag">                <span class="attr">http:</span>//<span class="attr">www.zhenchao.org</span>/<span class="attr">schema</span>/<span class="attr">alias</span> <span class="attr">http:</span>//<span class="attr">www.zhenchao.org</span>/<span class="attr">schema</span>/<span class="attr">alias.xsd</span>"</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>然后使用我们自定义的标签为已定义的 bean 添加别名：</p>
+<figure class="highlight xml"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!-- myBean 是一个已定义的 bean --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">myalias:alias</span> <span class="attr">id</span>=<span class="string">"myAlias"</span> <span class="attr">c_name</span>=<span class="string">"myBean"</span> <span class="attr">c_alias</span>=<span class="string">"aaa; bbb"</span>/&gt;</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>这样我们完成了利用自定义的标签为 myBean 添加别名的功能。</p>
+
+        <h3 id="自定义标签的解析过程">
+          <a href="#自定义标签的解析过程" class="heading-link"><i class="fas fa-link"></i></a>自定义标签的解析过程</h3>
+      <p>了解了如果自定义和使用自定义标签，下面开始分析 Spring 如何解析自定义标签。首先，回顾一下开始解析标签的入口函数 <code>DefaultBeanDefinitionDocumentReader#parseBeanDefinitions</code>，如下：：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">parseBeanDefinitions</span><span class="params">(Element root, BeanDefinitionParserDelegate delegate)</span> </span>{</span><br><span class="line">    <span class="comment">// 解析默认标签</span></span><br><span class="line">    <span class="keyword">if</span> (delegate.isDefaultNamespace(root)) {</span><br><span class="line">        NodeList nl = root.getChildNodes();</span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; nl.getLength(); i++) {</span><br><span class="line">            Node node = nl.item(i);</span><br><span class="line">            <span class="keyword">if</span> (node <span class="keyword">instanceof</span> Element) {</span><br><span class="line">                Element ele = (Element) node;</span><br><span class="line">                <span class="comment">// 解析默认标签</span></span><br><span class="line">                <span class="keyword">if</span> (delegate.isDefaultNamespace(ele)) {</span><br><span class="line">                    <span class="keyword">this</span>.parseDefaultElement(ele, delegate);</span><br><span class="line">                }</span><br><span class="line">                <span class="comment">// 解析自定义标签</span></span><br><span class="line">                <span class="keyword">else</span> {</span><br><span class="line">                    delegate.parseCustomElement(ele);</span><br><span class="line">                }</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">// 解析自定义标签</span></span><br><span class="line">    <span class="keyword">else</span> {</span><br><span class="line">        delegate.parseCustomElement(root);</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上一篇中我们分析了默认标签的解析过程，也就是 <code>DefaultBeanDefinitionDocumentReader#parseDefaultElement</code> 方法，接下来我们来分析自定义标签的解析过程，即 <code>BeanDefinitionParserDelegate#parseCustomElement</code> 方法：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> BeanDefinition <span class="title">parseCustomElement</span><span class="params">(Element ele)</span> </span>{</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">this</span>.parseCustomElement(ele, <span class="keyword">null</span>);</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">public</span> BeanDefinition <span class="title">parseCustomElement</span><span class="params">(Element ele, <span class="meta">@Nullable</span> BeanDefinition containingBd)</span> </span>{</span><br><span class="line">    <span class="comment">// 获取标签的命名空间</span></span><br><span class="line">    String namespaceUri = <span class="keyword">this</span>.getNamespaceURI(ele);</span><br><span class="line">    <span class="keyword">if</span> (namespaceUri == <span class="keyword">null</span>) {</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">// 解析自定义标签命名空间处理器</span></span><br><span class="line">    NamespaceHandler handler = <span class="keyword">this</span>.readerContext.getNamespaceHandlerResolver().resolve(namespaceUri);</span><br><span class="line">    <span class="keyword">if</span> (handler == <span class="keyword">null</span>) {</span><br><span class="line">        <span class="keyword">this</span>.error(<span class="string">"Unable to locate Spring NamespaceHandler for XML schema namespace ["</span> + namespaceUri + <span class="string">"]"</span>, ele);</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">// 解析标签</span></span><br><span class="line">    <span class="keyword">return</span> handler.parse(ele, <span class="keyword">new</span> ParserContext(<span class="keyword">this</span>.readerContext, <span class="keyword">this</span>, containingBd));</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述方法首先获取自定义标签的命名空间定义，然后基于命名空间解析得到对应的 NamespaceHandler 实现类，最后调用 <code>NamespaceHandler#parse</code> 方法对自定义标签进行解析处理，这里本质上调用的就是前面自定义实现的 <code>CustomBeanDefinitionParser#doParse</code> 方法。先来看一下 NamespaceHandler 的解析过程，位于 <code>DefaultNamespaceHandlerResolver#resolve</code> 方法中：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> NamespaceHandler <span class="title">resolve</span><span class="params">(String namespaceUri)</span> </span>{</span><br><span class="line">    <span class="comment">// 获取所有已注册的 handler 集合</span></span><br><span class="line">    Map&lt;String, Object&gt; handlerMappings = <span class="keyword">this</span>.getHandlerMappings();</span><br><span class="line">    <span class="comment">// 获取namespaceUri 对应的 handler 全称类名或 handler 实例</span></span><br><span class="line">    Object handlerOrClassName = handlerMappings.get(namespaceUri);</span><br><span class="line">    <span class="comment">// 未注册</span></span><br><span class="line">    <span class="keyword">if</span> (handlerOrClassName == <span class="keyword">null</span>) {</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">// 已解析过，直接返回 handler 实例</span></span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span> (handlerOrClassName <span class="keyword">instanceof</span> NamespaceHandler) {</span><br><span class="line">        <span class="keyword">return</span> (NamespaceHandler) handlerOrClassName;</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">// 未解析过，基于 className 构造对应的 handler 实例，并注册</span></span><br><span class="line">    <span class="keyword">else</span> {</span><br><span class="line">        String className = (String) handlerOrClassName;</span><br><span class="line">        <span class="keyword">try</span> {</span><br><span class="line">            <span class="comment">// 获取 handler 对应的 Class 对象</span></span><br><span class="line">            Class&lt;?&gt; handlerClass = ClassUtils.forName(className, <span class="keyword">this</span>.classLoader);</span><br><span class="line">            <span class="keyword">if</span> (!NamespaceHandler.class.isAssignableFrom(handlerClass)) {</span><br><span class="line">                <span class="keyword">throw</span> <span class="keyword">new</span> FatalBeanException(<span class="string">"Class ["</span> + className + <span class="string">"] for namespace ["</span> + namespaceUri +</span><br><span class="line">                        <span class="string">"] does not implement the ["</span> + NamespaceHandler.class.getName() + <span class="string">"] interface"</span>);</span><br><span class="line">            }</span><br><span class="line">            <span class="comment">// 实例化 handler</span></span><br><span class="line">            NamespaceHandler namespaceHandler = (NamespaceHandler) BeanUtils.instantiateClass(handlerClass);</span><br><span class="line">            <span class="comment">// 初始化 handler</span></span><br><span class="line">            namespaceHandler.init();</span><br><span class="line">            <span class="comment">// 注册 handler</span></span><br><span class="line">            handlerMappings.put(namespaceUri, namespaceHandler);</span><br><span class="line">            <span class="keyword">return</span> namespaceHandler;</span><br><span class="line">        } <span class="keyword">catch</span> (ClassNotFoundException ex) {</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> FatalBeanException(</span><br><span class="line">                    <span class="string">"Could not find NamespaceHandler class ["</span> + className + <span class="string">"] for namespace ["</span> + namespaceUri + <span class="string">"]"</span>, ex);</span><br><span class="line">        } <span class="keyword">catch</span> (LinkageError err) {</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> FatalBeanException(</span><br><span class="line">                    <span class="string">"Unresolvable class definition for NamespaceHandler class ["</span> + className + <span class="string">"] for namespace ["</span> + namespaceUri + <span class="string">"]"</span>, err);</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述方法的执行逻辑可以概括为：</p>
+<ol>
+<li>从 spring.handlers 获取所有注册的 handler 集合；</li>
+<li>从集合中获取 namespace 对应 handler 实例；</li>
+<li>如果 handler 已经被解析过，则返回对应的 handler 实例；</li>
+<li>否则，利用反射创建 handler 实例，并初始化；</li>
+<li>注册解析得到的 handler 实例。</li>
+</ol>
+<p>上述过程中的第 4 步稍微复杂一些，下面进一步说明一下具体过程。我们在 spring.handlers 文件中会配置 namespaceUri 与对应 handler 全称类名的映射关系:</p>
+<figure class="highlight properties"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">http</span>:<span class="string">//www.zhenchao.org/schema/alias=org.zhenchao.handler.CustomNamespaceHandler</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>所以，这一步会基于该配置获取到对应 handler 类的全称类名；然后基于反射机制创建 handler 实例；接下来就是调用 <code>NamespaceHandler#init</code> 方法对 handler 实例进行初始化。该方法是由开发人员自己实现的，我们前面的例子中通过该方法将我们自定义的解析器 CustomBeanDefinitionParser 注册到 handler 实例中。</p>
+<p>完成了对 handler 实例的解析，接下来就是调用 <code>NamespaceHandler#parse</code> 方法处理自定义标签：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> BeanDefinition <span class="title">parse</span><span class="params">(Element element, ParserContext parserContext)</span> </span>{</span><br><span class="line">    <span class="comment">// 寻找对应的解析器</span></span><br><span class="line">    BeanDefinitionParser parser = <span class="keyword">this</span>.findParserForElement(element, parserContext);</span><br><span class="line">    <span class="comment">// 基于解析器执行对自定义标签的解析（这里的解析过程是开发者自定义实现的）</span></span><br><span class="line">    <span class="keyword">return</span> (parser != <span class="keyword">null</span> ? parser.parse(element, parserContext) : <span class="keyword">null</span>);</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述实现主要分为 <strong>获取解析器</strong> 和 <strong>解析自定义标签</strong> 两个步骤，其中获取解析器就是依据我们使用的标签名从之前注册的 map 数据结构中获取相应的对象，然后调用 <code>AbstractBeanDefinitionParser#parse</code> 方法执行解析操作，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">final</span> BeanDefinition <span class="title">parse</span><span class="params">(Element element, ParserContext parserContext)</span> </span>{</span><br><span class="line">    <span class="comment">// 1. 创建自定义标签对应的 BeanDefinition 实例，并调用自定义解析器进行解析处理</span></span><br><span class="line">    AbstractBeanDefinition definition = <span class="keyword">this</span>.parseInternal(element, parserContext);</span><br><span class="line">    <span class="comment">// BeanDefinition 实例存在且不是嵌套的</span></span><br><span class="line">    <span class="keyword">if</span> (definition != <span class="keyword">null</span> &amp;&amp; !parserContext.isNested()) {</span><br><span class="line">        <span class="keyword">try</span> {</span><br><span class="line">            <span class="comment">// 2. 获取标签的 id 属性，该属性是必备的</span></span><br><span class="line">            String id = <span class="keyword">this</span>.resolveId(element, definition, parserContext);</span><br><span class="line">            <span class="keyword">if</span> (!StringUtils.hasText(id)) {</span><br><span class="line">                parserContext.getReaderContext().error(</span><br><span class="line">                        <span class="string">"Id is required for element '"</span> + parserContext.getDelegate().getLocalName(element) + <span class="string">"' when used as a top-level tag"</span>, element);</span><br><span class="line">            }</span><br><span class="line"></span><br><span class="line">            <span class="comment">// 3. 获取 name 属性</span></span><br><span class="line">            String[] aliases = <span class="keyword">null</span>;</span><br><span class="line">            <span class="keyword">if</span> (<span class="keyword">this</span>.shouldParseNameAsAliases()) {</span><br><span class="line">                String name = element.getAttribute(NAME_ATTRIBUTE);</span><br><span class="line">                <span class="keyword">if</span> (StringUtils.hasLength(name)) {</span><br><span class="line">                    aliases = StringUtils.trimArrayElements(StringUtils.commaDelimitedListToStringArray(name));</span><br><span class="line">                }</span><br><span class="line">            }</span><br><span class="line"></span><br><span class="line">            <span class="comment">// 4. 使用 BeanDefinitionHolder 封装 BeanDefinition 实例，便于注册到容器中</span></span><br><span class="line">            BeanDefinitionHolder holder = <span class="keyword">new</span> BeanDefinitionHolder(definition, id, aliases);</span><br><span class="line">            <span class="keyword">this</span>.registerBeanDefinition(holder, parserContext.getRegistry());</span><br><span class="line"></span><br><span class="line">            <span class="comment">// 5. 发布事件通知</span></span><br><span class="line">            <span class="keyword">if</span> (<span class="keyword">this</span>.shouldFireEvents()) {</span><br><span class="line">                BeanComponentDefinition componentDefinition = <span class="keyword">new</span> BeanComponentDefinition(holder);</span><br><span class="line">                <span class="keyword">this</span>.postProcessComponentDefinition(componentDefinition);</span><br><span class="line">                parserContext.registerComponent(componentDefinition);</span><br><span class="line">            }</span><br><span class="line">        } <span class="keyword">catch</span> (BeanDefinitionStoreException ex) {</span><br><span class="line">            String msg = ex.getMessage();</span><br><span class="line">            parserContext.getReaderContext().error((msg != <span class="keyword">null</span> ? msg : ex.toString()), element);</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">return</span> definition;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述方法中的第一步是整个方法的核心，我们后面细讲，先来看一下第二、三步骤。对于自定义标签来说，id 属性是必备的，此外 Spring 还内置了 name 和 parentName 字段，这些名称是不允许使用的，否则达不到我们预期的结果，笔者第一次使用自定义标签时就踩了坑，用了 name 作为自定义标签属性名，结果就是各种奇怪的问题。</p>
+<p>接下来看看第一步的实现逻辑，位于 <code>AbstractSingleBeanDefinitionParser#parseInternal</code> 方法中：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">protected</span> <span class="keyword">final</span> AbstractBeanDefinition <span class="title">parseInternal</span><span class="params">(Element element, ParserContext parserContext)</span> </span>{</span><br><span class="line">    <span class="comment">// 初始化自定义标签实例</span></span><br><span class="line">    BeanDefinitionBuilder builder = BeanDefinitionBuilder.genericBeanDefinition();</span><br><span class="line">    <span class="comment">// 获取并设置 parentName</span></span><br><span class="line">    String parentName = <span class="keyword">this</span>.getParentName(element);</span><br><span class="line">    <span class="keyword">if</span> (parentName != <span class="keyword">null</span>) {</span><br><span class="line">        builder.getRawBeanDefinition().setParentName(parentName);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 调用自定义 BeanDefinitionParser 中的 getBeanClass 方法</span></span><br><span class="line">    Class&lt;?&gt; beanClass = <span class="keyword">this</span>.getBeanClass(element);</span><br><span class="line">    <span class="keyword">if</span> (beanClass != <span class="keyword">null</span>) {</span><br><span class="line">        builder.getRawBeanDefinition().setBeanClass(beanClass);</span><br><span class="line">    } <span class="keyword">else</span> {</span><br><span class="line">        <span class="comment">// 如果自定义解析器没有重写 getBeanClass 方法，则检查子类是否重写了getBeanClassName 方法</span></span><br><span class="line">        String beanClassName = <span class="keyword">this</span>.getBeanClassName(element);</span><br><span class="line">        <span class="keyword">if</span> (beanClassName != <span class="keyword">null</span>) {</span><br><span class="line">            builder.getRawBeanDefinition().setBeanClassName(beanClassName);</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">    builder.getRawBeanDefinition().setSource(parserContext.extractSource(element));</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 如果当前标签是嵌套的，则继承外围 bean 的 scope 属性</span></span><br><span class="line">    BeanDefinition containingBd = parserContext.getContainingBeanDefinition();</span><br><span class="line">    <span class="keyword">if</span> (containingBd != <span class="keyword">null</span>) {</span><br><span class="line">        <span class="comment">// Inner bean definition must receive same scope as containing bean.</span></span><br><span class="line">        builder.setScope(containingBd.getScope());</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 解析并设置延迟加载</span></span><br><span class="line">    <span class="keyword">if</span> (parserContext.isDefaultLazyInit()) {</span><br><span class="line">        <span class="comment">// Default-lazy-init applies to custom bean definitions as well.</span></span><br><span class="line">        builder.setLazyInit(<span class="keyword">true</span>);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 调用自定义解析器覆盖实现的 doParse 方法进行解析</span></span><br><span class="line">    <span class="keyword">this</span>.doParse(element, parserContext, builder);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 返回自定义标签的 BeanDefinition 实例</span></span><br><span class="line">    <span class="keyword">return</span> builder.getBeanDefinition();</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述方法首先会初始化创建一个 BeanDefinitionBuilder 对象，然后依据配置设置对象的相应属性，其中会尝试调用自定义标签解析器覆盖实现的 <code>AbstractSingleBeanDefinitionParser#getBeanClass</code> 方法获取 bean 对应的 Class 对象。然后会调用 <code>AbstractSingleBeanDefinitionParser#doParse</code> 方法解析自定义标签，该方法由开发者实现：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">doParse</span><span class="params">(Element element, ParserContext parserContext, BeanDefinitionBuilder builder)</span> </span>{</span><br><span class="line">    String beanName = element.getAttribute(<span class="string">"c_name"</span>);</span><br><span class="line">    Assert.hasText(beanName, <span class="string">"The 'name' in alias tag is missing!"</span>);</span><br><span class="line">    Assert.isTrue(parserContext.getRegistry().containsBeanDefinition(beanName), <span class="string">"No bean name "</span> + beanName + <span class="string">" exist!"</span>);</span><br><span class="line">    String alias = element.getAttribute(<span class="string">"c_alias"</span>);</span><br><span class="line">    Assert.hasText(beanName, <span class="string">"The 'alias' in alias tag is missing!"</span>);</span><br><span class="line">    String[] aliasArray = alias.replaceAll(<span class="string">"\\s+"</span>, <span class="string">""</span>).split(<span class="string">"[,;]"</span>);</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">final</span> String ali : aliasArray) {</span><br><span class="line">        parserContext.getRegistry().registerAlias(beanName, ali);</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>最后，返回自定义标签对应的 BeanDefinition 实例。</p>
+
+        <h3 id="总结">
+          <a href="#总结" class="heading-link"><i class="fas fa-link"></i></a>总结</h3>
+      <p>本文演示了如何按照规范定义和使用自定义标签，并分析了 Spring 解析用户自定义标签的实现。分析到此，对于配置文件的解析过程也就基本分析完了。Spring 将一个个 bean 的静态配置解析成 BeanDefinition 实例注册到 IoC 容器中，接下去就可以调用 <code>BeanFactory#getBean</code> 方法获取 bean 实例了。建和初始化 bean 实例的过程也都由该方法触发，我们将在下一篇对这一过程的具体实现进行探究。</p>
+
+        <h3 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h3>
+      <ol>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/25866350/">Spring 源码深度解析</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+</ol>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2017/05/19/spring/spring-ioc-custom-element/">https://plotor.github.io/2017/05/19/spring/spring-ioc-custom-element/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Spring/">Spring</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2017/05/28/spring/spring-ioc-get-bean/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">Spring IoC 源码解析：创建和初始化 bean 实例</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2017/05/18/spring/spring-ioc-default-element/"><span class="paginator-prev__text">Spring IoC 源码解析：默认标签的解析过程</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89%E6%A0%87%E7%AD%BE%E7%9A%84%E5%AE%9A%E4%B9%89%E4%B8%8E%E4%BD%BF%E7%94%A8"><span class="toc-number">1.</span> <span class="toc-text">
+          自定义标签的定义与使用</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89%E6%A0%87%E7%AD%BE%E7%9A%84%E8%A7%A3%E6%9E%90%E8%BF%87%E7%A8%8B"><span class="toc-number">2.</span> <span class="toc-text">
+          自定义标签的解析过程</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">3.</span> <span class="toc-text">
+          总结</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">4.</span> <span class="toc-text">
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

@@ -1,0 +1,524 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="最近在看之前一个自己写的项目代码的时候，发现之前构造的责任链像个楼梯台阶一样的堆在那里，很是影响代码的美观性，并且一条链上的七、八个对象在每次请求时都需要创建一遍，对于一个高并发的项目来说，是一笔不小的开销，于是想对这一块的代码进行优化，而享元模式刚好满足我的需求。 享元模式（Flyweight）是 以共享的方式有效地支持大量的细粒度对象 。能做到共享的关键是区分 内部状态（Internal St">
+<meta property="og:type" content="article">
+<meta property="og:title" content="利用享元模式解决内存大量细粒度对象">
+<meta property="og:url" content="https://plotor.github.io/2017/04/13/design-pattern/flyweight/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="最近在看之前一个自己写的项目代码的时候，发现之前构造的责任链像个楼梯台阶一样的堆在那里，很是影响代码的美观性，并且一条链上的七、八个对象在每次请求时都需要创建一遍，对于一个高并发的项目来说，是一笔不小的开销，于是想对这一块的代码进行优化，而享元模式刚好满足我的需求。 享元模式（Flyweight）是 以共享的方式有效地支持大量的细粒度对象 。能做到共享的关键是区分 内部状态（Internal St">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2017-04-13T14:59:59.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.985Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="设计模式">
+<meta name="twitter:card" content="summary"><title>利用享元模式解决内存大量细粒度对象 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2017/04/13/design-pattern/flyweight/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">利用享元模式解决内存大量细粒度对象</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2017-04-13</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">3.7k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">17分</span></span></div></header><div class="post-body"><p>最近在看之前一个自己写的项目代码的时候，发现之前构造的责任链像个楼梯台阶一样的堆在那里，很是影响代码的美观性，并且一条链上的七、八个对象在每次请求时都需要创建一遍，对于一个高并发的项目来说，是一笔不小的开销，于是想对这一块的代码进行优化，而享元模式刚好满足我的需求。</p>
+<p>享元模式（Flyweight）是 <strong>以共享的方式有效地支持大量的细粒度对象</strong> 。能做到共享的关键是区分 <strong>内部状态（Internal State）</strong> 和 <strong>外部状态（External State）</strong> 。<a id="more"></a></p>
+<p><strong>内部状态</strong> ：存储在享元对象内部，且不会随环境改变而改变的状态。</p>
+<p><strong>外部状态</strong> ：随环境改变而改变，不可以共享的状态，必须由客户端保存，并在享元对象被创建之后，在需要使用的时候以参数形式传入到享元对象内部。</p>
+<p><strong>外部状态不可以影响享元对象的内部状态，即外部状态和内部状态是独立的</strong> 。</p>
+<p>享元模式就是将内部状态分离出来共享，称之为享元，通过共享享元对象来减少内存的占用，并将外部状态分离出来，放到外部让客户端去维护，并在需要的时候传递给享元对象使用。</p>
+<p>享元模式分为 <strong>单纯享元模式</strong> 和 <strong>复合享元模式</strong> 。</p>
+
+        <h3 id="单纯享元模式">
+          <a href="#单纯享元模式" class="heading-link"><i class="fas fa-link"></i></a>单纯享元模式</h3>
+      <p>单纯享元模式所定义的角色如下：</p>
+<ul>
+<li>抽象享元</li>
+</ul>
+<p>此角色是所有具体享元的超类，规定了具体享元需要实现的公共接口。</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 抽象享元</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> zhenchao.wang 2017-04-09 17:48</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@version</span> 1.0.0</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">AbstractFlyweight</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 操作函数</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> externalState 外部状态</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">operate</span><span class="params">(Object externalState)</span></span>;</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<ul>
+<li>具体享元</li>
+</ul>
+<p>实现了抽象享元的具体的类，如果有内部状态的话，必须为内部状态提供存储空间。</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 具体享元</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> zhenchao.wang 2017-04-09 17:50</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@version</span> 1.0.0</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ConcreteFlyweight</span> <span class="keyword">implements</span> <span class="title">AbstractFlyweight</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 内部状态 */</span></span><br><span class="line">    <span class="keyword">private</span> Object internalState;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">ConcreteFlyweight</span><span class="params">(Object internalState)</span> </span>{</span><br><span class="line">        <span class="keyword">this</span>.internalState = internalState;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">operate</span><span class="params">(Object externalState)</span> </span>{</span><br><span class="line"></span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<ul>
+<li>享元工厂</li>
+</ul>
+<p>负责创建和管理享元角色，需要保证享元角色被适当的共享，当客户端需要一个享元对象的时候，工厂需要检查是否有已定义的合适的对象可供使用，如果没有则创建新的享元对象。</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 享元工厂（单例）</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> zhenchao.wang 2017-04-09 17:53</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@version</span> 1.0.0</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">FlyweightFactory</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> Map&lt;String, AbstractFlyweight&gt; map = <span class="keyword">new</span> ConcurrentHashMap&lt;&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> FlyweightFactory INSTANCE = <span class="keyword">new</span> FlyweightFactory();</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">FlyweightFactory</span><span class="params">()</span> </span>{</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> FlyweightFactory <span class="title">getInstance</span><span class="params">()</span> </span>{</span><br><span class="line">        <span class="keyword">return</span> INSTANCE;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 获取享元</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> key</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> AbstractFlyweight <span class="title">getFlyweight</span><span class="params">(String key)</span> </span>{</span><br><span class="line">        AbstractFlyweight flyweight = map.get(key);</span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">null</span> == flyweight) {</span><br><span class="line">            flyweight = <span class="keyword">new</span> ConcreteFlyweight(<span class="string">"some internal state"</span>);</span><br><span class="line">            map.put(key, flyweight);</span><br><span class="line">        }</span><br><span class="line">        <span class="keyword">return</span> flyweight;</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<ul>
+<li>客户端</li>
+</ul>
+<p>维护一个对所有享元对象的引用，自行存储所有享元对象的外部状态。客户端不可以直接创建享元对象实例，而必须从工厂中获取。</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 客户端</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> zhenchao.wang 2017-04-09 18:16</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@version</span> 1.0.0</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Client</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>{</span><br><span class="line">        FlyweightFactory factory = FlyweightFactory.getInstance();</span><br><span class="line">        AbstractFlyweight flyweight = factory.getFlyweight(<span class="string">"any key"</span>);</span><br><span class="line">        flyweight.operate(<span class="string">"any external state"</span>);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>介绍完了单纯享元定义的各个角色，我以一个自己的实际项目来举例说明。游客账号是我们常见的一种账号类型，考虑到一般用户名密码的登录方式门槛较高，很多用户不愿意去登录，所以对于一些安全性要求不高的业务来说，我们可以为用户生成游客账号。比如在我的项目里，我选择了一些元素包括设备IMEI信息、安全芯片ID等信息生成游客账号，如果实在没有可以参考的因素，则直接生成随机的游客账号。在代码层面，针对每一种类型的账号，我都为其设计了相应的处理器，并且每个处理器都可以设置降级委托处理器，当当前处理器处理失败时，可以采用降级处理器处理。如果不用享元模式，那么每次来一个请求，我都需要根据具体的类型创建相应的处理器对象，然后处理请求，考虑到游客账号的请求量一般较大，所以有必要尽量避免创建一些不必要的对象。</p>
+<p>我们先来分析一下这里面哪些是内部状态，哪些是外部状态，因为享元模式的核心就是要将内部状态和外部状态区分开来，将内部状态封装在享元内部实现共享，而外部状态则有客户端传递进来。很显然，游客账号生成的参考元素是外部状态，因为每一个设备都有不同的设备IMEI信息，有的设备甚至还有安全芯片，这些东西必须由外面传递进来，而一个处理器的降级处理器则是内部状态，因为降级处理器一旦设定，不会动态变化。具体代码的实现如下：</p>
+<ul>
+<li>游客类型定义</li>
+</ul>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 游客类型</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> zhenchao.wang 2017-04-09 18:31</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@version</span> 1.0.0</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">enum</span> <span class="title">VisitorType</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 默认类型 */</span></span><br><span class="line">    DEFAULT(<span class="number">0</span>),</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 基于安全芯片 */</span></span><br><span class="line">    FID(<span class="number">1</span>),</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 基于设备IMEI信息 */</span></span><br><span class="line">    DEVICE(<span class="number">2</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">int</span> id;</span><br><span class="line"></span><br><span class="line">    VisitorType(<span class="keyword">int</span> id) {</span><br><span class="line">        <span class="keyword">this</span>.id = id;</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<ul>
+<li>游客处理器抽象享元</li>
+</ul>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 游客类型处理器抽象享元</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> zhenchao.wang 2017-04-09 18:19</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@version</span> 1.0.0</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="class"><span class="keyword">class</span> <span class="title">AbstractVisitorTypeFlyweight</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 创建或恢复游客信息</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> id</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">void</span> <span class="title">createOrRecoverVisitor</span><span class="params">(String id)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 内部创建或恢复游客信息</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">protected</span> <span class="keyword">boolean</span> <span class="title">createOrRecoverVisitorInternal</span><span class="params">()</span> </span>{</span><br><span class="line">        <span class="comment">// 模拟操作是否成功</span></span><br><span class="line">        <span class="keyword">return</span> RandomUtils.nextInt(<span class="number">0</span>, <span class="number">10</span>) &gt; <span class="number">5</span>;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<ul>
+<li>游客处理器具体享元</li>
+</ul>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 默认游客处理器享元</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> zhenchao.wang 2017-04-09 18:24</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@version</span> 1.0.0</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">DefaultVisitorTypeFlyweight</span> <span class="keyword">extends</span> <span class="title">AbstractVisitorTypeFlyweight</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 内部状态：委托处理器 */</span></span><br><span class="line">    <span class="keyword">private</span> AbstractVisitorTypeFlyweight delegateFlyweight;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">DefaultVisitorTypeFlyweight</span><span class="params">()</span> </span>{</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">DefaultVisitorTypeFlyweight</span><span class="params">(AbstractVisitorTypeFlyweight delegateFlyweight)</span> </span>{</span><br><span class="line">        <span class="keyword">this</span>.delegateFlyweight = delegateFlyweight;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">createOrRecoverVisitor</span><span class="params">(String id)</span> </span>{</span><br><span class="line">        System.out.println(<span class="string">"Create visitor info in default schema!"</span>);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * fid类型游客处理器享元</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> zhenchao.wang 2017-04-09 18:26</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@version</span> 1.0.0</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">FidVisitorTypeFlyweight</span> <span class="keyword">extends</span> <span class="title">AbstractVisitorTypeFlyweight</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 内部状态：委托处理器 */</span></span><br><span class="line">    <span class="keyword">private</span> AbstractVisitorTypeFlyweight delegateFlyweight;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">FidVisitorTypeFlyweight</span><span class="params">()</span> </span>{</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">FidVisitorTypeFlyweight</span><span class="params">(AbstractVisitorTypeFlyweight delegateFlyweight)</span> </span>{</span><br><span class="line">        <span class="keyword">this</span>.delegateFlyweight = delegateFlyweight;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">createOrRecoverVisitor</span><span class="params">(String fid)</span> </span>{</span><br><span class="line">        System.out.println(<span class="string">"Create or recover visitor info by fid : "</span> + fid);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">null</span> != delegateFlyweight &amp;&amp; !<span class="keyword">this</span>.createOrRecoverVisitorInternal()) {</span><br><span class="line">            <span class="comment">// 调用委托处理器处理</span></span><br><span class="line">            delegateFlyweight.createOrRecoverVisitor(fid);</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * DeviceId类型游客处理器享元</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> zhenchao.wang 2017-04-09 18:28</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@version</span> 1.0.0</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">DeviceIdVisitorTypeFlyweight</span> <span class="keyword">extends</span> <span class="title">AbstractVisitorTypeFlyweight</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 内部状态：委托处理器 */</span></span><br><span class="line">    <span class="keyword">private</span> AbstractVisitorTypeFlyweight delegateFlyweight;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">DeviceIdVisitorTypeFlyweight</span><span class="params">()</span> </span>{</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">DeviceIdVisitorTypeFlyweight</span><span class="params">(AbstractVisitorTypeFlyweight delegateFlyweight)</span> </span>{</span><br><span class="line">        <span class="keyword">this</span>.delegateFlyweight = delegateFlyweight;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">createOrRecoverVisitor</span><span class="params">(String deviceId)</span> </span>{</span><br><span class="line">        System.out.println(<span class="string">"Create or recover visitor info by device id : "</span> + deviceId);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<ul>
+<li>游客处理器享元工厂</li>
+</ul>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 游客类型处理器享元工厂</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> zhenchao.wang 2017-04-09 18:32</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@version</span> 1.0.0</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">VisitorTypeFlyweightFactory</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> VisitorTypeFlyweightFactory INSTANCE = <span class="keyword">new</span> VisitorTypeFlyweightFactory();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> Map&lt;VisitorType, AbstractVisitorTypeFlyweight&gt; flyweightMap = <span class="keyword">new</span> ConcurrentHashMap&lt;&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">VisitorTypeFlyweightFactory</span><span class="params">()</span> </span>{</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> VisitorTypeFlyweightFactory <span class="title">getInstance</span><span class="params">()</span> </span>{</span><br><span class="line">        <span class="keyword">return</span> INSTANCE;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 获取对应的享元</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> visitorType</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> AbstractVisitorTypeFlyweight <span class="title">getFlyweight</span><span class="params">(VisitorType visitorType)</span> </span>{</span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">null</span> == visitorType) {</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">        }</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 先从缓存中找</span></span><br><span class="line">        AbstractVisitorTypeFlyweight flyweight = flyweightMap.get(visitorType);</span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">null</span> != flyweight) {</span><br><span class="line">            <span class="keyword">return</span> flyweight;</span><br><span class="line">        }</span><br><span class="line"></span><br><span class="line">        <span class="keyword">switch</span> (visitorType) {</span><br><span class="line">            <span class="keyword">case</span> DEFAULT: {</span><br><span class="line">                flyweight = <span class="keyword">new</span> DefaultVisitorTypeFlyweight();</span><br><span class="line">                flyweightMap.put(VisitorType.DEFAULT, flyweight);</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            }</span><br><span class="line">            <span class="keyword">case</span> FID: {</span><br><span class="line">                <span class="comment">// 设置降级委托处理器</span></span><br><span class="line">                flyweight = <span class="keyword">new</span> FidVisitorTypeFlyweight(<span class="keyword">new</span> DefaultVisitorTypeFlyweight());</span><br><span class="line">                flyweightMap.put(VisitorType.FID, flyweight);</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            }</span><br><span class="line">            <span class="keyword">case</span> DEVICE: {</span><br><span class="line">                flyweight = <span class="keyword">new</span> DeviceIdVisitorTypeFlyweight();</span><br><span class="line">                flyweightMap.put(VisitorType.DEVICE, flyweight);</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            }</span><br><span class="line">            <span class="keyword">default</span>:</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">        }</span><br><span class="line">        <span class="keyword">return</span> flyweight;</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<ul>
+<li>客户端</li>
+</ul>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 客户端</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> zhenchao.wang 2017-04-09 22:04</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@version</span> 1.0.0</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Client</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>{</span><br><span class="line">        VisitorTypeFlyweightFactory factory = VisitorTypeFlyweightFactory.getInstance();</span><br><span class="line"></span><br><span class="line">        AbstractVisitorTypeFlyweight flyweight = factory.getFlyweight(VisitorType.DEFAULT);</span><br><span class="line">        flyweight.createOrRecoverVisitor(randomStr());</span><br><span class="line"></span><br><span class="line">        flyweight = factory.getFlyweight(VisitorType.FID);</span><br><span class="line">        flyweight.createOrRecoverVisitor(randomStr());</span><br><span class="line"></span><br><span class="line">        flyweight = factory.getFlyweight(VisitorType.DEVICE);</span><br><span class="line">        flyweight.createOrRecoverVisitor(randomStr());</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="keyword">static</span> String <span class="title">randomStr</span><span class="params">()</span> </span>{</span><br><span class="line">        <span class="keyword">return</span> RandomStringUtils.randomAlphanumeric(<span class="number">32</span>);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>通过上面的代码实现，可以发现享元工厂是整个享元模式实现共享的核心实现所在，通过对享元对象的缓存来保证每一个享元都只有一份，不过在实现之前要区分好内部状态和外部状态，不然会存在线程安全问题。</p>
+
+        <h3 id="复合享元模式">
+          <a href="#复合享元模式" class="heading-link"><i class="fas fa-link"></i></a>复合享元模式</h3>
+      <p>复合享元由单纯享元复合而成，一般来说复合享元的组成元素是随外部状态而变化的，所以复合享元通常被描述为不可共享的，这里的不可共享是指这个复合享元不可共享，但是组成复合享元的单纯享元还是共享的，但是我觉得如果外部状态的种类是有限的，我们也可以将复合享元设计成可共享的。</p>
+<p>复合享元定义了 5 种角色：抽象享元、具体享元、复合享元、享元工厂，客户端。其中除了复合享元，其余角色定义与单纯享元角色定义相同。 <strong>复合享元</strong> 所代表的对象是不可以共享的（所以也称作不可共享的享元对象），一个复合享元对象可以分解成多个单纯享元对象，复合享元具有以下两个责任：</p>
+<ol>
+<li><p>由单纯的享元对象复合而成，因此需要提供 <code>add()</code> 这样的聚集管理方法，一个复合对象具有不同的聚集，并且可以在对象创建之后被修改，所以复合对象的状态是可变的，也就不可共享的。</p>
+</li>
+<li><p>复合享元对象实现了抽象享元接口。</p>
+</li>
+</ol>
+<p>我还是以一个自己在项目中遇到的实际例子来举例说明，话说有一天我在看自己以前写的项目代码的时候，看到了下面这样的一坨代码：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 构建处理器链</span></span><br><span class="line">AbstractResultHandler resultHandler =</span><br><span class="line">        <span class="keyword">new</span> VisitorPassTokenCreateHandler(</span><br><span class="line">                <span class="keyword">new</span> SecurityHintUpdateHandler(</span><br><span class="line">                        <span class="keyword">new</span> AuthorizationModeHandler(</span><br><span class="line">                                <span class="keyword">new</span> SuccessResultHandler(), visitorInfo.getVisitorId(), requestParams.getSid()),</span><br><span class="line">                        visitorInfo.getVisitorId(), requestParams.getSid()), visitorInfo);</span><br></pre></td></tr></tbody></table></div></figure>
+<p>实际上这一坨代码虽然看起来不好看，但是其中的设计还是还是很灵活的，这里面我采用了责任链模式，并允许随机组合各个 handler，但是在构造上采用了静态构造的方式，所以就有了这样一坨构造的过程，也一直想干掉他。仔细分析一下，这坨代码不光不好看，其中每次创都要创建这么多对象也是不必要的，我们来用复合享元进行重构。</p>
+<p>首先对这段代码及其背后的实现做一个抽象的描述，实际项目中我们可能需要对方法结果做一些后置的处理，假设我们有1, 2, 3, 4四个后置结果处理器，并且这些处理器具备优先级，同时可以随机进行组合，对于结果处理器而言，没有必要每次请求都现场创建，所以可以用享元模式进行改造，因为结果处理器是可以随意组合的，所以这里可以采用复合享元来根据外部状态构建合适的复合处理器。</p>
+<p>前面有介绍说复合享元是由单纯享元复合而成的，所以我们可以先设计好单纯享元，然后由单纯享元复合成复合享元。区分外部状态和内部状态是享元的关键，对于本例子而言，处理器的优先级是内部状态，而待处理的结果则是外部状态，单纯享元的实现如下：</p>
+<ul>
+<li>结果处理器抽象享元</li>
+</ul>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 抽象结果处理器</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> zhenchao.wang 2017-04-12 23:42</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@version</span> 1.0.0</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="class"><span class="keyword">class</span> <span class="title">AbstractResultHandler</span> <span class="keyword">implements</span> <span class="title">Comparable</span>&lt;<span class="title">AbstractResultHandler</span>&gt; </span>{</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 内部状态：基础优先级 */</span></span><br><span class="line">    <span class="keyword">protected</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> BASE_PRIORITY = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 处理函数</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> obj</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">void</span> <span class="title">handle</span><span class="params">(Object obj)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 返回处理器的优先级</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">int</span> <span class="title">getPriority</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">int</span> <span class="title">compareTo</span><span class="params">(AbstractResultHandler handler)</span> </span>{</span><br><span class="line">        <span class="keyword">return</span> handler.getPriority() - <span class="keyword">this</span>.getPriority();</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<ul>
+<li>结果处理器具体享元</li>
+</ul>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * first result handler implementation</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> zhenchao.wang 2017-04-12 23:47</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@version</span> 1.0.0</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">FirstResultHandler</span> <span class="keyword">extends</span> <span class="title">AbstractResultHandler</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">handle</span><span class="params">(Object obj)</span> </span>{</span><br><span class="line">        System.out.println(<span class="string">"first handle"</span>);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">int</span> <span class="title">getPriority</span><span class="params">()</span> </span>{</span><br><span class="line">        <span class="keyword">return</span> BASE_PRIORITY + <span class="number">40</span>;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * second result handler implementation</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> zhenchao.wang 2017-4-12 23:48:56</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@version</span> 1.0.0</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">SecondResultHandler</span> <span class="keyword">extends</span> <span class="title">AbstractResultHandler</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">handle</span><span class="params">(Object obj)</span> </span>{</span><br><span class="line">        System.out.println(<span class="string">"second handle"</span>);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">int</span> <span class="title">getPriority</span><span class="params">()</span> </span>{</span><br><span class="line">        <span class="keyword">return</span> BASE_PRIORITY + <span class="number">30</span>;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * third result handler implementation</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> zhenchao.wang 2017-4-12 23:49:25</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@version</span> 1.0.0</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ThirdResultHandler</span> <span class="keyword">extends</span> <span class="title">AbstractResultHandler</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">handle</span><span class="params">(Object obj)</span> </span>{</span><br><span class="line">        System.out.println(<span class="string">"third handle"</span>);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">int</span> <span class="title">getPriority</span><span class="params">()</span> </span>{</span><br><span class="line">        <span class="keyword">return</span> BASE_PRIORITY + <span class="number">20</span>;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * fourth result handler implementation</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> zhenchao.wang 2017-4-12 23:50:11</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@version</span> 1.0.0</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">FourthResultHandler</span> <span class="keyword">extends</span> <span class="title">AbstractResultHandler</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">handle</span><span class="params">(Object obj)</span> </span>{</span><br><span class="line">        System.out.println(<span class="string">"fourth handle"</span>);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">int</span> <span class="title">getPriority</span><span class="params">()</span> </span>{</span><br><span class="line">        <span class="keyword">return</span> BASE_PRIORITY + <span class="number">10</span>;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<ul>
+<li>享元工厂</li>
+</ul>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 单纯的结果处理器享元工厂（单例）</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> zhenchao.wang 2017-04-13 22:09</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@version</span> 1.0.0</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ResultHandlerFactory</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> Map&lt;String, AbstractResultHandler&gt; handlerMap = <span class="keyword">new</span> ConcurrentHashMap&lt;&gt;(<span class="number">4</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">volatile</span> ResultHandlerFactory instance;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">ResultHandlerFactory</span><span class="params">()</span> </span>{</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 双检查单例</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> ResultHandlerFactory <span class="title">getInstance</span><span class="params">()</span> </span>{</span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">null</span> == instance) {</span><br><span class="line">            <span class="keyword">synchronized</span> (ResultHandlerFactory.class) {</span><br><span class="line">                <span class="keyword">if</span> (<span class="keyword">null</span> == instance) {</span><br><span class="line">                    instance = <span class="keyword">new</span> ResultHandlerFactory();</span><br><span class="line">                }</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 获取结构处理器享元</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> key</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> AbstractResultHandler <span class="title">getResultHandler</span><span class="params">(String key)</span> </span>{</span><br><span class="line">        <span class="keyword">if</span> (StringUtils.isBlank(key)) {</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">        }</span><br><span class="line"></span><br><span class="line">        AbstractResultHandler handler = handlerMap.get(key);</span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">null</span> != handler) {</span><br><span class="line">            <span class="keyword">return</span> handler;</span><br><span class="line">        }</span><br><span class="line"></span><br><span class="line">        <span class="keyword">switch</span> (key) {</span><br><span class="line">            <span class="keyword">case</span> <span class="string">"1"</span>: {</span><br><span class="line">                handler = <span class="keyword">new</span> FirstResultHandler();</span><br><span class="line">                handlerMap.put(<span class="string">"1"</span>, handler);</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            }</span><br><span class="line">            <span class="keyword">case</span> <span class="string">"2"</span>: {</span><br><span class="line">                handler = <span class="keyword">new</span> SecondResultHandler();</span><br><span class="line">                handlerMap.put(<span class="string">"2"</span>, handler);</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            }</span><br><span class="line">            <span class="keyword">case</span> <span class="string">"3"</span>: {</span><br><span class="line">                handler = <span class="keyword">new</span> ThirdResultHandler();</span><br><span class="line">                handlerMap.put(<span class="string">"3"</span>, handler);</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            }</span><br><span class="line">            <span class="keyword">case</span> <span class="string">"4"</span>: {</span><br><span class="line">                handler = <span class="keyword">new</span> FourthResultHandler();</span><br><span class="line">                handlerMap.put(<span class="string">"4"</span>, handler);</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            }</span><br><span class="line">            <span class="keyword">default</span>:</span><br><span class="line">                <span class="comment">// nothing</span></span><br><span class="line">        }</span><br><span class="line">        <span class="keyword">return</span> handler;</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>构造好了单纯的享元，我们再来复合实现复合享元：</p>
+<ul>
+<li>结果处理器复合享元</li>
+</ul>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 结果处理器复合享元</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> zhenchao.wang 2017-04-13 21:42</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@version</span> 1.0.0</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">CompositeResultHandler</span> <span class="keyword">extends</span> <span class="title">AbstractResultHandler</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 存储构造复合享元的单纯享元集合 */</span></span><br><span class="line">    <span class="keyword">private</span> List&lt;AbstractResultHandler&gt; handlers = <span class="keyword">new</span> ArrayList&lt;&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">handle</span><span class="params">(Object obj)</span> </span>{</span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">final</span> AbstractResultHandler handler : handlers) {</span><br><span class="line">            handler.handle(obj);</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">int</span> <span class="title">getPriority</span><span class="params">()</span> </span>{</span><br><span class="line">        <span class="keyword">return</span> BASE_PRIORITY;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">add</span><span class="params">(AbstractResultHandler handler)</span> </span>{</span><br><span class="line">        handlers.add(handler);</span><br><span class="line">        <span class="comment">// 对处理按照优先级由大到小排序</span></span><br><span class="line">        Collections.sort(handlers);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<ul>
+<li>复合享元工厂</li>
+</ul>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 复合享元工厂（单例）</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> zhenchao.wang 2017-04-12 23:52</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@version</span> 1.0.0</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">CompositeResultHandlerFactory</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> ResultHandlerFactory resultHandlerFactory = ResultHandlerFactory.getInstance();</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 基于静态内部类的单例实现 */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="class"><span class="keyword">class</span> <span class="title">InnerClass</span> </span>{</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> CompositeResultHandlerFactory INSTANCE = <span class="keyword">new</span> CompositeResultHandlerFactory();</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="title">CompositeResultHandlerFactory</span><span class="params">()</span> </span>{</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> CompositeResultHandlerFactory <span class="title">getInstance</span><span class="params">()</span> </span>{</span><br><span class="line">        <span class="keyword">return</span> InnerClass.INSTANCE;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 获取结果处理器复合享元</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> key</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> CompositeResultHandler <span class="title">getCompositeResultHandler</span><span class="params">(String key)</span> </span>{</span><br><span class="line">        <span class="keyword">if</span> (StringUtils.isBlank(key)) {</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">        }</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 构建复合享元</span></span><br><span class="line">        CompositeResultHandler compositeHandler = <span class="keyword">new</span> CompositeResultHandler();</span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; key.length(); i++) {</span><br><span class="line">            AbstractResultHandler handler = resultHandlerFactory.getResultHandler(String.valueOf(key.charAt(i)));</span><br><span class="line">            <span class="keyword">if</span> (<span class="keyword">null</span> != handler) {</span><br><span class="line">                compositeHandler.add(handler);</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">        <span class="keyword">return</span> compositeHandler;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<ul>
+<li>客户端</li>
+</ul>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 客户端</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@author</span> zhenchao.wang 2017-04-13 22:45</span></span><br><span class="line"><span class="comment"> * <span class="doctag">@version</span> 1.0.0</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Client</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>{</span><br><span class="line">        CompositeResultHandlerFactory factory = CompositeResultHandlerFactory.getInstance();</span><br><span class="line">        AbstractResultHandler handler = factory.getCompositeResultHandler(<span class="string">"124"</span>);</span><br><span class="line">        handler.handle(<span class="keyword">new</span> Object());</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="享元模式的应用场景">
+          <a href="#享元模式的应用场景" class="heading-link"><i class="fas fa-link"></i></a>享元模式的应用场景</h3>
+      <p>满足下列所有条件时，可以考虑使用享元模式：</p>
+<blockquote>
+<ol>
+<li>一个系统有大量的对象</li>
+<li>这些对象消耗着大量的内存</li>
+<li>这些对象中的大部分都可以外部化</li>
+<li>这些对象可以按照内部状态分成很多的组，当把外部对象从对象中剔除时，每一个组都可以仅用一个对象表示</li>
+<li>软件对象不依赖于这些对象的身份，即这些对象是不可分辨的</li>
+</ol>
+</blockquote>
+
+        <h3 id="享元模式的优缺点">
+          <a href="#享元模式的优缺点" class="heading-link"><i class="fas fa-link"></i></a>享元模式的优缺点</h3>
+      <ul>
+<li>优点</li>
+</ul>
+<p>大幅度降低了内存中对象的数量</p>
+<ul>
+<li>缺点</li>
+</ul>
+<p>系统设计更加复杂，将享元独享的状态外部化，拉长运行时间</p>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2017/04/13/design-pattern/flyweight/">https://plotor.github.io/2017/04/13/design-pattern/flyweight/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/">设计模式</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2017/04/15/design-pattern/principle/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">程序设计中的基本原则</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2017/03/11/protocol/oauth-v2-token/"><span class="paginator-prev__text">OAuth 2.0 协议原理与实现：Token 生成策略</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8D%95%E7%BA%AF%E4%BA%AB%E5%85%83%E6%A8%A1%E5%BC%8F"><span class="toc-number">1.</span> <span class="toc-text">
+          单纯享元模式</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A4%8D%E5%90%88%E4%BA%AB%E5%85%83%E6%A8%A1%E5%BC%8F"><span class="toc-number">2.</span> <span class="toc-text">
+          复合享元模式</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BA%AB%E5%85%83%E6%A8%A1%E5%BC%8F%E7%9A%84%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="toc-number">3.</span> <span class="toc-text">
+          享元模式的应用场景</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BA%AB%E5%85%83%E6%A8%A1%E5%BC%8F%E7%9A%84%E4%BC%98%E7%BC%BA%E7%82%B9"><span class="toc-number">4.</span> <span class="toc-text">
+          享元模式的优缺点</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

@@ -1,0 +1,890 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="Traversable 和 Iterable 特质定义了 scala 集合的基本操作，后续文章中将要介绍的 Seq、Set，以及 Map 等集合都实现了这两个特质。本文主要对 Traversable 和 Iterable 中定义的方法进行归类和介绍，了解这些方法也就基本知道了 scala 集合的大部分操作。 Traversable 定义为 Trait 类型，包含 2 个直接派生的子特质 mutab">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Scala 集合：基础 API">
+<meta property="og:url" content="https://plotor.github.io/2018/05/16/scala/scala-collection-common/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="Traversable 和 Iterable 特质定义了 scala 集合的基本操作，后续文章中将要介绍的 Seq、Set，以及 Map 等集合都实现了这两个特质。本文主要对 Traversable 和 Iterable 中定义的方法进行归类和介绍，了解这些方法也就基本知道了 scala 集合的大部分操作。 Traversable 定义为 Trait 类型，包含 2 个直接派生的子特质 mutab">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2018-05-16T08:42:56.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.975Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Scala">
+<meta name="twitter:card" content="summary"><title>Scala 集合：基础 API | 指  间</title><link ref="canonical" href="https://plotor.github.io/2018/05/16/scala/scala-collection-common/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">Scala 集合：基础 API</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2018-05-16</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">7.9k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">40分</span></span></div></header><div class="post-body"><p>Traversable 和 Iterable 特质定义了 scala 集合的基本操作，后续文章中将要介绍的 Seq、Set，以及 Map 等集合都实现了这两个特质。本文主要对 Traversable 和 Iterable 中定义的方法进行归类和介绍，了解这些方法也就基本知道了 scala 集合的大部分操作。</p>
+<p>Traversable 定义为 Trait 类型，包含 2 个直接派生的子特质 <code>mutable.Traversable</code> 和 <code>immutable.Traversable</code>，分别表示可变集合和不可变集合。其中不可变集合是指集合中的元素一旦初始化完成便不可再被修改，任何对该集合的修改操作都将生成一个新的集合。Traversable 特质的定义如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">trait</span> <span class="title">Traversable</span>[+<span class="type">A</span>] <span class="keyword">extends</span> <span class="title">TraversableLike</span>[<span class="type">A</span>, <span class="type">Traversable</span>[<span class="type">A</span>]]</span></span><br><span class="line"><span class="class">                         <span class="keyword">with</span> <span class="title">GenTraversable</span>[<span class="type">A</span>]</span></span><br><span class="line"><span class="class">                         <span class="keyword">with</span> <span class="title">TraversableOnce</span>[<span class="type">A</span>]</span></span><br><span class="line"><span class="class">                         <span class="keyword">with</span> <span class="title">GenericTraversableTemplate</span>[<span class="type">A</span>, <span class="type">Traversable</span>]</span></span><br></pre></td></tr></tbody></table></div></figure>
+<a id="more"></a>
+
+<p>Traversable 是一个 Trait 类型，所以我们不能直接通过 new 关键字来创建 Traversable 对象，但是 scala 为 Traversable 定义了伴生对象，我们可以通过伴生对象的 apply 方法创建 Traversable 类型对象（eg. <code>Traversable(1, 2, 3)</code>）。同时我们可以使用 repr 函数得到这个具体的实现类对象：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> until <span class="number">10</span>: _*)</span><br><span class="line">t.repr <span class="comment">// 返回的是一个 List 对象</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>Iterable 继承自 Traversable，也是一个特质类型，定义如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">trait</span> <span class="title">Iterable</span>[+<span class="type">A</span>] <span class="keyword">extends</span> <span class="title">Traversable</span>[<span class="type">A</span>]</span></span><br><span class="line"><span class="class">                      <span class="keyword">with</span> <span class="title">GenIterable</span>[<span class="type">A</span>]</span></span><br><span class="line"><span class="class">                      <span class="keyword">with</span> <span class="title">GenericTraversableTemplate</span>[<span class="type">A</span>, <span class="type">Iterable</span>]</span></span><br><span class="line"><span class="class">                      <span class="keyword">with</span> <span class="title">IterableLike</span>[<span class="type">A</span>, <span class="type">Iterable</span>[<span class="type">A</span>]]</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>Iterable 同样包含 2 个直接派生的子特质 <code>mutable.Iterable</code> 和 <code>immutable.Iterable</code>。</p>
+
+        <h3 id="一-构造-amp-填充">
+          <a href="#一-构造-amp-填充" class="heading-link"><i class="fas fa-link"></i></a>一. 构造 &amp; 填充</h3>
+      
+        <h4 id="1-1-fill">
+          <a href="#1-1-fill" class="heading-link"><i class="fas fa-link"></i></a>1.1 fill</h4>
+      <p>函数 fill 可以生成指定维度的集合，并使用给定的值对集合进行填充。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t1 = <span class="type">Traversable</span>.fill(<span class="number">3</span>)(<span class="string">"A"</span>)</span><br><span class="line">t1 <span class="comment">// 输出：List(A, A, A)</span></span><br><span class="line"><span class="keyword">val</span> t3 = <span class="type">Traversable</span>.fill(<span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>)(<span class="type">RandomUtils</span>.nextInt(<span class="number">0</span>, <span class="number">100</span>))</span><br><span class="line">t3.foreach(println)</span><br></pre></td></tr></tbody></table></div></figure>
+<p>集合 t3 内容如下：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">List(List(18, 43, 2, 78), List(7, 78, 52, 20), List(7, 85, 77, 85))</span><br><span class="line">List(List(82, 15, 36, 29), List(5, 83, 32, 78), List(99, 22, 13, 22))</span><br></pre></td></tr></tbody></table></div></figure>
+<p>函数 fill 包含多个重载版本（如下），其中第 1 组参数用于指定目标集合的维度，第 2 个函数是 <code>elem: =&gt; A</code> 类型，允许我们使用不同的元素对集合进行填充，例如示例中指定的随机数函数。</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">fill</span></span>[<span class="type">A</span>](n: <span class="type">Int</span>)(elem: =&gt; <span class="type">A</span>): <span class="type">CC</span>[<span class="type">A</span>]</span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">fill</span></span>[<span class="type">A</span>](n1: <span class="type">Int</span>, n2: <span class="type">Int</span>)(elem: =&gt; <span class="type">A</span>): <span class="type">CC</span>[<span class="type">CC</span>[<span class="type">A</span>]]</span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">fill</span></span>[<span class="type">A</span>](n1: <span class="type">Int</span>, n2: <span class="type">Int</span>, n3: <span class="type">Int</span>)(elem: =&gt; <span class="type">A</span>): <span class="type">CC</span>[<span class="type">CC</span>[<span class="type">CC</span>[<span class="type">A</span>]]]</span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">fill</span></span>[<span class="type">A</span>](n1: <span class="type">Int</span>, n2: <span class="type">Int</span>, n3: <span class="type">Int</span>, n4: <span class="type">Int</span>)(elem: =&gt; <span class="type">A</span>): <span class="type">CC</span>[<span class="type">CC</span>[<span class="type">CC</span>[<span class="type">CC</span>[<span class="type">A</span>]]]]</span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">fill</span></span>[<span class="type">A</span>](n1: <span class="type">Int</span>, n2: <span class="type">Int</span>, n3: <span class="type">Int</span>, n4: <span class="type">Int</span>, n5: <span class="type">Int</span>)(elem: =&gt; <span class="type">A</span>): <span class="type">CC</span>[<span class="type">CC</span>[<span class="type">CC</span>[<span class="type">CC</span>[<span class="type">CC</span>[<span class="type">A</span>]]]]]</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="1-2-tabulate">
+          <a href="#1-2-tabulate" class="heading-link"><i class="fas fa-link"></i></a>1.2 tabulate</h4>
+      <p>函数 tabulate 与 fill 的功能类似，区别在于第 2 个函数，函数 tabulate 会将集合对应的下标值传递给函数 f，我们可以依据下标值生成集合元素值。函数 tabulate 的定义如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">tabulate</span></span>[<span class="type">A</span>](n: <span class="type">Int</span>)(f: <span class="type">Int</span> =&gt; <span class="type">A</span>): <span class="type">CC</span>[<span class="type">A</span>]</span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">tabulate</span></span>[<span class="type">A</span>](n1: <span class="type">Int</span>, n2: <span class="type">Int</span>)(f: (<span class="type">Int</span>, <span class="type">Int</span>) =&gt; <span class="type">A</span>): <span class="type">CC</span>[<span class="type">CC</span>[<span class="type">A</span>]]</span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">tabulate</span></span>[<span class="type">A</span>](n1: <span class="type">Int</span>, n2: <span class="type">Int</span>, n3: <span class="type">Int</span>)(f: (<span class="type">Int</span>, <span class="type">Int</span>, <span class="type">Int</span>) =&gt; <span class="type">A</span>): <span class="type">CC</span>[<span class="type">CC</span>[<span class="type">CC</span>[<span class="type">A</span>]]]</span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">tabulate</span></span>[<span class="type">A</span>](n1: <span class="type">Int</span>, n2: <span class="type">Int</span>, n3: <span class="type">Int</span>, n4: <span class="type">Int</span>)(f: (<span class="type">Int</span>, <span class="type">Int</span>, <span class="type">Int</span>, <span class="type">Int</span>) =&gt; <span class="type">A</span>): <span class="type">CC</span>[<span class="type">CC</span>[<span class="type">CC</span>[<span class="type">CC</span>[<span class="type">A</span>]]]]</span><br><span class="line"> <span class="function"><span class="keyword">def</span> <span class="title">tabulate</span></span>[<span class="type">A</span>](n1: <span class="type">Int</span>, n2: <span class="type">Int</span>, n3: <span class="type">Int</span>, n4: <span class="type">Int</span>, n5: <span class="type">Int</span>)(f: (<span class="type">Int</span>, <span class="type">Int</span>, <span class="type">Int</span>, <span class="type">Int</span>, <span class="type">Int</span>) =&gt; <span class="type">A</span>): <span class="type">CC</span>[<span class="type">CC</span>[<span class="type">CC</span>[<span class="type">CC</span>[<span class="type">CC</span>[<span class="type">A</span>]]]]]</span><br></pre></td></tr></tbody></table></div></figure>
+<p>示例（生成乘法口诀表）：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>.tabulate(<span class="number">9</span>, <span class="number">9</span>)((x, y) =&gt; (x + <span class="number">1</span>) * (y + <span class="number">1</span>))</span><br><span class="line">t.foreach(h =&gt; println(h.mkString(<span class="string">"\t"</span>)))</span><br></pre></td></tr></tbody></table></div></figure>
+<p>输出：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">1	2	3	4	5	6	7	8	9</span><br><span class="line">2	4	6	8	10	12	14	16	18</span><br><span class="line">3	6	9	12	15	18	21	24	27</span><br><span class="line">4	8	12	16	20	24	28	32	36</span><br><span class="line">5	10	15	20	25	30	35	40	45</span><br><span class="line">6	12	18	24	30	36	42	48	54</span><br><span class="line">7	14	21	28	35	42	49	56	63</span><br><span class="line">8	16	24	32	40	48	56	64	72</span><br><span class="line">9	18	27	36	45	54	63	72	81</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="1-3-iterate">
+          <a href="#1-3-iterate" class="heading-link"><i class="fas fa-link"></i></a>1.3 iterate</h4>
+      <p>函数 iterate 的定义如下，其中参数 start 用于指定起始值，len 用于限定生成集合的长度，并依据 start 值应用 f 函数生成集合元素，生成算法为 <code>start, f(start), f(f(start)), ...</code>：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">iterate</span></span>[<span class="type">A</span>](start: <span class="type">A</span>, len: <span class="type">Int</span>)(f: <span class="type">A</span> =&gt; <span class="type">A</span>): <span class="type">CC</span>[<span class="type">A</span>]</span><br></pre></td></tr></tbody></table></div></figure>
+<p>示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>.iterate(<span class="number">1</span>, <span class="number">10</span>)(_ + <span class="number">2</span>)</span><br><span class="line">t <span class="comment">// 输出：List(1, 3, 5, 7, 9, 11, 13, 15, 17, 19)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="1-4-range">
+          <a href="#1-4-range" class="heading-link"><i class="fas fa-link"></i></a>1.4 range</h4>
+      <p>函数 range 提供了 3 个参数，其中 start 和 end 用于指定结果元素值的上下界，参数 step 用于指定步进值：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">range</span></span>[<span class="type">T</span>: <span class="type">Integral</span>](start: <span class="type">T</span>, end: <span class="type">T</span>, step: <span class="type">T</span>): <span class="type">CC</span>[<span class="type">T</span>]</span><br></pre></td></tr></tbody></table></div></figure>
+<p>示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>.range(<span class="number">0</span>, <span class="number">11</span>, <span class="number">2</span>)</span><br><span class="line">t <span class="comment">// 输出：List(0, 2, 4, 6, 8, 10)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="二-平展操作">
+          <a href="#二-平展操作" class="heading-link"><i class="fas fa-link"></i></a>二. 平展操作</h3>
+      
+        <h4 id="2-1-flatten">
+          <a href="#2-1-flatten" class="heading-link"><i class="fas fa-link"></i></a>2.1 flatten</h4>
+      <p>假设我们希望对 <code>Traversable(Traversable(1, 2), Traversable(2, 3), Traversable(3, 4))</code> 执行平展操作得到 <code>(1, 2, 2, 3, 3, 4)</code>，那么可以使用 flatten 函数实现。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="type">Traversable</span>(<span class="number">1</span>, <span class="number">2</span>), <span class="type">Traversable</span>(<span class="number">2</span>, <span class="number">3</span>), <span class="type">Traversable</span>(<span class="number">3</span>, <span class="number">4</span>))</span><br><span class="line">t.flatten <span class="comment">// 输出：List(1, 2, 2, 3, 3, 4)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>关于 flatten 操作的 3 个问题：</p>
+<ol>
+<li>如果 Traversable 对象中包含的元素类型不一致怎么办，平展后的集合类型是什么？</li>
+</ol>
+<p>这种情况下 scala 会从类型继承树中寻找这些类型的公共父类型，并以公共类型作为结果类型，最差的结果就是生成 <code>Traversable[Any]</code> 类型的集合。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="type">Traversable</span>(<span class="number">1</span>, <span class="number">2</span>), <span class="type">Traversable</span>(<span class="number">2</span>L, <span class="number">3</span>L), <span class="type">Traversable</span>(<span class="string">"3"</span>, <span class="string">"4"</span>))</span><br><span class="line">t.flatten <span class="comment">// 输出：res: Traversable[Any] = List(1, 2, 2, 3, 3, 4)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<ol start="2">
+<li>如果 Traversable 对象中包含的元素，有的是普通类型，有的是集合类型，能否平展？</li>
+</ol>
+<p>如果不添加隐式转换，那么这种情况下是不允许平展的，因为 flatten 方法要求集合的元素必须继承或者能够转换成 GenTraversableOnce 类型。但是如果添加隐式转换，将元素类型转换成 Traversable 类型，就可以实现转换。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 隐式转换</span></span><br><span class="line"><span class="keyword">implicit</span> <span class="function"><span class="keyword">def</span> <span class="title">asTraversable</span></span>[<span class="type">T</span> &lt;: <span class="type">Any</span>](x: <span class="type">T</span>): <span class="type">Traversable</span>[<span class="type">T</span>] = x <span class="keyword">match</span> {</span><br><span class="line">    <span class="keyword">case</span> v: <span class="type">Traversable</span>[<span class="type">T</span>] =&gt; v</span><br><span class="line">    <span class="keyword">case</span> v =&gt; <span class="type">Traversable</span>(v)</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="type">Traversable</span>(<span class="number">2</span>, <span class="number">3</span>), <span class="type">Traversable</span>(<span class="number">3</span>, <span class="number">4</span>))</span><br><span class="line">t.flatten(asTraversable) <span class="comment">// 输出：List(1, 2, 2, 3, 3, 4)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<ol start="3">
+<li>如果 Traversable 对象中包含的元素是多层嵌套集合，能否平展？</li>
+</ol>
+<p>平展只能是浅层的，所以这种情况下并不会执行平展操作。</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="type">Traversable</span>(<span class="type">Traversable</span>(<span class="number">1</span>, <span class="number">2</span>), <span class="type">Traversable</span>(<span class="number">2</span>, <span class="number">3</span>)), <span class="type">Traversable</span>(<span class="type">Traversable</span>(<span class="number">3</span>, <span class="number">4</span>)))</span><br><span class="line">t.flatten <span class="comment">// 不会平展</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>平展 flatten 操作有一个比较典型的应用就是对包含 Option 类型的 Traversable 执行平展操作，剔除 None 值，返回 Some 所包含的值。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="type">Some</span>(<span class="number">1</span>), <span class="type">None</span>, <span class="type">Some</span>(<span class="number">2</span>))</span><br><span class="line">t.flatten <span class="comment">// 输出：List(1, 2)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="三-转置操作">
+          <a href="#三-转置操作" class="heading-link"><i class="fas fa-link"></i></a>三. 转置操作</h3>
+      
+        <h4 id="3-1-transpose">
+          <a href="#3-1-transpose" class="heading-link"><i class="fas fa-link"></i></a>3.1 transpose</h4>
+      <p>假设我们需要一个矩阵执行转置操作（如下），那么在 scala 中可以使用 transpose 操作完成。</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">1  4  7      1  2  3</span><br><span class="line">2  5  8  -&gt;  4  5  6</span><br><span class="line">3  6  9      7  8  9</span><br></pre></td></tr></tbody></table></div></figure>
+<p>实现：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> matrix = <span class="type">Traversable</span>(<span class="type">Traversable</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>), <span class="type">Traversable</span>(<span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>), <span class="type">Traversable</span>(<span class="number">7</span>, <span class="number">8</span>, <span class="number">9</span>))</span><br><span class="line">matrix.transpose <span class="comment">// 输出：List(List(1, 4, 7), List(2, 5, 8), List(3, 6, 9))</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>注意</strong> ：每个集合中包含的元素个数必须一致。</p>
+
+        <h3 id="四-（拉）拉链操作">
+          <a href="#四-（拉）拉链操作" class="heading-link"><i class="fas fa-link"></i></a>四. （拉）拉链操作</h3>
+      
+        <h4 id="4-1-zip">
+          <a href="#4-1-zip" class="heading-link"><i class="fas fa-link"></i></a>4.1 zip</h4>
+      <p>函数 zip 用于对两个 Iterable 对象执行拉拉链操作，并 <strong>以较短的集合为准，忽略较长集合中多出来的元素</strong> ，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> itr1 = <span class="type">Iterable</span>(<span class="number">1</span>, <span class="number">3</span>, <span class="number">5</span>)</span><br><span class="line"><span class="keyword">val</span> itr2 = <span class="type">Iterable</span>(<span class="string">"A"</span>, <span class="string">"B"</span>, <span class="string">"C"</span>, <span class="string">"D"</span>)</span><br><span class="line">itr1.zip(itr2) <span class="comment">// 输出：List((1,A), (3,B), (5,C))</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="4-2-zipAll">
+          <a href="#4-2-zipAll" class="heading-link"><i class="fas fa-link"></i></a>4.2 zipAll</h4>
+      <p>函数 zipAll 同样用于对两个 Iterable 对象执行拉拉链操作，但是与 zip 相反的是，函数 zipAll <strong>以较长的集合为准，并用提供的默认值对较短的集合进行弥补</strong> 。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> itr1 = <span class="type">Iterable</span>(<span class="number">1</span>, <span class="number">3</span>, <span class="number">5</span>)</span><br><span class="line"><span class="keyword">val</span> itr2 = <span class="type">Iterable</span>(<span class="string">"A"</span>, <span class="string">"B"</span>, <span class="string">"C"</span>, <span class="string">"D"</span>)</span><br><span class="line">itr1.zipAll(itr2, <span class="number">0</span>, <span class="string">"X"</span>) <span class="comment">// 输出：List((1,A), (3,B), (5,C), (0,D))</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>函数 zipAll 的定义如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">zipAll</span></span>[<span class="type">B</span>, <span class="type">A1</span> &gt;: <span class="type">A</span>, <span class="type">That</span>](that: <span class="type">GenIterable</span>[<span class="type">B</span>], thisElem: <span class="type">A1</span>, thatElem: <span class="type">B</span>)(<span class="keyword">implicit</span> bf: <span class="type">CanBuildFrom</span>[<span class="type">Repr</span>, (<span class="type">A1</span>, <span class="type">B</span>), <span class="type">That</span>]): <span class="type">That</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>其中参数 thisElem 用于设置左边集合对应的默认值，参数 thatElem 用于设置右边集合对应的默认值。</p>
+
+        <h4 id="4-3-zipWithIndex">
+          <a href="#4-3-zipWithIndex" class="heading-link"><i class="fas fa-link"></i></a>4.3 zipWithIndex</h4>
+      <p>函数 zipWithIndex 用于将 Iterable 对象中的元素与集合下标进行拉拉链操作，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> itr = <span class="type">Iterable</span>(<span class="string">"A"</span>, <span class="string">"B"</span>, <span class="string">"C"</span>, <span class="string">"D"</span>)</span><br><span class="line">itr.zipWithIndex <span class="comment">// 输出：List((A,0), (B,1), (C,2), (D,3))</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>如果需要将下标放置在前面，我们可以使用 map 函数进行转换：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> itr = <span class="type">Iterable</span>(<span class="string">"A"</span>, <span class="string">"B"</span>, <span class="string">"C"</span>, <span class="string">"D"</span>)</span><br><span class="line">itr.zipWithIndex.map(x =&gt; (x._2, x._1)) <span class="comment">// 输出：List((0,A), (1,B), (2,C), (3,D))</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="五-（解）拉链操作">
+          <a href="#五-（解）拉链操作" class="heading-link"><i class="fas fa-link"></i></a>五. （解）拉链操作</h3>
+      
+        <h4 id="5-1-unzip">
+          <a href="#5-1-unzip" class="heading-link"><i class="fas fa-link"></i></a>5.1 unzip</h4>
+      <p>示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="string">"a"</span> -&gt; <span class="number">1</span>, <span class="string">"b"</span> -&gt; <span class="number">2</span>, <span class="string">"c"</span> -&gt; <span class="number">3</span>)</span><br><span class="line"><span class="keyword">val</span> tuple = t.unzip</span><br><span class="line">tuple._1 <span class="comment">// 输出：List(a, b, c)</span></span><br><span class="line">tuple._2 <span class="comment">// 输出：List(1, 2, 3)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>函数 unzip 的定义如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">unzip</span></span>[<span class="type">A1</span>, <span class="type">A2</span>](<span class="keyword">implicit</span> asPair: <span class="type">A</span> =&gt; (<span class="type">A1</span>, <span class="type">A2</span>)): (<span class="type">CC</span>[<span class="type">A1</span>], <span class="type">CC</span>[<span class="type">A2</span>])</span><br></pre></td></tr></tbody></table></div></figure>
+<p>函数接收一个 <code>A =&gt; (A1, A2)</code> 类型的 asPair 隐式参数，我们可以自定义该隐式参数，以实现更加复杂的解拉链操作，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="string">"a_1"</span>, <span class="string">"b_2"</span>, <span class="string">"c_3"</span>)</span><br><span class="line"><span class="keyword">val</span> tuple = t.unzip(x =&gt; (x(<span class="number">0</span>), x.substring(<span class="number">2</span>).toInt))</span><br><span class="line">tuple._1 <span class="comment">// 输出：List(a, b, c)</span></span><br><span class="line">tuple._2) <span class="comment">// 输出：List(1, 2, 3)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="5-2-unzip3">
+          <a href="#5-2-unzip3" class="heading-link"><i class="fas fa-link"></i></a>5.2 unzip3</h4>
+      <p>函数 unzip 用于将 1 个集合分成 2 个集合，而函数 unzip3 则用于将 1 个集合分成 3 个集合，unzip3 的定义如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">unzip3</span></span>[<span class="type">A1</span>, <span class="type">A2</span>, <span class="type">A3</span>](<span class="keyword">implicit</span> asTriple: <span class="type">A</span> =&gt; (<span class="type">A1</span>, <span class="type">A2</span>, <span class="type">A3</span>)): (<span class="type">CC</span>[<span class="type">A1</span>], <span class="type">CC</span>[<span class="type">A2</span>], <span class="type">CC</span>[<span class="type">A3</span>])</span><br></pre></td></tr></tbody></table></div></figure>
+<p>函数 unzip3 接收一个 <code>A =&gt; (A1, A2, A3)</code> 类型的 asTriple 隐式参数。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="string">"name, age, school"</span>, <span class="string">"zhenchao, 28, WHU"</span>, <span class="string">"guida, 28, HUST"</span>)</span><br><span class="line"><span class="keyword">val</span> tuple3 = t.unzip3(x =&gt; {</span><br><span class="line">    <span class="keyword">val</span> elems = x.split(<span class="string">", "</span>)</span><br><span class="line">    (elems(<span class="number">0</span>), elems(<span class="number">1</span>), elems(<span class="number">2</span>))</span><br><span class="line">})</span><br><span class="line">tuple3._1 <span class="comment">// 输出：List(name, zhenchao, guida)</span></span><br><span class="line">tuple3._2 <span class="comment">// 输出：List(age, 28, 28)</span></span><br><span class="line">tuple3._3 <span class="comment">// 输出：List(school, WHU, HUST)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="六-连接操作">
+          <a href="#六-连接操作" class="heading-link"><i class="fas fa-link"></i></a>六. 连接操作</h3>
+      
+        <h4 id="6-1">
+          <a href="#6-1" class="heading-link"><i class="fas fa-link"></i></a>6.1 ++</h4>
+      <p>如果有 2 个 Traversable 对象，我们希望将这 2 个对象中的元素进行连接，可以使用 <code>++</code> 函数，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t1 = <span class="type">Traversable</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>)</span><br><span class="line"><span class="keyword">val</span> t2 = <span class="type">Traversable</span>(<span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>)</span><br><span class="line">t1 ++ t2 <span class="comment">// 输出：List(1, 2, 3, 3, 4, 5)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>需要注意的是，函数 <code>++</code> 并不要求这两个 Traversable 对象中的元素类型必须一致，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t1 = <span class="type">Traversable</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>)</span><br><span class="line"><span class="keyword">val</span> t2 = <span class="type">Traversable</span>(<span class="string">"3"</span>, <span class="string">"4"</span>, <span class="string">"5"</span>)</span><br><span class="line">t1 ++ t2 <span class="comment">// 输出：List(1, 2, 3, 3, 4, 5)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>连接操作的结果类型是 <code>scala.collection.immutable.$colon$colon</code>，即 <code>scala.collection.immutable.::</code>，其中 <code>::</code> 类型是 List 的子类型。具体的元素类型是两个 Traversable 对象中元素类型的公共父类型，这里对应的是 Any 类型。</p>
+<p>在 Traversable 的实现中，结果类型与左边的集合类型保持一致，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t1 = <span class="type">List</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>)</span><br><span class="line"><span class="keyword">val</span> t2 = <span class="type">Set</span>(<span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>)</span><br><span class="line"> t1 ++ t2 <span class="comment">// 结果类型为 List 类型</span></span><br><span class="line"> t2 ++ t1 <span class="comment">// 结果类型是 Set 类型</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>另外 Traversable 还提供了 <code>++:</code> 方法，该方法也表示连接操作，只是将左边的集合连接到右边的集合，结果类型由右边的集合决定。 <strong>在 scala 中，以 <code>:</code> 结尾的函数都是右操作的</strong> ，即 <code>A ++ B</code> 等价于 <code>B ++: A</code>。</p>
+<p>Scala 允许以一些特殊符号对类或方法进行命名，但是这在 JVM 中是不允许，为了保证能够正常编译，Scala 使用 mangled 技术将这些特殊字符编码成 <code>$name</code> 的形式以满足 JVM 的要求。对应字符编码之后的值如下：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">~ -&gt; $tilde</span><br><span class="line">= -&gt; $eq</span><br><span class="line">&lt; -&gt; $less</span><br><span class="line">&gt; -&gt; $greater</span><br><span class="line">! -&gt; $bang</span><br><span class="line"># -&gt; $hash</span><br><span class="line">% -&gt; $percent</span><br><span class="line">^ -&gt; $up</span><br><span class="line">| -&gt; $bar</span><br><span class="line">* -&gt; $times</span><br><span class="line">/ -&gt; $div</span><br><span class="line">+ -&gt; $plus</span><br><span class="line">- -&gt; $minus</span><br><span class="line">: -&gt; $colon</span><br><span class="line">\ -&gt; $bslash</span><br><span class="line">? -&gt; $qmark</span><br><span class="line">@ -&gt; $at</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="6-2-concat">
+          <a href="#6-2-concat" class="heading-link"><i class="fas fa-link"></i></a>6.2 concat</h4>
+      <p>如果我们需要对多个 Traversable 对象执行连接操作，一种解决方式就是对所有的对象执行 <code>++</code> 操作，即 <code>A ++ B ++ C ++ ...</code>，但是这样会在每次执行 <code>++</code> 操作时生成一个新的集合，影响性能。</p>
+<p>这种情况下可以使用 concat 函数，它会预先计算出所需的结果集合大小，然后生成结果，减少了中间临时集合对象的生成。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>.concat(<span class="type">Traversable</span>(<span class="number">0</span> to <span class="number">5</span>: _*), <span class="type">Traversable</span>(<span class="number">5</span> to <span class="number">10</span>: _*), <span class="type">Traversable</span>(<span class="number">10</span> to <span class="number">15</span>: _*))</span><br><span class="line"><span class="comment">// 输出：List(0, 1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 10, 10, 11, 12, 13, 14, 15)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="七-使用偏函数（PartialFunction）对结果进行收集">
+          <a href="#七-使用偏函数（PartialFunction）对结果进行收集" class="heading-link"><i class="fas fa-link"></i></a>七. 使用偏函数（PartialFunction）对结果进行收集</h3>
+      
+        <h4 id="7-1-collect-amp-collectFirst">
+          <a href="#7-1-collect-amp-collectFirst" class="heading-link"><i class="fas fa-link"></i></a>7.1 collect &amp; collectFirst</h4>
+      <p>函数 collect 的定义如下，它接收一个偏函数 PartialFunction 类型的参数：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">collect</span></span>[<span class="type">B</span>, <span class="type">That</span>](pf: <span class="type">PartialFunction</span>[<span class="type">A</span>, <span class="type">B</span>])(<span class="keyword">implicit</span> bf: <span class="type">CanBuildFrom</span>[<span class="type">Repr</span>, <span class="type">B</span>, <span class="type">That</span>]): <span class="type">That</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>我们可以自定义偏函数对 Traversable 集合中的元素进行筛选，仅保留满足条件的集合，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">filterEven</span></span>: <span class="type">PartialFunction</span>[<span class="type">Int</span>, <span class="type">String</span>] = {</span><br><span class="line">    <span class="keyword">case</span> x <span class="keyword">if</span> x % <span class="number">2</span> == <span class="number">0</span> =&gt; x.toString <span class="comment">// 输出类型为 String，仅输出偶数</span></span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> to <span class="number">10</span>: _*)</span><br><span class="line">t.collect(filterEven) <span class="comment">// 输出：List(2, 4, 6, 8, 10)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>与 filter 函数不同的是，偏函数接收一个集合中的元素 A，并输出一个结果元素 B，元素 B 的类型可以与 A 的类型不同。可以说 collect 函数兼具 filter 和 map 的功能。</p>
+<p>函数 collectFirst 是 collect 的特殊版本，它返回满足条件的第 1 个元素，对应 Option 类型，如果不存在满足条件的元素则返回 None。</p>
+<p><strong>偏函数说明：</strong></p>
+<p>包括在花括号内的一组 case 语句组成一个偏函数（partial function），偏函数并非对所有输入值都有定义，常见的 try-catch 语句的 catch 子句就是一个偏函数。偏函数是特质 <code>PartialFunction[-A, +B]</code> 的一个实例，其中 A 是入参类型，B 是返回值类型，该类有两个方法，apply 方法从匹配到的模式计算函数值，isDefinedAt 方法校验当前的输入是否有对应匹配的模式，如果有则返回 true，否则返回 false。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> f: <span class="type">PartialFunction</span>[<span class="type">Char</span>, <span class="type">Int</span>] = {</span><br><span class="line">    <span class="keyword">case</span> '+' =&gt; <span class="number">1</span></span><br><span class="line">    <span class="keyword">case</span> '-' =&gt; <span class="number">-1</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>调用：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">"-3+4"</span>.collect(f) <span class="comment">// Vector(-1, 1)</span></span><br><span class="line">f.apply('+') <span class="comment">// 1</span></span><br><span class="line">f.isDefinedAt('*') <span class="comment">// false</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>前面说到偏函数并非对所有的输入值都有定义，这里我们的入参为 <code>-3+4</code>，而偏函数 f 仅对 <code>-+</code> 有定义，所以返回值是 <code>(-1, 1)</code>。如果完全覆盖了所有场景则是一个 Function1，而不仅仅是一个 PartialFunction。</p>
+<p>我们可以调用 <code>PartialFunction#lift</code> 方法将一个偏函数转换成返回 <code>Option[R]</code> 类型的常规函数，这样对于偏函数有定义的输入值返回 Some 类型，没有的则返回 None。方法 unlift 可以将一个常规函数转换成一个偏函数。</p>
+
+        <h3 id="八-过滤操作">
+          <a href="#八-过滤操作" class="heading-link"><i class="fas fa-link"></i></a>八. 过滤操作</h3>
+      
+        <h4 id="8-1-filter-amp-filterNot">
+          <a href="#8-1-filter-amp-filterNot" class="heading-link"><i class="fas fa-link"></i></a>8.1 filter &amp; filterNot</h4>
+      <p>函数 filter 和 filterNot 用于对 Traversable 对象中的元素进行筛选，区别在于前者保留满足筛选条件的元素，而后者保留不满足筛选条件的元素。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> to <span class="number">10</span>: _*)</span><br><span class="line">t.filter(_ % <span class="number">2</span> == <span class="number">0</span>) <span class="comment">// 输出：List(2, 4, 6, 8, 10)</span></span><br><span class="line">t.filterNot(_ % <span class="number">2</span> == <span class="number">0</span>) <span class="comment">// 输出：List(1, 3, 5, 7, 9)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="8-2-withFilter">
+          <a href="#8-2-withFilter" class="heading-link"><i class="fas fa-link"></i></a>8.2 withFilter</h4>
+      <p>函数 withFilter 同样接收一个谓词 <code>A =&gt; Boolean</code>，对 Traversable 对象中的元素进行筛选，并保留满足条件的元素。区别于 filter，函数 withFilter 返回的结果类型是 FilterMonadic 特质，定义如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">trait</span> <span class="title">FilterMonadic</span>[+<span class="type">A</span>, +<span class="type">Repr</span>] <span class="keyword">extends</span> <span class="title">Any</span> </span>{</span><br><span class="line">  <span class="function"><span class="keyword">def</span> <span class="title">map</span></span>[<span class="type">B</span>, <span class="type">That</span>](f: <span class="type">A</span> =&gt; <span class="type">B</span>)(<span class="keyword">implicit</span> bf: <span class="type">CanBuildFrom</span>[<span class="type">Repr</span>, <span class="type">B</span>, <span class="type">That</span>]): <span class="type">That</span></span><br><span class="line">  <span class="function"><span class="keyword">def</span> <span class="title">flatMap</span></span>[<span class="type">B</span>, <span class="type">That</span>](f: <span class="type">A</span> =&gt; scala.collection.<span class="type">GenTraversableOnce</span>[<span class="type">B</span>])(<span class="keyword">implicit</span> bf: <span class="type">CanBuildFrom</span>[<span class="type">Repr</span>, <span class="type">B</span>, <span class="type">That</span>]): <span class="type">That</span></span><br><span class="line">  <span class="function"><span class="keyword">def</span> <span class="title">foreach</span></span>[<span class="type">U</span>](f: <span class="type">A</span> =&gt; <span class="type">U</span>): <span class="type">Unit</span></span><br><span class="line">  <span class="function"><span class="keyword">def</span> <span class="title">withFilter</span></span>(p: <span class="type">A</span> =&gt; <span class="type">Boolean</span>): <span class="type">FilterMonadic</span>[<span class="type">A</span>, <span class="type">Repr</span>]</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>也就是说我们在调用 withFilter 函数之后，接下去只能调用 map、flatMap、foreach，以及 withFilter 这几个函数。这里对应函数式编程的 Monad 概念，表示一个计算序列，可以让程序使用管道式的方式处理数据。在这样的计算模式中可以流式调用多个上述函数，但是只有在调用 foreach 时才会真正执行计算。而 filter 函数在每次调用时都会进行计算并返回一个新的集合，因此 withFilter 在性能上会更加高一些。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> to <span class="number">10</span>: _*)</span><br><span class="line">t.withFilter(_ % <span class="number">2</span> == <span class="number">0</span>).withFilter(_ &gt; <span class="number">6</span>).foreach(println) <span class="comment">// 输出：2 和 8</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="九-归约操作">
+          <a href="#九-归约操作" class="heading-link"><i class="fas fa-link"></i></a>九. 归约操作</h3>
+      
+        <h4 id="9-1-scan-amp-scanLeft">
+          <a href="#9-1-scan-amp-scanLeft" class="heading-link"><i class="fas fa-link"></i></a>9.1 scan &amp; scanLeft</h4>
+      <p>假设我们希望计算 [1, 5] 区间数据的阶乘，最简单的方式就是定义一个计算阶乘的函数，然后遍历应用集合中的每个元素，但是这样每次都需要从 1 开始执行计算，而不能复用之前的计算结果，实际上 <code>5! = 5 * 4!</code>，我们计算完 4 的阶乘之后乘以 5 即得到 5 的阶乘，而不需要重 1 开始重新计算。</p>
+<p>使用 scan 函数我们可以做到复用，函数 scan 的定义如下，它接收一个初始值 z 和一个操作符 op， <strong>前一次的计算结果会作为初始值传递给下一次计算</strong> ：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">scan</span></span>[<span class="type">B</span> &gt;: <span class="type">A</span>, <span class="type">That</span>](z: <span class="type">B</span>)(op: (<span class="type">B</span>, <span class="type">B</span>) =&gt; <span class="type">B</span>)(<span class="keyword">implicit</span> cbf: <span class="type">CanBuildFrom</span>[<span class="type">Repr</span>, <span class="type">B</span>, <span class="type">That</span>]): <span class="type">That</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>计算阶乘的示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> to <span class="number">5</span>: _*)</span><br><span class="line">t.scan(<span class="number">1</span>)(_ * _) <span class="comment">// 输出：List(1, 1, 2, 6, 24, 120)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>函数 scan 只是 scanLeft 的别名，本质上就是 scanLeft。</p>
+
+        <h4 id="9-2-scanRight">
+          <a href="#9-2-scanRight" class="heading-link"><i class="fas fa-link"></i></a>9.2 scanRight</h4>
+      <p>函数 scan 从左往右对集合进行遍历，而 scanRight 则从右往左对集合进行遍历，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> to <span class="number">5</span>: _*)</span><br><span class="line">t.scanRight(<span class="number">1</span>)(_ * _) <span class="comment">// 输出：List(120, 120, 60, 20, 5, 1)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>函数 scanRight 会从右往左对集合中的元素进行遍历，并将计算结果按照同样的顺序记录到结果集合中，同时将中间结果传递给下一次计算作为初始值。</p>
+
+        <h4 id="9-3-fold-amp-foldLeft">
+          <a href="#9-3-fold-amp-foldLeft" class="heading-link"><i class="fas fa-link"></i></a>9.3 fold &amp; foldLeft</h4>
+      <p>函数 fold 的作用与 scan 有些相似，会将上一次计算得到的中间结果传递给下一次计算，但是区别于 scan，函数 fold 并不会输出中间结果，而只是返回函数最后一次计算得到的最终结果。</p>
+<p>示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> to <span class="number">10</span>: _*)</span><br><span class="line"><span class="keyword">val</span> sum = t.fold(<span class="number">0</span>)(_ + _) <span class="comment">// 输出：55</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述示例使用 fold 对集合中的元素进行求和，本质上与 sum 函数是一致的，实际上 sum 底层也是依赖于 fold 实现的。</p>
+<p>函数 fold 只是 foldLeft 的别名，本质上就是 foldLeft。</p>
+<p>Scala 为 foldLeft 提供了简写版的 <code>/:</code> 函数，上面的示例可以改写如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> sum = (<span class="number">0</span> /: t) (_ + _)</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="9-4-foldRight">
+          <a href="#9-4-foldRight" class="heading-link"><i class="fas fa-link"></i></a>9.4 foldRight</h4>
+      <p>函数 foldRight 用于对集合中元素从右往左进行遍历，并应用计算，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>)</span><br><span class="line">t.foldRight(<span class="string">"x"</span>)(_ + _) <span class="comment">// 输出：abcx</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>Scala 也为 foldRight 提供了简写版的 <code>:\</code> 函数，上面的示例可以改写如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> res = (t :\ <span class="string">"x"</span>) (_ + _)</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="9-5-reduce-amp-reduceOption-amp-reduceLeft-amp-reduceLeftOption">
+          <a href="#9-5-reduce-amp-reduceOption-amp-reduceLeft-amp-reduceLeftOption" class="heading-link"><i class="fas fa-link"></i></a>9.5 reduce &amp; reduceOption &amp; reduceLeft &amp; reduceLeftOption</h4>
+      <p>函数 reduce 在功能上与 fold 相同，只是不需要提供初始值，函数 reduce 会以集合的第 1 个元素作为初始值，并提供从左往右的归约计算。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> to <span class="number">10</span>: _*)</span><br><span class="line">t.reduce(_ + _) <span class="comment">// 输出：55</span></span><br><span class="line">t.reduceLeft(_ + _) <span class="comment">// 输出：55</span></span><br><span class="line">t.reduceOption(_ + _) <span class="comment">// 输出：Some(55)</span></span><br><span class="line">t.reduceLeftOption(_ + _) <span class="comment">// 输出：Some(55)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>其实函数 reduce 和 reduceOption 分别对应函数 reduceLeft 和 reduceLeftOption 的别名，二者的区别在于当集合为空时，reduce 会抛出异常，而 reduceOption 只是返回 None。如果集合中只有 1 个元素，那么两个函数均返回该元素，而不是抛出异常。</p>
+
+        <h4 id="9-6-reduceRight-amp-reduceRightOption">
+          <a href="#9-6-reduceRight-amp-reduceRightOption" class="heading-link"><i class="fas fa-link"></i></a>9.6 reduceRight &amp; reduceRightOption</h4>
+      <p>函数 reduceRight 对标 reduceLeft，函数 reduceRightOption 对标 reduceLeftOption，区别仅在于是从右往左进行计算，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> to <span class="number">10</span>: _*)</span><br><span class="line">t.reduceRight(_ * <span class="number">10</span> + _) <span class="comment">// 输出：460</span></span><br><span class="line">t.reduceRightOption(_ * <span class="number">10</span> + _) <span class="comment">// 输出：Some(460)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="十-元素获取与检索">
+          <a href="#十-元素获取与检索" class="heading-link"><i class="fas fa-link"></i></a>十. 元素获取与检索</h3>
+      
+        <h4 id="10-1-head-amp-headOption">
+          <a href="#10-1-head-amp-headOption" class="heading-link"><i class="fas fa-link"></i></a>10.1 head &amp; headOption</h4>
+      <p>函数 head 和 headOption 都是用于从 Traversable 对象中获取第一个元素，区别在于前者在元素不存在时抛出 NoSuchElementException 异常，而后者返回 None。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> to <span class="number">10</span>: _*)</span><br><span class="line">t.head <span class="comment">// 输出：1</span></span><br><span class="line">t.headOption <span class="comment">// 输出：Some(1)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="10-2-last-amp-lastOption">
+          <a href="#10-2-last-amp-lastOption" class="heading-link"><i class="fas fa-link"></i></a>10.2 last &amp; lastOption</h4>
+      <p>函数 last 和 lastOption 都是用于从 Traversable 对象中获取最后一个元素，区别在于前者在元素不存在时抛出 NoSuchElementException 异常，而后者返回 None。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> to <span class="number">10</span>: _*)</span><br><span class="line">t.last <span class="comment">// 输出：10</span></span><br><span class="line">t.lastOption <span class="comment">// 输出：Some(10)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>注意</strong> ：对于 Traversable 来说，默认的 last 实现会遍历整个集合，时间复杂度为 <code>O(n)</code>。</p>
+
+        <h4 id="10-3-find">
+          <a href="#10-3-find" class="heading-link"><i class="fas fa-link"></i></a>10.3 find</h4>
+      <p>函数 find 用于从 Traversable 对象中基于给定的筛选条件 <code>A =&gt; Boolean</code> 选择第一个满足条件的元素，如果不存在则返回 None。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> to <span class="number">10</span>: _*)</span><br><span class="line">t.find(_ % <span class="number">2</span> == <span class="number">0</span>) <span class="comment">// 输出：Some(2)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="10-4-tail-amp-tails">
+          <a href="#10-4-tail-amp-tails" class="heading-link"><i class="fas fa-link"></i></a>10.4 tail &amp; tails</h4>
+      <p>前面介绍了 head 函数用于返回 Traversable 对象的第一个元素，而 tail 函数正好与 head 函数互补，用于返回 Traversable 对象除第一个元素以外的剩余元素。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> to <span class="number">10</span>: _*)</span><br><span class="line">t.tail <span class="comment">// 输出：List(2, 3, 4, 5, 6, 7, 8, 9, 10)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>我们可以说一个集合是由 head 和 tail 组成的：<code>head :: tail</code>。</p>
+<p>函数 tails 与 tail 的作用类似，但是多了一个 s，所以该函数的返回结果是一个集合，可以将 tails 看做是对集合迭代执行 tail 操作并生成结果集，其中第一个结果是原集合，而最后一个结果是空集合。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> to <span class="number">10</span>: _*)</span><br><span class="line">t.tails.foreach(println)</span><br></pre></td></tr></tbody></table></div></figure>
+<p>输出：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)</span><br><span class="line">List(2, 3, 4, 5, 6, 7, 8, 9, 10)</span><br><span class="line">List(3, 4, 5, 6, 7, 8, 9, 10)</span><br><span class="line">List(4, 5, 6, 7, 8, 9, 10)</span><br><span class="line">List(5, 6, 7, 8, 9, 10)</span><br><span class="line">List(6, 7, 8, 9, 10)</span><br><span class="line">List(7, 8, 9, 10)</span><br><span class="line">List(8, 9, 10)</span><br><span class="line">List(9, 10)</span><br><span class="line">List(10)</span><br><span class="line">List()</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="10-5-init-amp-inits">
+          <a href="#10-5-init-amp-inits" class="heading-link"><i class="fas fa-link"></i></a>10.5 init &amp; inits</h4>
+      <p>函数 init 的作用正好与 tail 相反，它与 last 函数正好互补，用于返回 Traversable 对象除最后一个元素以外的剩余元素。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> to <span class="number">10</span>: _*)</span><br><span class="line">t.init <span class="comment">// 输出：List(1, 2, 3, 4, 5, 6, 7, 8, 9)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>而 inits 函数的作用也正好与 tails 相反，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> to <span class="number">10</span>: _*)</span><br><span class="line">t.inits.foreach(println)</span><br></pre></td></tr></tbody></table></div></figure>
+<p>输出：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)</span><br><span class="line">List(1, 2, 3, 4, 5, 6, 7, 8, 9)</span><br><span class="line">List(1, 2, 3, 4, 5, 6, 7, 8)</span><br><span class="line">List(1, 2, 3, 4, 5, 6, 7)</span><br><span class="line">List(1, 2, 3, 4, 5, 6)</span><br><span class="line">List(1, 2, 3, 4, 5)</span><br><span class="line">List(1, 2, 3, 4)</span><br><span class="line">List(1, 2, 3)</span><br><span class="line">List(1, 2)</span><br><span class="line">List(1)</span><br><span class="line">List()</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="10-6-take-amp-takeWhile">
+          <a href="#10-6-take-amp-takeWhile" class="heading-link"><i class="fas fa-link"></i></a>10.6 take &amp; takeWhile</h4>
+      <p>函数 take 用于从 Traversable 中获取前 n 个元素（如果集合长度小于 n，则返回全部元素），示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">4</span>, <span class="number">3</span>, <span class="number">2</span>, <span class="number">1</span>)</span><br><span class="line">t.take(<span class="number">5</span>) <span class="comment">// 输出：List(1, 2, 3, 4, 5)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>函数 takeWhile 接收一个谓词 <code>A =&gt; Boolean</code>，用于从左往右对 Traversable 对象中的元素进行筛选，直到第一个不满足条件的元素为止。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">4</span>, <span class="number">3</span>, <span class="number">2</span>, <span class="number">1</span>)</span><br><span class="line">t.takeWhile(_ &lt;= <span class="number">3</span>) <span class="comment">// 输出：List(1, 2, 3)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="10-7-drop-amp-dropWhile">
+          <a href="#10-7-drop-amp-dropWhile" class="heading-link"><i class="fas fa-link"></i></a>10.7 drop &amp; dropWhile</h4>
+      <p>函数 drop 与 take 刚好相反，用于获取 Traversable 对象中除前 n 个元素之外的元素（如果集合长度小于 n，则返回空集合），示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">4</span>, <span class="number">3</span>, <span class="number">2</span>, <span class="number">1</span>)</span><br><span class="line">t.drop(<span class="number">5</span>) <span class="comment">// 输出：List(4, 3, 2, 1)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>如果 n 小于等于 0，则返回整个集合。</p>
+<p>函数 dropWhile 与 takeWhile 刚好相反，它也接收一个谓词 <code>A =&gt; Boolean</code>，用于从左往右对 Traversable 对象中的元素进行筛选并跳过开头连续满足谓词的的元素，并返回该元素之后元素组成的集合。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">4</span>, <span class="number">3</span>, <span class="number">2</span>, <span class="number">1</span>)</span><br><span class="line">t.dropWhile(_ &lt;= <span class="number">3</span>) <span class="comment">// 输出：List(4, 5, 4, 3, 2, 1)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="10-8-takeRight-amp-dropRight">
+          <a href="#10-8-takeRight-amp-dropRight" class="heading-link"><i class="fas fa-link"></i></a>10.8 takeRight &amp; dropRight</h4>
+      <p>函数 takeRight 用于获取 Iterable 集合的后 n 个元素，而函数 dropRight 用于阶段 Iterable 集合的后 n 个元素，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> itr = <span class="type">Iterable</span>(<span class="number">1</span> to <span class="number">9</span>: _*)</span><br><span class="line">itr.takeRight(<span class="number">3</span>) <span class="comment">// 输出：List(7, 8, 9)</span></span><br><span class="line">itr.dropRight(<span class="number">3</span>) <span class="comment">// 输出：List(1, 2, 3, 4, 5, 6)</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="10-9-slice">
+          <a href="#10-9-slice" class="heading-link"><i class="fas fa-link"></i></a>10.9 slice</h4>
+      <p>函数 slice 用于获取原 Traversable 对象的一个子集合，函数的定义为 <code>slice(from: Int, until: Int)</code>，第 2 个参数命名为 until，所以我们可以知道截取的是一个 <strong>左闭右开</strong> 的区间。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> to <span class="number">10</span>: _*)</span><br><span class="line">t.slice(<span class="number">3</span>, <span class="number">5</span>) <span class="comment">// 输出：List(4, 5)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>注意</strong> ：如果 from 或 until 的参数值超过了集合的上下标，则以集合的上下标为准，不会抛出异常。</p>
+
+        <h3 id="十一-分组操作">
+          <a href="#十一-分组操作" class="heading-link"><i class="fas fa-link"></i></a>十一. 分组操作</h3>
+      
+        <h4 id="11-1-splitAt">
+          <a href="#11-1-splitAt" class="heading-link"><i class="fas fa-link"></i></a>11.1 splitAt</h4>
+      <p>函数 splitAt 接收一个参数 n，并以位置 n 将 Traversable 集合分割成前后两部分，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> to <span class="number">10</span>: _*)</span><br><span class="line">t.splitAt(<span class="number">3</span>) <span class="comment">// 输出：(List(1, 2, 3),List(4, 5, 6, 7, 8, 9, 10))</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>功能上类似于 <code>(t.take(n), t.drop(n))</code>。</p>
+
+        <h4 id="11-2-span">
+          <a href="#11-2-span" class="heading-link"><i class="fas fa-link"></i></a>11.2 span</h4>
+      <p>函数 span 接收一个谓词 <code>A =&gt; Boolean</code>，并且从左往右对 Traversable 集合进行遍历，将开头连续满足条件的元素分为一组，剩下的元素分为一组。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> to <span class="number">10</span>: _*)</span><br><span class="line">t.span(_ &lt; <span class="number">4</span>) <span class="comment">// 输出：(List(1, 2, 3),List(4, 5, 6, 7, 8, 9, 10))</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>功能上类似于 <code>(t.takeWhile(n), t.dropWhile(n))</code>。</p>
+
+        <h4 id="11-3-partition">
+          <a href="#11-3-partition" class="heading-link"><i class="fas fa-link"></i></a>11.3 partition</h4>
+      <p>函数 partition 接收一个谓词 <code>A =&gt; Boolean</code>，相对于 span 的区别在于它会对集合中所有的元素进行筛选，并将满足条件的元素分为一组，不满足条件的元素分为另一组。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> to <span class="number">10</span>: _*)</span><br><span class="line">t.partition(_ % <span class="number">2</span> == <span class="number">0</span>) <span class="comment">// 输出：(List(2, 4, 6, 8, 10),List(1, 3, 5, 7, 9))</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="11-4-groupBy">
+          <a href="#11-4-groupBy" class="heading-link"><i class="fas fa-link"></i></a>11.4 groupBy</h4>
+      <p>函数 groupBy 接收一个 <code>A =&gt; K</code> 类型参数，对 Traversable 对象中的元素进行计算并得到一个 K 类型的值，然后以 K 值作为 key，对应的集合元素作为 value，构建 Map 结果集。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> to <span class="number">10</span>: _*)</span><br><span class="line">t.groupBy(_ % <span class="number">3</span>).foreach(println)</span><br></pre></td></tr></tbody></table></div></figure>
+<p>输出：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">(2,List(2, 5, 8))</span><br><span class="line">(1,List(1, 4, 7, 10))</span><br><span class="line">(0,List(3, 6, 9))</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="11-5-grouped">
+          <a href="#11-5-grouped" class="heading-link"><i class="fas fa-link"></i></a>11.5 grouped</h4>
+      <p>函数 grouped 用于对 Iterable 对象中的元素进行分组，该函数接收一个 size 参数，用于将原集合分组成长度为指定大小的多个子集合，对于最后一个子集合，其长度可能小于 size。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> itr = <span class="type">Iterable</span>(<span class="number">1</span> to <span class="number">9</span>: _*)</span><br><span class="line"><span class="keyword">val</span> grouped = itr.grouped(<span class="number">4</span>)</span><br><span class="line">grouped.foreach(println)</span><br></pre></td></tr></tbody></table></div></figure>
+<p>输出：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">List(1, 2, 3, 4)</span><br><span class="line">List(5, 6, 7, 8)</span><br><span class="line">List(9)</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="11-6-sliding">
+          <a href="#11-6-sliding" class="heading-link"><i class="fas fa-link"></i></a>11.6 sliding</h4>
+      <p>函数 sliding 用于对 Iterable 对象进行窗口操作，该函数定义如下，其中参数 size 用于指定窗口的大小，而参数 step 用于指定每次滑动的步长（默认为 1）：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">sliding</span></span>(size: <span class="type">Int</span>): <span class="type">Iterator</span>[<span class="type">Repr</span>]</span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">sliding</span></span>(size: <span class="type">Int</span>, step: <span class="type">Int</span>): <span class="type">Iterator</span>[<span class="type">Repr</span>]</span><br></pre></td></tr></tbody></table></div></figure>
+<p>示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> itr = <span class="type">Iterable</span>(<span class="number">1</span> to <span class="number">9</span>: _*)</span><br><span class="line">itr.sliding(<span class="number">3</span>, <span class="number">2</span>).foreach(println)</span><br></pre></td></tr></tbody></table></div></figure>
+<p>输出：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">List(1, 2, 3)</span><br><span class="line">List(3, 4, 5)</span><br><span class="line">List(5, 6, 7)</span><br><span class="line">List(7, 8, 9)</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="十二-检查操作">
+          <a href="#十二-检查操作" class="heading-link"><i class="fas fa-link"></i></a>十二. 检查操作</h3>
+      
+        <h4 id="12-1-forall-amp-exist">
+          <a href="#12-1-forall-amp-exist" class="heading-link"><i class="fas fa-link"></i></a>12.1 forall &amp; exist</h4>
+      <p>函数 forall 和 exist 都接收一个谓词 <code>A =&gt; Boolean</code>，用于对集合中的元素进行检查，区别在于前者会对所有的元素进行校验，并在所有元素都满足条件时返回 true，而后者只需要有一个元素满足条件即返回 true。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> to <span class="number">10</span>: _*)</span><br><span class="line">t.forall(_ &gt; <span class="number">0</span>) <span class="comment">// 输出：true</span></span><br><span class="line">t.exists(_ % <span class="number">2</span> == <span class="number">0</span>) <span class="comment">// 输出：true</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>注意</strong> ：对于一个空集合，函数 forall 会返回 true。</p>
+
+        <h4 id="12-2-count">
+          <a href="#12-2-count" class="heading-link"><i class="fas fa-link"></i></a>12.2 count</h4>
+      <p>函数 count 接收一个谓词 <code>A =&gt; Boolean</code>，该函数会对 Traversable 对象中所有的元素进行检查，并返回满足条件的元素个数，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> to <span class="number">10</span>: _*)</span><br><span class="line">t.count(_ % <span class="number">2</span> == <span class="number">0</span>) <span class="comment">// 输出：5</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>注意</strong> ：不推荐使用 <code>t.filter(_ % 2 == 0).size</code> 进行计算，因为这样会生成一个中间集合，性能较差。</p>
+
+        <h3 id="十三-聚合操作">
+          <a href="#十三-聚合操作" class="heading-link"><i class="fas fa-link"></i></a>十三. 聚合操作</h3>
+      <p>聚合操作对集合中的元素执行计算，并返回单一的值。</p>
+
+        <h4 id="13-1-sum-amp-product">
+          <a href="#13-1-sum-amp-product" class="heading-link"><i class="fas fa-link"></i></a>13.1 sum &amp; product</h4>
+      <p>函数 sum 和 product 分别用于求解集合中元素的 <strong>和</strong> 与 <strong>积</strong> ，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> to <span class="number">10</span>: _*)</span><br><span class="line">t.sum <span class="comment">// 输出：55</span></span><br><span class="line">t.product <span class="comment">// 输出：3628800</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="13-2-min-amp-max">
+          <a href="#13-2-min-amp-max" class="heading-link"><i class="fas fa-link"></i></a>13.2 min &amp; max</h4>
+      <p>函数 min 和 max 分别用于求解集合中元素的最小值和最大值，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> to <span class="number">10</span>: _*)</span><br><span class="line">t.min <span class="comment">// 输出：1</span></span><br><span class="line">t.max <span class="comment">// 输出：10</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>其中 min 和 max 函数的定义如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">min[<span class="type">B</span> &gt;: <span class="type">A</span>](<span class="keyword">implicit</span> cmp: <span class="type">Ordering</span>[<span class="type">B</span>]): <span class="type">A</span></span><br><span class="line">max[<span class="type">B</span> &gt;: <span class="type">A</span>](<span class="keyword">implicit</span> cmp: <span class="type">Ordering</span>[<span class="type">B</span>]): <span class="type">A</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>它们都接受一个隐式参数 cmp，我们可以利用该参数自定义比较器。</p>
+
+        <h4 id="13-3-minBy-amp-maxBy">
+          <a href="#13-3-minBy-amp-maxBy" class="heading-link"><i class="fas fa-link"></i></a>13.3 minBy &amp; maxBy</h4>
+      <p>函数 min 和 max 都是依据集合中元素值本身进行比较，而函数 minBy 和 maxBy 则允许我们指定比较的因子，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="string">"111"</span>, <span class="string">"2"</span>, <span class="string">"33"</span>)</span><br><span class="line">t.minBy(_.length) <span class="comment">// 输出：2</span></span><br><span class="line">t.maxBy(_.toInt) <span class="comment">// 输出：111</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="13-4-aggregate">
+          <a href="#13-4-aggregate" class="heading-link"><i class="fas fa-link"></i></a>13.4 aggregate</h4>
+      <p>函数 aggregate 是一个比 fold 和 reduce 更加抽象的高阶函数，应用上更加灵活，该函数不要求输出的结果必须是集合元素类型的父类型。函数 aggregate 定义如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">aggregate[<span class="type">B</span>](z: =&gt;<span class="type">B</span>)(seqop: (<span class="type">B</span>, <span class="type">A</span>) =&gt; <span class="type">B</span>, combop: (<span class="type">B</span>, <span class="type">B</span>) =&gt; <span class="type">B</span>): <span class="type">B</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>其中 z 是初始值，seqop 用于在遍历分区的时候更新结果，combop 用于汇总各个分区的结果。</p>
+<p>示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="string">"111"</span>, <span class="string">"2"</span>, <span class="string">"33"</span>)</span><br><span class="line">t.aggregate(<span class="number">0</span>)(_ + _.toInt, _ + _) <span class="comment">// 输出：146</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述示例将集合中的每个元素都转换成 Int 类型，并使用 seqop 执行求和操作，其中初始值 z 设置为 0。这里因为没有启用并行计算，所以只有一个分组在运行，对应的 combop 没有意义，我们可以将所有分区的求和结果置为 0，即 <code>t.aggregate(0)(_ + _.toInt, (_, _) =&gt; 0)</code>，对应的结果不会变化。但是如果我们启用并行计算，即 <code>t.par.aggregate(0)(_ + _.toInt, (_, _) =&gt; 0)</code>，那么结果就会是 0，改为 <code>t.par.aggregate(0)(_ + _.toInt, _ + _)</code> 即能拿到正确结果。</p>
+
+        <h3 id="十四-生成字符串">
+          <a href="#十四-生成字符串" class="heading-link"><i class="fas fa-link"></i></a>十四. 生成字符串</h3>
+      
+        <h4 id="14-1-mkString-amp-addString">
+          <a href="#14-1-mkString-amp-addString" class="heading-link"><i class="fas fa-link"></i></a>14.1 mkString &amp; addString</h4>
+      <p>函数 mkString 用于对 Traversable 对象中的元素拼接生成字符串，并且允许指定元素的分隔符，以及前缀和后缀。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> until <span class="number">10</span>: _*)</span><br><span class="line">t.mkString(<span class="string">", "</span>) <span class="comment">// 输出：1, 2, 3, 4, 5, 6, 7, 8, 9</span></span><br><span class="line">t.mkString(<span class="string">"["</span>, <span class="string">", "</span>, <span class="string">"]"</span>) <span class="comment">// 输出：[1, 2, 3, 4, 5, 6, 7, 8, 9]</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>函数 addString 同样用于对 Traversable 对象中的元素拼接生成字符串， <strong>相对于 mkString 的区别在于需要提供 StringBuilder 对象</strong> ，同样允许指定分隔符、前缀和后缀。 <strong>事实上 mkString 就是利用 addString 实现的</strong> 。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> until <span class="number">10</span>: _*)</span><br><span class="line">t.addString(<span class="keyword">new</span> <span class="type">StringBuilder</span>()) <span class="comment">// 输出：123456789</span></span><br><span class="line">t.addString(<span class="keyword">new</span> <span class="type">StringBuilder</span>(), <span class="string">", "</span>) <span class="comment">// 输出：1, 2, 3, 4, 5, 6, 7, 8, 9</span></span><br><span class="line">t.addString(<span class="keyword">new</span> <span class="type">StringBuilder</span>(), <span class="string">"["</span>, <span class="string">", "</span>, <span class="string">"]"</span>) <span class="comment">// 输出：[1, 2, 3, 4, 5, 6, 7, 8, 9]</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="14-2-stringPrefix">
+          <a href="#14-2-stringPrefix" class="heading-link"><i class="fas fa-link"></i></a>14.2 stringPrefix</h4>
+      <p>函数 stringPrefix 用于返回集合对象的实际类型名称，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> until <span class="number">10</span>: _*)</span><br><span class="line">t.stringPrefix <span class="comment">// 输出：List</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="十五-复制元素到数组">
+          <a href="#十五-复制元素到数组" class="heading-link"><i class="fas fa-link"></i></a>十五. 复制元素到数组</h3>
+      
+        <h4 id="15-1-copyToArray-amp-copyToBuffer">
+          <a href="#15-1-copyToArray-amp-copyToBuffer" class="heading-link"><i class="fas fa-link"></i></a>15.1 copyToArray &amp; copyToBuffer</h4>
+      <p>函数 toArray 可以将一个 Traversable 对象转换成一个数组对象，如果我们希望将 Traversable 对象中已有的元素复制到一个已有的数组中，那么可以使用 copyToArray 函数。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> until <span class="number">10</span>: _*)</span><br><span class="line"><span class="keyword">val</span> res = <span class="keyword">new</span> <span class="type">Array</span>[<span class="type">Int</span>](t.size / <span class="number">2</span>)</span><br><span class="line">t.copyToArray(res, <span class="number">0</span>, res.length)</span><br><span class="line">res.mkString(<span class="string">", "</span>) <span class="comment">// 输出：1, 2, 3, 4</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>函数 copyToArray 包含 3 个重载版本，如下：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">copyToArray[<span class="type">B</span> &gt;: <span class="type">A</span>](xs: <span class="type">Array</span>[<span class="type">B</span>]): <span class="type">Unit</span></span><br><span class="line">copyToArray[<span class="type">B</span> &gt;: <span class="type">A</span>](xs: <span class="type">Array</span>[<span class="type">B</span>], start: <span class="type">Int</span>): <span class="type">Unit</span></span><br><span class="line">copyToArray[<span class="type">B</span> &gt;: <span class="type">A</span>](xs: <span class="type">Array</span>[<span class="type">B</span>], start: <span class="type">Int</span>, len: <span class="type">Int</span>): <span class="type">Unit</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>其中参数 start 对应目标数组的下标，表示待复制的元素将写入数组的哪个位置，默认为 0，参数 len 表示要复制的元素长度，默认为集合的长度，如果 len 超过了集合的长度，则以集合长度为准。</p>
+<p>函数 copyToBuffer 用于将元素复制到所提供的 buffer 对象中，示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = <span class="type">Traversable</span>(<span class="number">1</span> until <span class="number">10</span>: _*)</span><br><span class="line"><span class="keyword">val</span> buffer = mutable.<span class="type">Buffer</span>[<span class="type">Int</span>]()</span><br><span class="line">t.copyToBuffer(buffer)</span><br><span class="line">buffer <span class="comment">// 输出：ArrayBuffer(1, 2, 3, 4, 5, 6, 7, 8, 9)</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>函数 copyToBuffer 没有提供其它重载版本。</p>
+
+        <h3 id="十六-生成视图">
+          <a href="#十六-生成视图" class="heading-link"><i class="fas fa-link"></i></a>十六. 生成视图</h3>
+      
+        <h4 id="16-1-view">
+          <a href="#16-1-view" class="heading-link"><i class="fas fa-link"></i></a>16.1 view</h4>
+      <p>函数 view 用于生成 Traversable 对象的视图（相当于对原集合对象的引用），它接收两个参数 from 和 until，用于指定目标视图的生成区间，如果不指定这 2 个参数则创建整个 Traversable 对象中元素的视图。示例：</p>
+<figure class="highlight scala"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> t = mutable.<span class="type">Seq</span>(<span class="number">1</span> until <span class="number">10</span>: _*)</span><br><span class="line"><span class="keyword">val</span> v = t.view(<span class="number">0</span>, <span class="number">3</span>)</span><br><span class="line"><span class="keyword">val</span> s = t.slice(<span class="number">0</span>, <span class="number">3</span>)</span><br><span class="line"><span class="keyword">val</span> f = v.force <span class="comment">// 严格模式</span></span><br><span class="line">t(<span class="number">0</span>) = <span class="number">10</span></span><br><span class="line">v.mkString(<span class="string">", "</span>) <span class="comment">// 输出：10, 2, 3</span></span><br><span class="line">f.mkString(<span class="string">", "</span>) <span class="comment">// 输出：1, 2, 3</span></span><br><span class="line">s.mkString(<span class="string">", "</span>) <span class="comment">// 输出：1, 2, 3</span></span><br><span class="line">t(<span class="number">0</span>) = <span class="number">8</span></span><br><span class="line">v.mkString(<span class="string">", "</span>) <span class="comment">// 输出：8, 2, 3</span></span><br><span class="line">f.mkString(<span class="string">", "</span>) <span class="comment">// 输出：1, 2, 3</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>函数 view 与 slice 的区别</strong> ：</p>
+<p>函数 view 生成集合的一个非严格模式（non-strict）视图，即 view 是延迟计算的，如果希望转换成严格模式，则可以调用视图的 force 函数，非严格模式的视图可以看做是对原集合区间的一个引用，当原集合区间中的元素发生变更时，会反应到视图上。</p>
+
+        <h3 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h3>
+      <ul>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://docs.scala-lang.org/">Scala Documentation</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/26819038/">Scala 集合技术手册</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+</ul>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2018/05/16/scala/scala-collection-common/">https://plotor.github.io/2018/05/16/scala/scala-collection-common/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Scala/">Scala</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2018/05/17/scala/scala-collection-seq/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">Scala 集合：Seq API</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2018/03/25/algorithm/rb-tree/"><span class="paginator-prev__text">那些年，面试被虐过的红黑树</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%80-%E6%9E%84%E9%80%A0-amp-%E5%A1%AB%E5%85%85"><span class="toc-number">1.</span> <span class="toc-text">
+          一. 构造 &amp; 填充</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#1-1-fill"><span class="toc-number">1.1.</span> <span class="toc-text">
+          1.1 fill</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#1-2-tabulate"><span class="toc-number">1.2.</span> <span class="toc-text">
+          1.2 tabulate</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#1-3-iterate"><span class="toc-number">1.3.</span> <span class="toc-text">
+          1.3 iterate</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#1-4-range"><span class="toc-number">1.4.</span> <span class="toc-text">
+          1.4 range</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BA%8C-%E5%B9%B3%E5%B1%95%E6%93%8D%E4%BD%9C"><span class="toc-number">2.</span> <span class="toc-text">
+          二. 平展操作</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#2-1-flatten"><span class="toc-number">2.1.</span> <span class="toc-text">
+          2.1 flatten</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%89-%E8%BD%AC%E7%BD%AE%E6%93%8D%E4%BD%9C"><span class="toc-number">3.</span> <span class="toc-text">
+          三. 转置操作</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#3-1-transpose"><span class="toc-number">3.1.</span> <span class="toc-text">
+          3.1 transpose</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9B%9B-%EF%BC%88%E6%8B%89%EF%BC%89%E6%8B%89%E9%93%BE%E6%93%8D%E4%BD%9C"><span class="toc-number">4.</span> <span class="toc-text">
+          四. （拉）拉链操作</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#4-1-zip"><span class="toc-number">4.1.</span> <span class="toc-text">
+          4.1 zip</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#4-2-zipAll"><span class="toc-number">4.2.</span> <span class="toc-text">
+          4.2 zipAll</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#4-3-zipWithIndex"><span class="toc-number">4.3.</span> <span class="toc-text">
+          4.3 zipWithIndex</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BA%94-%EF%BC%88%E8%A7%A3%EF%BC%89%E6%8B%89%E9%93%BE%E6%93%8D%E4%BD%9C"><span class="toc-number">5.</span> <span class="toc-text">
+          五. （解）拉链操作</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#5-1-unzip"><span class="toc-number">5.1.</span> <span class="toc-text">
+          5.1 unzip</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#5-2-unzip3"><span class="toc-number">5.2.</span> <span class="toc-text">
+          5.2 unzip3</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%85%AD-%E8%BF%9E%E6%8E%A5%E6%93%8D%E4%BD%9C"><span class="toc-number">6.</span> <span class="toc-text">
+          六. 连接操作</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#6-1"><span class="toc-number">6.1.</span> <span class="toc-text">
+          6.1 ++</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#6-2-concat"><span class="toc-number">6.2.</span> <span class="toc-text">
+          6.2 concat</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%83-%E4%BD%BF%E7%94%A8%E5%81%8F%E5%87%BD%E6%95%B0%EF%BC%88PartialFunction%EF%BC%89%E5%AF%B9%E7%BB%93%E6%9E%9C%E8%BF%9B%E8%A1%8C%E6%94%B6%E9%9B%86"><span class="toc-number">7.</span> <span class="toc-text">
+          七. 使用偏函数（PartialFunction）对结果进行收集</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#7-1-collect-amp-collectFirst"><span class="toc-number">7.1.</span> <span class="toc-text">
+          7.1 collect &amp; collectFirst</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%85%AB-%E8%BF%87%E6%BB%A4%E6%93%8D%E4%BD%9C"><span class="toc-number">8.</span> <span class="toc-text">
+          八. 过滤操作</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#8-1-filter-amp-filterNot"><span class="toc-number">8.1.</span> <span class="toc-text">
+          8.1 filter &amp; filterNot</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#8-2-withFilter"><span class="toc-number">8.2.</span> <span class="toc-text">
+          8.2 withFilter</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B9%9D-%E5%BD%92%E7%BA%A6%E6%93%8D%E4%BD%9C"><span class="toc-number">9.</span> <span class="toc-text">
+          九. 归约操作</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#9-1-scan-amp-scanLeft"><span class="toc-number">9.1.</span> <span class="toc-text">
+          9.1 scan &amp; scanLeft</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#9-2-scanRight"><span class="toc-number">9.2.</span> <span class="toc-text">
+          9.2 scanRight</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#9-3-fold-amp-foldLeft"><span class="toc-number">9.3.</span> <span class="toc-text">
+          9.3 fold &amp; foldLeft</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#9-4-foldRight"><span class="toc-number">9.4.</span> <span class="toc-text">
+          9.4 foldRight</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#9-5-reduce-amp-reduceOption-amp-reduceLeft-amp-reduceLeftOption"><span class="toc-number">9.5.</span> <span class="toc-text">
+          9.5 reduce &amp; reduceOption &amp; reduceLeft &amp; reduceLeftOption</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#9-6-reduceRight-amp-reduceRightOption"><span class="toc-number">9.6.</span> <span class="toc-text">
+          9.6 reduceRight &amp; reduceRightOption</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8D%81-%E5%85%83%E7%B4%A0%E8%8E%B7%E5%8F%96%E4%B8%8E%E6%A3%80%E7%B4%A2"><span class="toc-number">10.</span> <span class="toc-text">
+          十. 元素获取与检索</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#10-1-head-amp-headOption"><span class="toc-number">10.1.</span> <span class="toc-text">
+          10.1 head &amp; headOption</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#10-2-last-amp-lastOption"><span class="toc-number">10.2.</span> <span class="toc-text">
+          10.2 last &amp; lastOption</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#10-3-find"><span class="toc-number">10.3.</span> <span class="toc-text">
+          10.3 find</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#10-4-tail-amp-tails"><span class="toc-number">10.4.</span> <span class="toc-text">
+          10.4 tail &amp; tails</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#10-5-init-amp-inits"><span class="toc-number">10.5.</span> <span class="toc-text">
+          10.5 init &amp; inits</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#10-6-take-amp-takeWhile"><span class="toc-number">10.6.</span> <span class="toc-text">
+          10.6 take &amp; takeWhile</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#10-7-drop-amp-dropWhile"><span class="toc-number">10.7.</span> <span class="toc-text">
+          10.7 drop &amp; dropWhile</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#10-8-takeRight-amp-dropRight"><span class="toc-number">10.8.</span> <span class="toc-text">
+          10.8 takeRight &amp; dropRight</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#10-9-slice"><span class="toc-number">10.9.</span> <span class="toc-text">
+          10.9 slice</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8D%81%E4%B8%80-%E5%88%86%E7%BB%84%E6%93%8D%E4%BD%9C"><span class="toc-number">11.</span> <span class="toc-text">
+          十一. 分组操作</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#11-1-splitAt"><span class="toc-number">11.1.</span> <span class="toc-text">
+          11.1 splitAt</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#11-2-span"><span class="toc-number">11.2.</span> <span class="toc-text">
+          11.2 span</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#11-3-partition"><span class="toc-number">11.3.</span> <span class="toc-text">
+          11.3 partition</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#11-4-groupBy"><span class="toc-number">11.4.</span> <span class="toc-text">
+          11.4 groupBy</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#11-5-grouped"><span class="toc-number">11.5.</span> <span class="toc-text">
+          11.5 grouped</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#11-6-sliding"><span class="toc-number">11.6.</span> <span class="toc-text">
+          11.6 sliding</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8D%81%E4%BA%8C-%E6%A3%80%E6%9F%A5%E6%93%8D%E4%BD%9C"><span class="toc-number">12.</span> <span class="toc-text">
+          十二. 检查操作</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#12-1-forall-amp-exist"><span class="toc-number">12.1.</span> <span class="toc-text">
+          12.1 forall &amp; exist</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#12-2-count"><span class="toc-number">12.2.</span> <span class="toc-text">
+          12.2 count</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8D%81%E4%B8%89-%E8%81%9A%E5%90%88%E6%93%8D%E4%BD%9C"><span class="toc-number">13.</span> <span class="toc-text">
+          十三. 聚合操作</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#13-1-sum-amp-product"><span class="toc-number">13.1.</span> <span class="toc-text">
+          13.1 sum &amp; product</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#13-2-min-amp-max"><span class="toc-number">13.2.</span> <span class="toc-text">
+          13.2 min &amp; max</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#13-3-minBy-amp-maxBy"><span class="toc-number">13.3.</span> <span class="toc-text">
+          13.3 minBy &amp; maxBy</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#13-4-aggregate"><span class="toc-number">13.4.</span> <span class="toc-text">
+          13.4 aggregate</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8D%81%E5%9B%9B-%E7%94%9F%E6%88%90%E5%AD%97%E7%AC%A6%E4%B8%B2"><span class="toc-number">14.</span> <span class="toc-text">
+          十四. 生成字符串</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#14-1-mkString-amp-addString"><span class="toc-number">14.1.</span> <span class="toc-text">
+          14.1 mkString &amp; addString</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#14-2-stringPrefix"><span class="toc-number">14.2.</span> <span class="toc-text">
+          14.2 stringPrefix</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8D%81%E4%BA%94-%E5%A4%8D%E5%88%B6%E5%85%83%E7%B4%A0%E5%88%B0%E6%95%B0%E7%BB%84"><span class="toc-number">15.</span> <span class="toc-text">
+          十五. 复制元素到数组</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#15-1-copyToArray-amp-copyToBuffer"><span class="toc-number">15.1.</span> <span class="toc-text">
+          15.1 copyToArray &amp; copyToBuffer</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8D%81%E5%85%AD-%E7%94%9F%E6%88%90%E8%A7%86%E5%9B%BE"><span class="toc-number">16.</span> <span class="toc-text">
+          十六. 生成视图</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#16-1-view"><span class="toc-number">16.1.</span> <span class="toc-text">
+          16.1 view</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">17.</span> <span class="toc-text">
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

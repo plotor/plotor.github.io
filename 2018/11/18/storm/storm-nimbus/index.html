@@ -1,0 +1,482 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="本篇我们一起分析一下 nimbus 节点的启动和运行机制。Nimbus 节点是 Storm 集群的调度者和管理者，它是集群与用户交互的窗口，负责 topology 任务的分配、启动和运行，也管理着集群中所有的 supervisor 节点的运行，监控着整个集群的运行状态，并将集群运行信息汇集给 UI 进行展示。 Nimbus 节点的启动过程位于 NimbusServer 类中，这是一个驱动类，mai">
+<meta property="og:type" content="article">
+<meta property="og:title" content="JStorm 源码解析：Nimbus 的启动和运行机制">
+<meta property="og:url" content="https://plotor.github.io/2018/11/18/storm/storm-nimbus/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="本篇我们一起分析一下 nimbus 节点的启动和运行机制。Nimbus 节点是 Storm 集群的调度者和管理者，它是集群与用户交互的窗口，负责 topology 任务的分配、启动和运行，也管理着集群中所有的 supervisor 节点的运行，监控着整个集群的运行状态，并将集群运行信息汇集给 UI 进行展示。 Nimbus 节点的启动过程位于 NimbusServer 类中，这是一个驱动类，mai">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2018-11-18T05:21:22.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.983Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Storm">
+<meta property="article:tag" content="JStorm">
+<meta name="twitter:card" content="summary"><title>JStorm 源码解析：Nimbus 的启动和运行机制 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2018/11/18/storm/storm-nimbus/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">JStorm 源码解析：Nimbus 的启动和运行机制</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2018-11-18</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">4.7k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">20分</span></span></div></header><div class="post-body"><p>本篇我们一起分析一下 nimbus 节点的启动和运行机制。Nimbus 节点是 Storm 集群的调度者和管理者，它是集群与用户交互的窗口，负责 topology 任务的分配、启动和运行，也管理着集群中所有的 supervisor 节点的运行，监控着整个集群的运行状态，并将集群运行信息汇集给 UI 进行展示。</p>
+<p>Nimbus 节点的启动过程位于 NimbusServer 类中，这是一个驱动类，main 方法中会加载集群配置文件，包括 default.yaml 和 storm.yaml，并将配置文件内容与启动时的命令行参数一起封装成 map 对象便于后续使用，真正的启动逻辑位于 <code>NimbusServer#launchServer</code> 方法中：<a id="more"></a></p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">launchServer</span><span class="params">(<span class="keyword">final</span> Map conf, INimbus inimbus)</span> </span>{</span><br><span class="line">    LOG.info(<span class="string">"Begin to start nimbus with conf "</span> + conf);</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="comment">// 1. 验证当前为分布式运行模式，不允许以本地模式运行</span></span><br><span class="line">        StormConfig.validate_distributed_mode(conf);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 2. 创建当前 JVM 进程对应的目录：${storm.local.dir}/nimbus/pids/${pid}，如果存在历史运行记录，则会进行清除</span></span><br><span class="line">        <span class="keyword">this</span>.createPid(conf);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 3. 注册 shutdown hook 方法，用于在 JVM 进程终止时执行清理逻辑</span></span><br><span class="line">        <span class="keyword">this</span>.initShutdownHook();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 4. 模板方法</span></span><br><span class="line">        inimbus.prepare(conf, StormConfig.masterInimbus(conf));</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 5. 基于 conf 创建 NimbusData 对象</span></span><br><span class="line">        data = <span class="keyword">this</span>.createNimbusData(conf, inimbus);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 6. 注册一个 follower 线程</span></span><br><span class="line">        <span class="keyword">this</span>.initFollowerThread(conf);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 7. 创建并启动一个后端 HTTP 服务（默认端口为 7621，主要用于查看和下载 nimbus 的日志数据）</span></span><br><span class="line">        <span class="keyword">int</span> port = ConfigExtension.getNimbusDeamonHttpserverPort(conf);</span><br><span class="line">        hs = <span class="keyword">new</span> Httpserver(port, conf);</span><br><span class="line">        hs.start();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 8. 如果集群运行在 YARN 上，则初始化容器心跳线程</span></span><br><span class="line">        <span class="keyword">this</span>.initContainerHBThread(conf);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 9. 创建 ServiceHandler（实现了 Nimbus.Iface），并启动 Thrift 服务，用于处理 Nimbus 请求</span></span><br><span class="line">        serviceHandler = <span class="keyword">new</span> ServiceHandler(data);</span><br><span class="line">        <span class="keyword">this</span>.initThrift(conf);</span><br><span class="line">    } <span class="keyword">catch</span> (Throwable e) {</span><br><span class="line">        <span class="keyword">if</span> (e <span class="keyword">instanceof</span> OutOfMemoryError) {</span><br><span class="line">            LOG.error(<span class="string">"Halting due to out of memory error..."</span>);</span><br><span class="line">        }</span><br><span class="line">        LOG.error(<span class="string">"Fail to run nimbus "</span>, e);</span><br><span class="line">    } <span class="keyword">finally</span> {</span><br><span class="line">        <span class="keyword">this</span>.cleanup();</span><br><span class="line">    }</span><br><span class="line">    LOG.info(<span class="string">"Quit nimbus"</span>);</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>整个启动过程可以概括如下：</p>
+<ol>
+<li>检测运行模式是否为集群模式，不允许以本地模式运行；</li>
+<li>在本地创建对应的进程目录：<code>${storm.local.dir}/nimbus/pids/${pid}</code>；</li>
+<li>注册 shutdown hook 方法，用于在集群销毁时执行相应的清理逻辑；</li>
+<li>模板方法，如果用户实现了 <code>INimbus#prepare</code> 方法，则会在这里被调度；</li>
+<li>创建并初始化封装 nimbus 运行数据的 NimbusData 对象；</li>
+<li>注册一个 follower 线程，用于支持 HA 机制；</li>
+<li>启动一个 HTTP 服务，主要用于查看和下载 nimbus 节点的运行日志数据；</li>
+<li>如果集群运行在 YARN 上，则初始化容器的心跳线程；</li>
+<li>启动 nimbus thrift 服务。</li>
+</ol>
+<p>整个方法的运行逻辑还是相当清晰的，下面就其中一些关键步骤深入分析，主要包含 NimbusData 的实例化过程、HA 机制，以及 thrift 服务的初始化启动过程。</p>
+
+        <h3 id="NimbusData-的实例化过程">
+          <a href="#NimbusData-的实例化过程" class="heading-link"><i class="fas fa-link"></i></a>NimbusData 的实例化过程</h3>
+      <p>首先来看一下 NimbusData 的实例化过程，位于 <code>NimbusServer#createNimbusData</code> 方法中，该方法基于前面加载的集群配置信息创建 NimbusData 类实例，并在构造方法中执行了一系列的初始化逻辑。NimbusData 是 nimbus 端非常重要的一个类，封装了 nimbus 节点所有的运行数据，这里挑重点分析一下其构造的初始化过程：</p>
+<ol>
+<li>创建上传和下载传输通道处理器；</li>
+<li>创建并初始化对应的 blobstore 实例；</li>
+<li>创建 StormZkClusterState 对象，并设置本地缓存。</li>
+</ol>
+<p>创建上传和下载传输通道处理器位于 <code>NimbusData#createFileHandler</code> 方法中，前面我们在分析 topology 构建和提交过程时曾分析过 jar 文件的上传过程，在开始上传之前客户端会先通知 nimbus 节点做一些准备工作，其中就包含创建文件上传通道，对于创建完成的通道会记录到一个 TimeCacheMap 类型的 uploaders 字段中等待后续取用。在 supervisor 从 nimbus 节点下载对应 topology 的 jar 文件时会创建相应的下载传输通道，并记录到 TimeCacheMap 类型的 downloaders 字段中。本方法就是对这两个字段执行初始化的过程，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">createFileHandler</span><span class="params">()</span> </span>{</span><br><span class="line">    <span class="comment">// 注册一个 callback 方法，基于回调的方式关闭管道或输入流</span></span><br><span class="line">    ExpiredCallback&lt;Object, Object&gt; expiredCallback = <span class="keyword">new</span> ExpiredCallback&lt;Object, Object&gt;() {</span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">expire</span><span class="params">(Object key, Object val)</span> </span>{</span><br><span class="line">            <span class="keyword">try</span> {</span><br><span class="line">                LOG.info(<span class="string">"Close file "</span> + String.valueOf(key));</span><br><span class="line">                <span class="keyword">if</span> (val != <span class="keyword">null</span>) {</span><br><span class="line">                    <span class="keyword">if</span> (val <span class="keyword">instanceof</span> Channel) {</span><br><span class="line">                        Channel channel = (Channel) val;</span><br><span class="line">                        channel.close();</span><br><span class="line">                    } <span class="keyword">else</span> <span class="keyword">if</span> (val <span class="keyword">instanceof</span> BufferFileInputStream) {</span><br><span class="line">                        BufferFileInputStream is = (BufferFileInputStream) val;</span><br><span class="line">                        is.close();</span><br><span class="line">                    }</span><br><span class="line">                }</span><br><span class="line">            } <span class="keyword">catch</span> (IOException e) {</span><br><span class="line">                LOG.error(e.getMessage(), e);</span><br><span class="line">            }</span><br><span class="line"></span><br><span class="line">        }</span><br><span class="line">    };</span><br><span class="line"></span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">     * 获取文件上传和下载的超时时间，默认为 30 秒</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * During upload/download with the master,</span></span><br><span class="line"><span class="comment">     * how long an upload or download connection is idle before nimbus considers it dead and drops the connection.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">int</span> file_copy_expiration_secs = JStormUtils.parseInt(conf.get(Config.NIMBUS_FILE_COPY_EXPIRATION_SECS), <span class="number">30</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">     * TimeCacheMap 在实例化时会启动一个守护线程，</span></span><br><span class="line"><span class="comment">     * 并依据超时时间循环从 buckets 中去除对象，并应用执行 callback 的 expire 方法</span></span><br><span class="line"><span class="comment">     * 这里的 expire 逻辑是执行关闭管道或输入流</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    uploaders = <span class="keyword">new</span> TimeCacheMap&lt;&gt;(file_copy_expiration_secs, expiredCallback);</span><br><span class="line">    downloaders = <span class="keyword">new</span> TimeCacheMap&lt;&gt;(file_copy_expiration_secs, expiredCallback);</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>该方法主要完成了 3 件事情，其中 1 和 2 比较直观，而 3 则在 TimeCacheMap 类实例化时完成，3 件事情分别如下：</p>
+<ol>
+<li>为通道或流创建回调策略，用于关闭通道或流；</li>
+<li>实例化 uploaders 和 downloaders 属性；</li>
+<li>启动一个守护线程，该线程会定期对过期的通道应用注册的回调策略。</li>
+</ol>
+<p>我们来看一下步骤 3 的逻辑，TimeCacheMap 是一个自定义的 map 类型，包含 map 类型常用的方法，同时具备超时机制，在实例化对象时会创建并启动一个后台线程，用于定时的应用超时回调策略：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">TimeCacheMap</span><span class="params">(<span class="keyword">int</span> expirationSecs, <span class="keyword">int</span> numBuckets, ExpiredCallback&lt;K, V&gt; callback)</span> </span>{</span><br><span class="line">    <span class="keyword">if</span> (numBuckets &lt; <span class="number">2</span>) {</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> IllegalArgumentException(<span class="string">"numBuckets must be &gt;= 2"</span>);</span><br><span class="line">    }</span><br><span class="line">    buckets = <span class="keyword">new</span> LinkedList&lt;&gt;();</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; numBuckets; i++) {</span><br><span class="line">        buckets.add(<span class="keyword">new</span> HashMap&lt;K, V&gt;());</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 注册回调策略</span></span><br><span class="line">    <span class="keyword">this</span>.callback = callback;</span><br><span class="line">    <span class="keyword">final</span> <span class="keyword">long</span> expirationMillis = expirationSecs * <span class="number">1000L</span>;</span><br><span class="line">    <span class="keyword">final</span> <span class="keyword">long</span> sleepTime = expirationMillis / (numBuckets - <span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">     * cleaner 线程会一直循环的执行，</span></span><br><span class="line"><span class="comment">     * 间隔指定时间从缓冲区尾部获取对象，并为该对象应用 callback 的 expire 方法</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">this</span>.cleaner = <span class="keyword">new</span> Thread(<span class="keyword">new</span> Runnable() {</span><br><span class="line"></span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>{</span><br><span class="line">            <span class="keyword">while</span> (!AsyncLoopRunnable.getShutdown().get()) {</span><br><span class="line">                Map&lt;K, V&gt; dead;</span><br><span class="line">                JStormUtils.sleepMs(sleepTime);</span><br><span class="line">                <span class="keyword">synchronized</span> (lock) {</span><br><span class="line">                    <span class="comment">// 从缓冲区队尾获取对象</span></span><br><span class="line">                    dead = buckets.removeLast();</span><br><span class="line">                    <span class="comment">// 添加一个空的 map 到缓冲区，从而保证线程的正常运行</span></span><br><span class="line">                    buckets.addFirst(<span class="keyword">new</span> HashMap&lt;K, V&gt;());</span><br><span class="line">                }</span><br><span class="line">                <span class="keyword">if</span> (TimeCacheMap.<span class="keyword">this</span>.callback != <span class="keyword">null</span>) {</span><br><span class="line">                    <span class="keyword">for</span> (Entry&lt;K, V&gt; entry : dead.entrySet()) {</span><br><span class="line">                        TimeCacheMap.<span class="keyword">this</span>.callback.expire(entry.getKey(), entry.getValue());</span><br><span class="line">                    }</span><br><span class="line">                }</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">    });</span><br><span class="line">    cleaner.setDaemon(<span class="keyword">true</span>);</span><br><span class="line">    cleaner.start();</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>这里我们以 uploaders 为例，当客户端请求 nimbus 执行文件上传准备时，nimbus 会为本次请求创建一个上传通道，同时记录到 uploaders 中，本质上是记录到了 TimeCacheMap 的 buckets 字段头部。在实例化 uploaders 时，方法会创建相应的守护线程，每间隔指定时间（默认是 30 秒）从 buckets 尾部移除超时的通道，并应用回调策略，这里也就是在 createFileHandler 方法开始时创建的关闭通道回调策略。<code>NimbusData#mkBlobCacheMap</code> 方法的逻辑与 createFileHandler 基本相同。</p>
+<p>下面来看一下 BlobStore 实例的创建和初始化过程，BlobStore 是一个键值存储对象，用于存储 topology 对象，以及 topology 配置信息等。Storm 默认提供了两类存储实现：本地文件存储（LocalFsBlobStore）和 HDFS 文件存储（HdfsBlobStore）。如果是本地存储则需要 ZK 的介入来保证数据一致性，而采用 HDFS 存储则会使用 HDFS 自带的备份和一致性保证。在 NimbusData 实例化过程中会调用 <code>BlobStoreUtils#getNimbusBlobStore</code> 方法创建并初始化 BlobStore 实例，方法会检查 <code>nimbus.blobstore.class</code> 配置，该配置用于指定具体的 BlobStore 实现类全称类名（包括 HdfsBlobStore），如果没有指定则默认采用 LocalFsBlobStore 实现，并在实例化后调用对应的 prepare 方法执行初始化，这里以 <code>LocalFsBlobStore#prepare</code> 进行说明。对于本地模式而言，会采用 <code>${storm.local.dir}/blobs/</code> 作为存储的基础路径，并以 FileBlobStoreImpl 类实例操作本地文件，同时会创建对应的 ZK 客户端用于操作 ZK，以维护数据的一致性。</p>
+<p>最后来看一下 StormZkClusterState 类对象的创建。StormZkClusterState 类也是一个非常重要的类，它实现了 StormClusterState 接口。Storm 可以看做是基于 ZK 的分布式实时任务调度系统，基于 ZK 实现对整个集群中任务和节点的协调和调度，而集群与 ZK 之间的通信都依赖于 StormZkClusterState 类对象，其实例化过程中所做的主要工作就是在 ZK 上创建相应的一级目录，并注册一个数据变更回调策略，用于触发监听相应路径数据变更时的回调处理器。创建的路径包括：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">- supervisors</span><br><span class="line">- topology</span><br><span class="line">- assignments</span><br><span class="line">- assignments_bak</span><br><span class="line">- tasks</span><br><span class="line">- taskbeats</span><br><span class="line">- taskerrors</span><br><span class="line">- metrics</span><br><span class="line">- blobstore</span><br><span class="line">- gray_upgrade</span><br></pre></td></tr></tbody></table></div></figure>
+<p>这里我们对上面的路径进行一个简单的说明：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">+ ${zk_root_dir}</span><br><span class="line">| ---- + topology: 记录集群中所有正在运行的 topology 数据</span><br><span class="line">| ---- | ---- + ${topology_id}: 指定 topology 的相关信息（名称、开始运行时间、运行状态等）</span><br><span class="line"></span><br><span class="line">| ---- + supervisors: 记录集群中所有 supervisor 节点的心跳信息</span><br><span class="line">| ---- | ---- + ${supervivor_id}: 指定 supervisor 的心跳信息（心跳时间、主机名称、所有 worker 的端口号、运行时间等）</span><br><span class="line"></span><br><span class="line">| ---- + assignments: 记录提交给集群的 topology 任务分配信息</span><br><span class="line">| ---- | ---- + ${topology_id}: 指定 topology 的任务分配信息（对应 nimbus 上的代码目录、所有 task 的启动时间、每个 task 与节点和端口的映射关系等）</span><br><span class="line"></span><br><span class="line">| ---- + assignments_bak: 记录提交给集群的 topology 任务分配信息的备份</span><br><span class="line"></span><br><span class="line">| ---- + tasks: 记录集群中所有 topology 的 task 信息</span><br><span class="line">| ---- | ---- + ${topology_id}: 指定 topology 的所有 task 信息</span><br><span class="line">| ---- | ---- | ---- + ${task_id}: 指定 task 所属的组件 ID 和类型（spout/bolt）</span><br><span class="line"></span><br><span class="line">| ---- + taskbeats: 记录集群中所有 task 的心跳信息</span><br><span class="line">| ---- | ---- + ${topology_id}: 记录指定 topology 下所有 task 的心跳信息、topologyId，以及 topologyMasterId 等</span><br><span class="line">| ---- | ---- | ---- + ${task_id}: 指定 task 的心跳信息（最近一次心跳时间、运行时长、统计信息等）</span><br><span class="line"></span><br><span class="line">| ---- + taskerrors: 记录集群中所有 topology 的 task 运行错误信息</span><br><span class="line">| ---- | ---- + ${topology_id}: 指定 topology 下所有 task 的运行错误信息</span><br><span class="line">| ---- | ---- | ---- + ${task_id}: 指定 task 的运行错误信息</span><br><span class="line"></span><br><span class="line">| ---- + metrics: 记录集群中所有 topology 的 metricsId</span><br><span class="line"></span><br><span class="line">| ---- + blobstore: 记录集群对应的 blobstore 信息，用于协调数据一致性</span><br><span class="line"></span><br><span class="line">| ---- + gray_upgrade: 记录灰度发布中的 topologyId</span><br></pre></td></tr></tbody></table></div></figure>
+<p>Storm 集群的运行严重依赖于 ZK 进行协调，所以在集群较大的时候 ZK 有可能成为瓶颈，JStorm 在这一块引入了缓存进行优化，因为 ZK 中的数据有相当一部分是很少变更的，采用缓存策略可以提升访问速度，又减小对于 ZK 的读压力。缓存实例的创建也在 NimbusData 实例化期间完成，相应逻辑位于 <code>NimbusData#createCache</code> 方法中，该方法会创建一个 NimbusCache 缓存类对象，并将其记录到 StormZkClusterState 的相应属性中。NimbusCache 采用了两级缓存设计，即内存和文件，构造方法实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">NimbusCache</span><span class="params">(Map conf, StormClusterState zkCluster)</span> </span>{</span><br><span class="line">    <span class="keyword">super</span>();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 获取本地缓存的具体实现类</span></span><br><span class="line">    String dbCacheClass = <span class="keyword">this</span>.getNimbusCacheClass(conf);</span><br><span class="line">    LOG.info(<span class="string">"NimbusCache db cache will use {}"</span>, dbCacheClass);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        dbCache = (JStormCache) Utils.newInstance(dbCacheClass);</span><br><span class="line"></span><br><span class="line">        String dbDir = StormConfig.masterDbDir(conf);</span><br><span class="line">        <span class="comment">// 设置本地缓存数据存放目录</span></span><br><span class="line">        conf.put(RocksDBCache.ROCKSDB_ROOT_DIR, dbDir); <span class="comment">// ${storm.local.dir}/nimbus/rocksdb</span></span><br><span class="line">        <span class="comment">// 是否在 nimbus 启动时清空数据，默认为 true</span></span><br><span class="line">        conf.put(RocksDBCache.ROCKSDB_RESET, ConfigExtension.getNimbusCacheReset(conf));</span><br><span class="line">        dbCache.init(conf);</span><br><span class="line">        <span class="keyword">if</span> (dbCache <span class="keyword">instanceof</span> TimeoutMemCache) {</span><br><span class="line">            memCache = dbCache;</span><br><span class="line">        } <span class="keyword">else</span> {</span><br><span class="line">            memCache = <span class="keyword">new</span> TimeoutMemCache();</span><br><span class="line">            memCache.init(conf);</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">// 省略 catch 代码块</span></span><br><span class="line">    <span class="keyword">this</span>.zkCluster = zkCluster;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>JStormCache 接口声明了缓存的基本操作，针对该接口 Storm 主要提供了两类实现：TimeoutMemCache 和 RocksDBCache。对于文件存储而言，如果是本地模式，或者 linux 和 mac 以外的平台均采用 TimeoutMemCache，否则会检查 <code>nimbus.cache.class</code> 配置是否有指定相应的缓存实现类，如果没有指定的话，Storm 会采用 RocksDBCache 作为文件存储。RocksDBCache 的存储实现基于 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://rocksdb.org/">rocksdb</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>，这是一个由 Facebook 开发和维护的嵌入式键值数据库，借用了 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/google/leveldb">leveldb</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 项目的核心代码，以及来自 HBase 的设计思想，可以简单将其理解为本地版本的 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://hbase.apache.org/">HBase</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>。</p>
+
+        <h3 id="Nimbus-节点的-HA-机制">
+          <a href="#Nimbus-节点的-HA-机制" class="heading-link"><i class="fas fa-link"></i></a>Nimbus 节点的 HA 机制</h3>
+      <p>Nimbus 节点在整个 Storm 集群中地位无可厚非，但是单点的设计对于目前大环境下的高可用来说是欠缺的，虽然 nimbus 本身的运行数据是无状态的，但是当 nimbus 节点宕机后，我们还是希望有其它 nimbus 节点能够快速顶替上来，以保证业务 topology 的正常运行。早期的 Storm 实现存在单点的问题，所以 JStorm 在改写的时候引入了 HA 机制来解决这一问题，对于 JStorm 来说一个集群运行过程中只能有一个 nimbus leader 节点，但是可以启动多个 nimbus follower 节点，当 leader 节点宕机之后，follower 节点们可以依据优先级竞选成为 leader 节点。实际上集群刚刚启动时所有的 nimbus 节点都是 follower，不过在短时间内就会依赖于 HA 机制从中选出一个 leader 节点。</p>
+<p>JStorm HA 机制依赖于 ZK 实现，会在 ZK 根节点下创建 nimbus_master 和 nimbus_slave 两个临时节点，顾名思义，nimbus_master 用于存储 nimbus leader 的相关信息，其实就是节点对应的 IP 和端口，而 nimbus_slave 主要存储 nimbus follower 的相关信息。简单的说，nimbus 在启动时会抢占式在 ZK 上创建临时节点（EPHEMERAL 类型），先创建成功者成为 leader，余下的成为 follower，这些 follower 会定期检查 nimbus_master 节点是否存在，因为是 EPHEMERAL 类型，所以当 leader 宕机之后对应的节点会被 ZK 主动删除，此时余下的 follower 感知到 leader 不存在会立即抢占式顶替上来，这也算是 ZK 的典型应用场景。</p>
+<p> HA 机制的启动过程位于 <code>NimbusServer#initFollowerThread</code> 方法中：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">initFollowerThread</span><span class="params">(Map conf)</span> </span>{</span><br><span class="line">    <span class="comment">// 如果当前 nimbus 成为 leader，则会触发此回调执行初始化操作</span></span><br><span class="line">    Callback leaderCallback = <span class="keyword">new</span> Callback() {</span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="keyword">public</span> &lt;T&gt; <span class="function">Object <span class="title">execute</span><span class="params">(T... args)</span> </span>{</span><br><span class="line">            <span class="keyword">try</span> {</span><br><span class="line">                init(data.getConf());</span><br><span class="line">            } <span class="keyword">catch</span> (Exception e) {</span><br><span class="line">                LOG.error(<span class="string">"Nimbus init error after becoming a leader"</span>, e);</span><br><span class="line">                JStormUtils.halt_process(<span class="number">0</span>, <span class="string">"Failed to init nimbus"</span>);</span><br><span class="line">            }</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">        }</span><br><span class="line">    };</span><br><span class="line">    <span class="comment">// 创建并启动 follower 线程</span></span><br><span class="line">    follower = <span class="keyword">new</span> FollowerRunnable(data, <span class="number">5000</span>, leaderCallback);</span><br><span class="line">    Thread thread = <span class="keyword">new</span> Thread(follower);</span><br><span class="line">    thread.setDaemon(<span class="keyword">true</span>);</span><br><span class="line">    thread.start();</span><br><span class="line">    LOG.info(<span class="string">"Successfully init Follower thread"</span>);</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>方法的主要逻辑就是为当前 nimbus 节点创建并启动一个 follower 线程，相应的实现位于 FollowerRunnable 类中，该类实例化的过程中会执行以下几件事情：</p>
+<ol>
+<li>判断当前是否是以集群模式运行，对于本地模式不适用于 HA 机制；</li>
+<li>将当前节点的 IP 和端口号信息注册到 ZK 的 nimbus_slave 和 nimbus_slave_detail 目录下，表示当前节点是一个 nimbus follower 节点；</li>
+<li>检查当前节点是否存在 leader，如果不存在则尝试成为 leader 节点；</li>
+<li>如果使用本地存储 blobstore 数据则记录状态信息到 ZK，以保证数据的一致性。</li>
+</ol>
+<p>当 follower 线程启动之后，follower 默认会每间隔 5 秒钟检查一次当前集群是否存在 nimbus leader 节点，如果不存在则会尝试成为 leader，该过程位于 <code>FollowerRunnable#tryToBeLeader</code> 方法中：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">tryToBeLeader</span><span class="params">(<span class="keyword">final</span> Map conf)</span> <span class="keyword">throws</span> Exception </span>{</span><br><span class="line">    <span class="comment">// 依据候选 nimbus 从节点的优先级来决定当前 nimbus 从节点是否有资格尝试成为 leader</span></span><br><span class="line">    <span class="keyword">boolean</span> allowed = <span class="keyword">this</span>.check_nimbus_priority();</span><br><span class="line">    <span class="keyword">if</span> (allowed) {</span><br><span class="line">        <span class="comment">// 回调策略再次尝试</span></span><br><span class="line">        RunnableCallback masterCallback = <span class="keyword">new</span> RunnableCallback() {</span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>{</span><br><span class="line">                <span class="keyword">try</span> {</span><br><span class="line">                    tryToBeLeader(conf);</span><br><span class="line">                } <span class="keyword">catch</span> (Exception e) {</span><br><span class="line">                    LOG.error(<span class="string">"tryToBeLeader error"</span>, e);</span><br><span class="line">                    JStormUtils.halt_process(<span class="number">30</span>, <span class="string">"Cant't be master"</span> + e.getMessage());</span><br><span class="line">                }</span><br><span class="line">            }</span><br><span class="line">        };</span><br><span class="line">        <span class="comment">// 尝试成为 leader 节点</span></span><br><span class="line">        LOG.info(<span class="string">"This nimbus can be leader"</span>);</span><br><span class="line">        data.getStormClusterState().try_to_be_leader(Cluster.MASTER_SUBTREE, hostPort, masterCallback);</span><br><span class="line">    } <span class="keyword">else</span> {</span><br><span class="line">        LOG.info(<span class="string">"This nimbus can't be leader"</span>);</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>方法首先会基于所有 follower 的优先级来决定当前 follower 节点是否有资格尝试成为 leader，对于有资格的 follower 会调用 <code>StormZkClusterState#try_to_be_leader</code> 方法尝试在 ZK 上创建 nimbus_master 临时节点并写入自己的 IP 和端口号。如果对应 nimbus_master 节点已经存在，则说明已经有 leader 选举出来，则当前尝试失败，否则如果不存在 NodeExistsException 异常则表示竞选成功。</p>
+<p>如果集群已经存在 leader，则方法会判断对应的 leader 是否是当前 follower 自身，如果是的话且上一次的 leader 不存在或是其它 follower 节点，则会触发之前在 <code>NimbusServer#initFollowerThread</code> 方法中定义的回调策略，本质上是调用了 <code>NimbusServer#init</code> 方法，该方法主要执行以下初始化逻辑：</p>
+<ol>
+<li>执行 <code>NimbusData#init</code> 方法；</li>
+<li>清除一些老的 topology（在 ZK 上有记录但是在本地没有对应的 topology 文件）；</li>
+<li>启动 topology 任务分配后台线程，也就是 TopologyAssign 线程（之前在分析 topology 任务分配过程的篇章中有专门介绍）；</li>
+<li>更新集群中 topology 的状态信息（设置为 startup）和心跳信息；</li>
+<li>启动定时清理任务，默认每隔 10 分钟会清理上传到本地的 topology 文件（inbox 目录，更多本地目录说明如下）；</li>
+<li>启动 metrics 监控任务。</li>
+</ol>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">+ ${nimbus_local_dir}</span><br><span class="line">| ---- + nimbus</span><br><span class="line">| ---- | ---- + inbox: 存放客户端上传的 jar 包</span><br><span class="line">| ---- | ---- | ---- + stormjar-{uuid}.jar: 对应一个具体的 jar 包</span><br><span class="line">| ---- | ---- + stormdist</span><br><span class="line">| ---- | ---- | ---- + ${topology_id}</span><br><span class="line">| ---- | ---- | ---- | ---- + stormjar.jar: 包含当前拓扑所有代码的 jar 包（从 inbox 那复制过来的）</span><br><span class="line">| ---- | ---- | ---- | ---- + stormcode.ser: 当前拓扑对象的序列化文件</span><br><span class="line">| ---- | ---- | ---- | ---- + stormconf.ser: 当前拓扑的配置信息文件</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="Thrift-服务的初始化启动过程">
+          <a href="#Thrift-服务的初始化启动过程" class="heading-link"><i class="fas fa-link"></i></a>Thrift 服务的初始化启动过程</h3>
+      <p>最后我们来看一下 nimbus 服务的启动过程。<span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://zh.wikipedia.org/wiki/Thrift">Thrift</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 是一种接口描述语言和二进制通讯协议，同时也是一个强大的 RPC 中间件，跨语言高效通讯是其主要卖点。Nimbus 启动起来本质上就是一个 thrift 服务，在介绍 topology 任务提交过程时我们就已经接触到与 nimbus 节点通信的过程，本质上也是 RPC 服务调用的过程。所有 RPC 接口的实现均位于 ServiceHandler 类中，该类实现了 <code>Nimbus.Iface</code> 接口，NimbusServer 主要调用 <code>NimbusServer#initThrift</code> 方法来启动 thrift 服务，过程如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">initThrift</span><span class="params">(Map conf)</span> <span class="keyword">throws</span> TTransportException </span>{</span><br><span class="line">    <span class="comment">// 获取 thrift 端口，默认为 8627</span></span><br><span class="line">    Integer thrift_port = JStormUtils.parseInt(conf.get(Config.NIMBUS_THRIFT_PORT)); <span class="comment">// ${nimbus.thrift.port}</span></span><br><span class="line">    TNonblockingServerSocket socket = <span class="keyword">new</span> TNonblockingServerSocket(thrift_port);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// ${nimbus.thrift.max_buffer_size}</span></span><br><span class="line">    Integer maxReadBufSize = JStormUtils.parseInt(conf.get(Config.NIMBUS_THRIFT_MAX_BUFFER_SIZE));</span><br><span class="line">    <span class="comment">// 设置服务运行参数</span></span><br><span class="line">    THsHaServer.Args args = <span class="keyword">new</span> THsHaServer.Args(socket);</span><br><span class="line">    args.workerThreads(ServiceHandler.THREAD_NUM); <span class="comment">// 64</span></span><br><span class="line">    args.protocolFactory(<span class="keyword">new</span> TBinaryProtocol.Factory(<span class="keyword">false</span>, <span class="keyword">true</span>, maxReadBufSize, -<span class="number">1</span>));</span><br><span class="line">    args.processor(<span class="keyword">new</span> Nimbus.Processor&lt;Iface&gt;(serviceHandler));</span><br><span class="line">    args.maxReadBufferBytes = maxReadBufSize;</span><br><span class="line"></span><br><span class="line">    thriftServer = <span class="keyword">new</span> THsHaServer(args);</span><br><span class="line"></span><br><span class="line">    LOG.info(<span class="string">"Successfully started nimbus: started Thrift server..."</span>);</span><br><span class="line">    thriftServer.serve();</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>方法实现了一个标准的 thrift 服务启动过程，如果对于 thrift 不熟悉可以参考 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://diwakergupta.github.io/thrift-missing-guide/">Thrift: The Missing Guide</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>。Nimbus 节点启动后默认监听 8627 端口，然后等待客户端的请求。到此，一个 nimbus 节点启动的主要流程就基本完成了。</p>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2018/11/18/storm/storm-nimbus/">https://plotor.github.io/2018/11/18/storm/storm-nimbus/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Storm/">Storm</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/JStorm/">JStorm</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2018/11/19/storm/storm-supervisor/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">JStorm 源码解析：Supervisor 的启动和运行机制</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2018/11/17/storm/storm-async-loop/"><span class="paginator-prev__text">JStorm 源码解析：基础线程模型</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#NimbusData-%E7%9A%84%E5%AE%9E%E4%BE%8B%E5%8C%96%E8%BF%87%E7%A8%8B"><span class="toc-number">1.</span> <span class="toc-text">
+          NimbusData 的实例化过程</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Nimbus-%E8%8A%82%E7%82%B9%E7%9A%84-HA-%E6%9C%BA%E5%88%B6"><span class="toc-number">2.</span> <span class="toc-text">
+          Nimbus 节点的 HA 机制</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Thrift-%E6%9C%8D%E5%8A%A1%E7%9A%84%E5%88%9D%E5%A7%8B%E5%8C%96%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B"><span class="toc-number">3.</span> <span class="toc-text">
+          Thrift 服务的初始化启动过程</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

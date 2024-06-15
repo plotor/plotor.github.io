@@ -1,0 +1,517 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="上一篇我们分析了 topology 构建和提交过程在客户端的逻辑，并最终通过 submitTopology 方法向 Storm 集群的 nimbus 节点提交任务。Nimbus 以 Thrift RPC 服务的方式运行，相应 thrift 接口方法实现位于 ServiceHandler 类中，下面我们从 ServiceHandler#submitTopology 方法切入，分析 nimbus 节点">
+<meta property="og:type" content="article">
+<meta property="og:title" content="JStorm 源码解析：拓扑任务的资源分配过程">
+<meta property="og:url" content="https://plotor.github.io/2018/11/16/storm/storm-topology-assignment/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="上一篇我们分析了 topology 构建和提交过程在客户端的逻辑，并最终通过 submitTopology 方法向 Storm 集群的 nimbus 节点提交任务。Nimbus 以 Thrift RPC 服务的方式运行，相应 thrift 接口方法实现位于 ServiceHandler 类中，下面我们从 ServiceHandler#submitTopology 方法切入，分析 nimbus 节点">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2018-11-16T00:02:59.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.983Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Storm">
+<meta property="article:tag" content="JStorm">
+<meta name="twitter:card" content="summary"><title>JStorm 源码解析：拓扑任务的资源分配过程 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2018/11/16/storm/storm-topology-assignment/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">JStorm 源码解析：拓扑任务的资源分配过程</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2018-11-16</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">5.2k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">24分</span></span></div></header><div class="post-body"><p>上一篇我们分析了 topology 构建和提交过程在客户端的逻辑，并最终通过 <code>submitTopology</code> 方法向 Storm 集群的 nimbus 节点提交任务。Nimbus 以 Thrift RPC 服务的方式运行，相应 thrift 接口方法实现位于 ServiceHandler 类中，下面我们从 <code>ServiceHandler#submitTopology</code> 方法切入，分析 nimbus 节点之于客户端提交任务的资源分配过程，该方法包装了 <code>ServiceHandler#submitTopologyWithOpts</code> 方法。</p>
+<p>Storm 集群的任务提交主要分为三种类型：新任务提交、热部署，以及灰度发布。<code>ServiceHandler#submitTopologyWithOpts</code> 方法统一处理这三种情况，但是不管哪种提交方式都会首先验证 topology 名称和配置的合法性，然后基于具体提交类型分而治之。<a id="more"></a></p>
+
+        <h3 id="灰度发布-amp-热部署">
+          <a href="#灰度发布-amp-热部署" class="heading-link"><i class="fas fa-link"></i></a>灰度发布 &amp; 热部署</h3>
+      <p>首先来看灰度发布的情况，当客户端请求灰度发布时，nimbus 节点会检查对应 topology 在服务端的运行情况，只有状态为 ACTIVE 时才允许执行灰度发布。灰度发布的相关实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 获取指定 topology 的运行数据</span></span><br><span class="line">TopologyInfo topologyInfo = <span class="keyword">this</span>.getTopologyInfo(topologyId);</span><br><span class="line"><span class="keyword">if</span> (topologyInfo == <span class="keyword">null</span>) {</span><br><span class="line">    <span class="keyword">throw</span> <span class="keyword">new</span> TException(<span class="string">"Failed to get topology info"</span>);</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="comment">// 获取指定的 worker 数目：${topology.upgrade.worker.num}</span></span><br><span class="line"><span class="keyword">int</span> workerNum = ConfigExtension.getUpgradeWorkerNum(serializedConf);</span><br><span class="line"><span class="comment">// 获取指定的组件名称：${topology.upgrade.component}</span></span><br><span class="line">String component = ConfigExtension.getUpgradeComponent(serializedConf);</span><br><span class="line"><span class="comment">// 获取指定的 worker 列表：${topology.upgrade.workers}</span></span><br><span class="line">Set&lt;String&gt; workers = ConfigExtension.getUpgradeWorkers(serializedConf);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 判定 topology master 是不是使用独立的 worker</span></span><br><span class="line"><span class="keyword">if</span> (!ConfigExtension.isTmSingleWorker(serializedConf, topologyInfo.get_topology().get_numWorkers())) {</span><br><span class="line">    <span class="keyword">throw</span> <span class="keyword">new</span> TException(<span class="string">"Gray upgrade requires that topology master to be a single worker, cannot perform the upgrade!"</span>);</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="comment">// 灰度发布</span></span><br><span class="line"><span class="keyword">return</span> <span class="keyword">this</span>.grayUpgrade(topologyId, uploadedJarLocation, topology, serializedConf, component, workers, workerNum);</span><br></pre></td></tr></tbody></table></div></figure>
+<p>对于允许灰度发布的场景，Storm 会基于当前提交 topology 的配置首先会尝试获取以下 3 个参数用于挑选 worker 进行发布：</p>
+<ul>
+<li>topology.upgrade.worker.num</li>
+<li>topology.upgrade.component</li>
+<li>topology.upgrade.workers</li>
+</ul>
+<p>如果同时指定了多个参数，方法会基于一定的优先级进行决策，具体如下：</p>
+<ol>
+<li>如果参数 <code>topology.upgrade.workers</code> 不为空则忽略其他参数，挑选指定的 worker 进行发布，需要注意的是这些 worker 发布完之后，这个参数就自动置空；</li>
+<li>否则查看参数 <code>topology.upgrade.component</code> 是否为空，如果不为空还需要查看参数 <code>topology.upgrade.worker.num</code> 是否为 0， 如果不为 0 则挑选指定工作组件下 <code>topology.upgrade.worker.num</code> 指定数目的 worker 进行发布，否则对这些工作组件下所有 worker 进行发布；</li>
+<li>如果上面两个都为空，则随机挑选 <code>topology.upgrade.worker.num</code> 个 worker 进行发布。</li>
+</ol>
+<p>灰度发布的具体执行流程位于 <code>ServiceHandler#grayUpgrade</code> 方法中，该方法实现比较冗长，故不在此贴出，下面参考源码和官网文档对发布的过程进行说明：</p>
+<ol>
+<li>方法首先尝试从 ZK 获取当前 topology 对应的基本信息（路径：<code>/topology/${topology_id}</code>）和灰度发布信息（路径：<code>/gray_upgrade/${topology_id}</code>），以及任务分配信息（路径：<code>assignments/${topology_id}</code>）；</li>
+<li>如果存在灰度发布信息，则判断对应的灰度状态（已过期 / 已完成 / 进行中），如果正在灰度中则拒绝本次灰度请求，否则（包含不存在灰度发布信息的情况）继续执行灰度发布；</li>
+<li>方法利用 GrayUpgradeConfig 对象封装灰度发布信息，并写入到 ZK 的 <code>/gray_upgrade/${topology_id}</code> 路径下，同时设置 <code>config.continueUpgrading=true</code>；</li>
+<li>Topology Master 有一个线程 GrayUpgradeHandler 会定时读取该节点的配置，检测到有灰度发布配置且 <code>continueUpgrading=true</code> 时，将分配指定数目的 worker，添加到 ZK 的 <code>/gray_upgrade/${topology_id}/upgrading_workers</code> 路径下，并设置 <code>continueUpgrading=false</code>（防止自动进行后续的灰度发布）；</li>
+<li>SyncSupervisorEvent 会定时检查每个拓扑的 upgrading_workers 节点，一旦有数据就和自身的 IP 和端口列表进行对比，如果有属于该 supervisor 节点的灰度发布就下载最新的 storm-code 和 storm-jar，然后重启 worker，同时将 worker 添加到 ZK 的 upgraded_workers 节点下；</li>
+<li>GrayUpgradeHandler 检测 ZK，如果 upgraded_workers 的 worker 数大于等于当前总 worker 数减 1（topology master 组件占用），则认为此次灰度发布已经完成，删除 ZK 上的灰度发布配置、upgrading_workers，以及 upgraded_workers。</li>
+</ol>
+<p>如果只想升级部分 worker 或特定组件，可以用 complete_upgrade 强制完成升级。灰度发布过程中使用单独的 upgrading_workers 和 upgraded_workers 的设计主要是为了避免同步问题。如果将这些信息写在 GrayUpgradeConfig 类中可能会涉及到多个 supervisor 节点同时更新 workers 的情况，而使用单独的节点则只需要在这个节点下添加和删除子节点，不会有同步问题。</p>
+<p>热部署和灰度发布从形式上来看都是对运行中 topology 的更新替换操作，但是对于 nimbus 来说，在处理上却是两条不同的分支，实际上热部署与新任务提交在处理过程上更加形似，毕竟热部署的过程就是杀死处于运行中的 topology 然后执行新任务提交的过程，所以接下来我们主要分析新任务的调度细节。</p>
+
+        <h3 id="新任务提交">
+          <a href="#新任务提交" class="heading-link"><i class="fas fa-link"></i></a>新任务提交</h3>
+      <p>对于新提交的任务来说，Storm 会为该 topology 执行一些准备和验证工作，并在 ZK 上创建相应的结点记录该 topology 的元数据和任务分配信息，然后为该 topology 生成一个事件提交给任务分配队列等待 nimbus 节点为当前 topology 制定运行方案，并在执行成功后发送相应的通知事件。相关实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 对当前 topology 配置进行规范化，并附加一些必要的配置</span></span><br><span class="line">Map&lt;Object, Object&gt; stormConf = NimbusUtils.normalizeConf(conf, serializedConf, topology);</span><br><span class="line">LOG.info(<span class="string">"Normalized configuration:"</span> + stormConf);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 合并集群配置和拓扑配置</span></span><br><span class="line">Map&lt;Object, Object&gt; totalStormConf = <span class="keyword">new</span> HashMap&lt;&gt;(conf);</span><br><span class="line">totalStormConf.putAll(stormConf);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 确定 topology 中各个组件的并行度，保证不超过当前 topology 允许的最大值</span></span><br><span class="line">StormTopology normalizedTopology = NimbusUtils.normalizeTopology(stormConf, topology, <span class="keyword">true</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * 验证 topology 的基本结构信息：</span></span><br><span class="line"><span class="comment"> * 1. 验证 topologyName，组件 ID 是否合法</span></span><br><span class="line"><span class="comment"> * 2. 验证是否存在缺失 input 声明的 spout</span></span><br><span class="line"><span class="comment"> * 3. 验证 woker 和 acker 数目参数配置</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">Common.validate_basic(normalizedTopology, totalStormConf, topologyId);</span><br><span class="line"></span><br><span class="line">StormClusterState stormClusterState = data.getStormClusterState();</span><br><span class="line"></span><br><span class="line"><span class="comment">// 创建 /local-dir/nimbus/${topology_id}/xxxx 文件，并将元数据同步到 ZK</span></span><br><span class="line"><span class="keyword">this</span>.setupStormCode(topologyId, uploadedJarLocation, stormConf, normalizedTopology, <span class="keyword">false</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// wait for blob replication before activate topology</span></span><br><span class="line"><span class="keyword">this</span>.waitForDesiredCodeReplication(conf, topologyId);</span><br><span class="line"></span><br><span class="line"><span class="comment">// generate TaskInfo for every bolt or spout in ZK : /ZK/tasks/topoologyId/xxx</span></span><br><span class="line"><span class="comment">// 为当前 topology 在 ZK 上生成 task 信息：/tasks/${topology_id}</span></span><br><span class="line"><span class="keyword">this</span>.setupZkTaskInfo(conf, topologyId, stormClusterState);</span><br><span class="line"></span><br><span class="line"><span class="comment">// mkdir topology error directory : taskerrors/${topology_id}</span></span><br><span class="line">String path = Cluster.taskerror_storm_root(topologyId);</span><br><span class="line">stormClusterState.mkdir(path);</span><br><span class="line"></span><br><span class="line">String grayUpgradeBasePath = Cluster.gray_upgrade_base_path(topologyId); <span class="comment">// gray_upgrade/${topology_id}</span></span><br><span class="line">stormClusterState.mkdir(grayUpgradeBasePath);</span><br><span class="line"><span class="comment">// gray_upgrade/${topology_id}/upgraded_workers</span></span><br><span class="line">stormClusterState.mkdir(Cluster.gray_upgrade_upgraded_workers_path(topologyId));</span><br><span class="line"><span class="comment">// gray_upgrade/${topology_id}/upgrading_workers</span></span><br><span class="line">stormClusterState.mkdir(Cluster.gray_upgrade_upgrading_workers_path(topologyId));</span><br><span class="line"></span><br><span class="line"><span class="comment">// 为当前 topology 执行任务分配</span></span><br><span class="line">LOG.info(<span class="string">"Submit topology {} with conf {}"</span>, topologyName, serializedConf);</span><br><span class="line"><span class="keyword">this</span>.makeAssignment(topologyName, topologyId, options.get_initial_status());</span><br><span class="line"></span><br><span class="line"><span class="comment">// push start event after startup</span></span><br><span class="line"><span class="keyword">double</span> metricsSampleRate = ConfigExtension.getMetricSampleRate(stormConf); <span class="comment">// ${topology.metric.sample.rate}，默认是 0.05</span></span><br><span class="line">StartTopologyEvent.pushEvent(topologyId, metricsSampleRate);</span><br><span class="line"></span><br><span class="line"><span class="keyword">this</span>.notifyTopologyActionListener(topologyName, <span class="string">"submitTopology"</span>);</span><br></pre></td></tr></tbody></table></div></figure>
+<p>下面对源码中涉及到的相关流程进行进一步分析。对于新提交的任务首先会执行一些准备工作，包括：</p>
+<ol>
+<li>规范化 topology 的配置信息；</li>
+<li>确定 topology 各个组件的并行度，保证不超过允许的最大值；</li>
+<li>验证 topology 的基本结构信息（topology 名称和组件 ID 的合法性、spout 是否缺失 input 声明，以及验证 worker 和 acker 的参数配置等）。</li>
+</ol>
+<p>然后 Storm 会创建或更新当前 topology 对象的序列化文件（stormcode.ser）和配置信息文件(stormconf.ser)到 blobstore 中，如果是采用 nimbus 本地模式存储，还需要将对应的元数据写入 ZK 来保证数据一致性。</p>
+<p>接下来会为当前 topology 生成 task 信息，并记录到 ZK 上（路径：<code>/tasks/${topology_id}</code>），对于一个 topology 的同一个组件来说，如果并行度大于 1，那么 Storm 会为其创建对应数量的 task，并保证 taskId 是连续的，相应实现位于 <code>ServiceHandler#setupZkTaskInfo</code> 方法中：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">setupZkTaskInfo</span><span class="params">(Map&lt;Object, Object&gt; conf, String topologyId, StormClusterState stormClusterState)</span> <span class="keyword">throws</span> Exception </span>{</span><br><span class="line">    <span class="comment">// 为当前 topology 追加系统组件，同时基于并行度创建组件对应的 task 信息，同一个组件的多个 task 信息具备连续的 ID</span></span><br><span class="line">    Map&lt;Integer, TaskInfo&gt; taskToTaskInfo = <span class="keyword">this</span>.mkTaskComponentAssignments(conf, topologyId);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 获取 topology master 的 ID (这里使用的是其对应的 task ID)</span></span><br><span class="line">    <span class="keyword">int</span> masterId = NimbusUtils.getTopologyMasterId(taskToTaskInfo);</span><br><span class="line">    TopologyTaskHbInfo topoTaskHbInfo = <span class="keyword">new</span> TopologyTaskHbInfo(topologyId, masterId);</span><br><span class="line">    data.getTasksHeartbeat().put(topologyId, topoTaskHbInfo);</span><br><span class="line">    <span class="comment">// 创建 /ZK/taskbeats/${topology_id}，并写入 topologyId 和 topologyMasterId</span></span><br><span class="line">    stormClusterState.topology_heartbeat(topologyId, topoTaskHbInfo);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (taskToTaskInfo == <span class="keyword">null</span> || taskToTaskInfo.size() == <span class="number">0</span>) {</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> InvalidTopologyException(<span class="string">"Failed to generate TaskIDs map"</span>);</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">// key is task id, value is task info</span></span><br><span class="line">    <span class="comment">// 记录 task 信息到 ZK : /ZK/tasks/${topology_id}</span></span><br><span class="line">    stormClusterState.set_task(topologyId, taskToTaskInfo);</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>该方法主要做了 3 件事情：</p>
+<ol>
+<li>为当前 topology 追加系统组件（acker-bolt、master-bolt，以及 system-bolt）。</li>
+<li>为当前 topology 生成 task 分配信息，并记录到 ZK 相应节点。</li>
+<li>为当前 topology 在 ZK 上创建对应的 task 心跳记录文件。</li>
+</ol>
+<p>其中 1 和 2 位于 <code>ServiceHandler#mkTaskComponentAssignments</code> 方法中：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> Map&lt;Integer, TaskInfo&gt; <span class="title">mkTaskComponentAssignments</span><span class="params">(Map&lt;Object, Object&gt; conf, String topologyId)</span></span></span><br><span class="line"><span class="function">        <span class="keyword">throws</span> IOException, InvalidTopologyException, KeyNotFoundException </span>{</span><br><span class="line">    <span class="comment">// 从 blobstore 中获取当前 topology 的配置信息</span></span><br><span class="line">    Map&lt;Object, Object&gt; stormConf = StormConfig.read_nimbus_topology_conf(topologyId, data.getBlobStore());</span><br><span class="line">    <span class="comment">// 从 blobstore 中获取当前 topology 的 StormTopology 对象</span></span><br><span class="line">    StormTopology rawTopology = StormConfig.read_nimbus_topology_code(topologyId, data.getBlobStore());</span><br><span class="line">    <span class="comment">// 追加一些系统组件到当前 topology 中</span></span><br><span class="line">    StormTopology topology = Common.system_topology(stormConf, rawTopology);</span><br><span class="line">    <span class="comment">// 为当前 topology 生成 task 信息，key 是 taskId</span></span><br><span class="line">    <span class="keyword">return</span> Common.mkTaskInfo(stormConf, topology, topologyId);</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>方法首先会从 blobstore 中获取 topology 的配置信息和 StormTopology 对象，然后调用 <code>Common#system_topology</code> 方法添加一些系统组件，包括 acker-bolt、master-bolt，以及 system-bolt 等。</p>
+<p>然后调用 <code>Common#mkTaskInfo</code> 方法为当前 topology 中的各个组件生成 task 分配信息。方法实现比较简单，返回的结果是一个 map 类型，其中 key 是 taskId，对于同一个组件来说为其分配的 taskId 是连续的，value 是对应的 TaskInfo 对象，包含两个字段：componentId 和 componentType。前者对应系统组件 ID 和用户自定义组件 ID，后者对应组件类型，也就是 bolt 和 spout。</p>
+<p>完成了 topology 组件 task 分配信息的创建，接下来方法为当前任务创建对应的 TopologyAssignEvent 事件对象，并将事件添加到队列中，等待集群为其分配资源。这一过程位于 <code>ServiceHandler#makeAssignment</code> 方法中，等待的过程采用了 CountDownLatch 机制，count 值设置为 1，并设置 5 分钟上限等待集群分配资源，超时则返回 false 表示本次任务提交失败。</p>
+<p>队列的维护和消费过程位于 TopologyAssign 类中，该类实现了 Runnable 接口，并以单例的形式对外提供服务。Nimbus 节点在启动的时候会创建并初始化 TopologyAssign 对象，并以守护线程的方式启动队列的消费过程。线程的 run 方法会循环的从队列头部以阻塞的方式获取对应的 TopologyAssignEvent 事件对象，并调用 <code>TopologyAssign#doTopologyAssignment</code> 方法为相应的 topology 创建任务分配信息（Assignment 对象）和基本运行信息（StormBase 对象），并将任务分配信息和基本运行信息写入 ZK，其中关键的资源分配过程位于 <code>TopologyAssign#mkAssignment</code> 方法中，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> Assignment <span class="title">mkAssignment</span><span class="params">(TopologyAssignEvent event)</span> <span class="keyword">throws</span> Exception </span>{</span><br><span class="line">    String topologyId = event.getTopologyId();</span><br><span class="line">    LOG.info(<span class="string">"Determining assignment for "</span> + topologyId);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 1. 基于配置和当前集群运行状态创建 topology 任务分配的上下文信息</span></span><br><span class="line">    TopologyAssignContext context = <span class="keyword">this</span>.prepareTopologyAssign(event);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2. 依据当前的运行模式基于对应节点负载为当前 topology 中的 task 分配 worker</span></span><br><span class="line">    Set&lt;ResourceWorkerSlot&gt; assignments;</span><br><span class="line">    <span class="keyword">if</span> (!StormConfig.local_mode(nimbusData.getConf())) {</span><br><span class="line">        <span class="comment">// 集群模式，获取模式的调度器</span></span><br><span class="line">        ITopologyScheduler scheduler = schedulers.get(DEFAULT_SCHEDULER_NAME); <span class="comment">// DefaultTopologyScheduler</span></span><br><span class="line">        <span class="comment">// 为当前 topology 中的 task 分配 worker</span></span><br><span class="line">        assignments = scheduler.assignTasks(context);</span><br><span class="line">    } <span class="keyword">else</span> {</span><br><span class="line">        <span class="comment">// 本地模式</span></span><br><span class="line">        assignments = mkLocalAssignment(context);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 3. 记录任务分配信息到 ZK: assignments/${topology_id}</span></span><br><span class="line">    Assignment assignment = <span class="keyword">null</span>;</span><br><span class="line">    <span class="keyword">if</span> (assignments != <span class="keyword">null</span> &amp;&amp; assignments.size() &gt; <span class="number">0</span>) {</span><br><span class="line">        <span class="comment">// 获取服务中的 supervisorId 及其 hostname 映射信息</span></span><br><span class="line">        Map&lt;String, String&gt; nodeHost = getTopologyNodeHost(context.getCluster(), context.getOldAssignment(), assignments);</span><br><span class="line">        <span class="comment">// 获取 task 的启动时间：&lt;taskId, start_second&gt;</span></span><br><span class="line">        Map&lt;Integer, Integer&gt; startTimes = getTaskStartTimes(</span><br><span class="line">                context, nimbusData, topologyId, context.getOldAssignment(), assignments);</span><br><span class="line"></span><br><span class="line">        String codeDir = (String) nimbusData.getConf().get(Config.STORM_LOCAL_DIR);</span><br><span class="line"></span><br><span class="line">        assignment = <span class="keyword">new</span> Assignment(codeDir, assignments, nodeHost, startTimes);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//  the topology binary changed.</span></span><br><span class="line">        <span class="keyword">if</span> (event.isScaleTopology()) {</span><br><span class="line">            assignment.setAssignmentType(Assignment.AssignmentType.ScaleTopology);</span><br><span class="line">        }</span><br><span class="line">        StormClusterState stormClusterState = nimbusData.getStormClusterState();</span><br><span class="line">        <span class="comment">// 写入 assignment 信息到 ZK: assignments/${topology_id}</span></span><br><span class="line">        stormClusterState.set_assignment(topologyId, assignment);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// update task heartbeat's start time</span></span><br><span class="line">        NimbusUtils.updateTaskHbStartTime(nimbusData, assignment, topologyId);</span><br><span class="line">        NimbusUtils.updateTopologyTaskTimeout(nimbusData, topologyId);</span><br><span class="line"></span><br><span class="line">        LOG.info(<span class="string">"Successfully make assignment for topology id "</span> + topologyId + <span class="string">": "</span> + assignment);</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">return</span> assignment;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p><code>TopologyAssign#mkAssignment</code> 方法主要做了下面三件事情：</p>
+<ol>
+<li>基于配置和当前集群运行状态为当前 topology 创建任务分配的上下文信息。</li>
+<li>依据当前的运行模式基于对应节点负载为当前 topology 中的 task 分配 worker。</li>
+<li>将 topology 的任务分配信息 Assignment 对象记录到 ZK 相应节点上。</li>
+</ol>
+<p>方法一开始会为当前 topology 创建任务分配的上下文信息 TopologyAssignContext 对象，该对象主要包含一下信息：</p>
+<ul>
+<li>当前 topology 的 topologyId 和 topologyMasterId。</li>
+<li>当前 topology 对应的 StormTopology 对象。</li>
+<li>配置信息，包括 nimbus 节点配置和 topology 配置。</li>
+<li>当前集群可用的 supervisor 节点信息（不包含位于黑名单中的和已经死亡的）。</li>
+<li>当前 topology 范围内所有 taskId 与其对应的组件 ID 之间的映射关系。</li>
+<li>当前 topology 范围内所有 task 的状态信息。</li>
+<li>其他信息，包括任务分配类型、老的任务分配信息、是否是 reassign，以及未停止的 worker 列表等。</li>
+</ul>
+<p>完成任务分配的上下文信息创建之后，Storm 会基于该信息为当前 topology 分配 worker，集群模式下该过程的实现位于 <code>DefaultTopologyScheduler#assignTasks</code> 方法中，该方法会先计算需要分配的 worker 数目，然后分别为每个 worker 分配对应的 supervisor 节点，最后为 topology 范围内所有组件（包括系统组件）的 task 分配对应的 worker 进程。下面先来看一下 为 worker 分配 supervisor 节点的过程：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> List&lt;ResourceWorkerSlot&gt; <span class="title">getAvailableWorkers</span><span class="params">(</span></span></span><br><span class="line"><span class="function"><span class="params">        DefaultTopologyAssignContext context, Set&lt;Integer&gt; needAssign, <span class="keyword">int</span> allocWorkerNum)</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 1. 计算需要分配的 worker 数目</span></span><br><span class="line">    <span class="keyword">int</span> reserveWorkers = context.getReserveWorkerNum(); <span class="comment">// 需要保留的 worker 数目</span></span><br><span class="line">    <span class="keyword">int</span> workersNum = <span class="keyword">this</span>.getAvailableWorkersNum(context); <span class="comment">// 当前集群总的可用的 worker 数目</span></span><br><span class="line">    <span class="keyword">if</span> ((workersNum - reserveWorkers) &lt; allocWorkerNum) {</span><br><span class="line">        <span class="comment">// 没有足够的 worker 可以分配：可用 worker 数目 - 保留的 worker 数目 &lt; 需要分配的数目</span></span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> FailedAssignTopologyException(<span class="string">"there's no enough worker. allocWorkerNum="</span></span><br><span class="line">                + allocWorkerNum + <span class="string">", availableWorkerNum="</span> + workersNum + <span class="string">",reserveWorkerNum="</span> + reserveWorkers);</span><br><span class="line">    }</span><br><span class="line">    workersNum = allocWorkerNum;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 记录分配到的 worker</span></span><br><span class="line">    List&lt;ResourceWorkerSlot&gt; assignedWorkers = <span class="keyword">new</span> ArrayList&lt;&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2. 分配 worker</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2.1 处理用户自定义分配的情况</span></span><br><span class="line">    <span class="comment">// 从 needAssign 中移除已经分配的 task，并记录分配的 worker 到 assignedWorkers 中</span></span><br><span class="line">    <span class="keyword">this</span>.getRightWorkers(context, needAssign, assignedWorkers, workersNum,</span><br><span class="line">            <span class="comment">// 获取用户自定义分配 worker slot 信息，排除状态为 unstopped 的 worker</span></span><br><span class="line">            <span class="keyword">this</span>.getUserDefineWorkers(context, ConfigExtension.getUserDefineAssignment(context.getStormConf())));</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (ConfigExtension.isUseOldAssignment(context.getStormConf())) {</span><br><span class="line">        <span class="comment">// 2.2 如果配置指定要复用旧的分配，则优先从旧的分配中选出合适的 worker</span></span><br><span class="line">        <span class="keyword">this</span>.getRightWorkers(context, needAssign, assignedWorkers, workersNum, context.getOldWorkers());</span><br><span class="line">    } <span class="keyword">else</span> <span class="keyword">if</span> (context.getAssignType() == TopologyAssignContext.ASSIGN_TYPE_REBALANCE &amp;&amp; !context.isReassign()) {</span><br><span class="line">        <span class="comment">// 2.3 如果是 rebalance 任务分配类型，且可以复用原来的 worker 则将原来分配的 worker 记录下来</span></span><br><span class="line">        <span class="keyword">int</span> cnt = <span class="number">0</span>;</span><br><span class="line">        <span class="keyword">for</span> (ResourceWorkerSlot worker : context.getOldWorkers()) {</span><br><span class="line">            <span class="keyword">if</span> (cnt &lt; workersNum) {</span><br><span class="line">                ResourceWorkerSlot resFreeWorker = <span class="keyword">new</span> ResourceWorkerSlot();</span><br><span class="line">                resFreeWorker.setPort(worker.getPort());</span><br><span class="line">                resFreeWorker.setHostname(worker.getHostname());</span><br><span class="line">                resFreeWorker.setNodeId(worker.getNodeId());</span><br><span class="line">                assignedWorkers.add(resFreeWorker);</span><br><span class="line">                cnt++;</span><br><span class="line">            } <span class="keyword">else</span> {</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    LOG.info(<span class="string">"Get workers from user define and old assignments: "</span> + assignedWorkers);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">int</span> restWorkerNum = workersNum - assignedWorkers.size(); <span class="comment">// 还需要分配的 worker 数目</span></span><br><span class="line">    <span class="keyword">if</span> (restWorkerNum &lt; <span class="number">0</span>) {</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> FailedAssignTopologyException(</span><br><span class="line">                <span class="string">"Too many workers are required for user define or old assignments. "</span> +</span><br><span class="line">                        <span class="string">"workersNum="</span> + workersNum + <span class="string">", assignedWorkersNum="</span> + assignedWorkers.size());</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2.4 对于剩下需要的 worker，直接添加 ResourceWorkerSlot 实例对象</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; restWorkerNum; i++) {</span><br><span class="line">        assignedWorkers.add(<span class="keyword">new</span> ResourceWorkerSlot());</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">     * 3. 遍历将 worker 分配给相应的 supervisor</span></span><br><span class="line"><span class="comment">     * - 如果 worker 指定了 supervisor，则优先分配给指定 supervisor</span></span><br><span class="line"><span class="comment">     * - 依据 supervisor 的负载情况优先选择负载较低的进行分配</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    List&lt;SupervisorInfo&gt; isolationSupervisors = <span class="keyword">this</span>.getIsolationSupervisors(context);</span><br><span class="line">    <span class="keyword">if</span> (isolationSupervisors.size() != <span class="number">0</span>) {</span><br><span class="line">        <span class="keyword">this</span>.putAllWorkerToSupervisor(assignedWorkers, <span class="keyword">this</span>.getResAvailSupervisors(isolationSupervisors));</span><br><span class="line">    } <span class="keyword">else</span> {</span><br><span class="line">        <span class="comment">// 为 worker 分配对应的 supervisor</span></span><br><span class="line">        <span class="keyword">this</span>.putAllWorkerToSupervisor(assignedWorkers, <span class="keyword">this</span>.getResAvailSupervisors(context.getCluster()));</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">this</span>.setAllWorkerMemAndCpu(context.getStormConf(), assignedWorkers);</span><br><span class="line">    LOG.info(<span class="string">"Assigned workers="</span> + assignedWorkers);</span><br><span class="line">    <span class="keyword">return</span> assignedWorkers;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>为 worker 分配 supervisor 节点的过程可以概括为：</p>
+<ol>
+<li>计算需要分配的 worker 数目，如果可用的 worker 数目不满足要求则会抛出异常；</li>
+<li>为需要分配的 worker 创建 ResourceWorkerSlot 分配单元信息，主要分为四种情况：</li>
+</ol>
+<ul>
+<li>用户自定义 worker slot 分配；</li>
+<li>配置指定复用旧的分配信息则优先从旧的分配中选出合适的 worker slot；</li>
+<li>对于 rebalance 任务分配类型，如果允许则复用原来的 worker slot；</li>
+<li>剩余情况，创建新的 work slot；</li>
+</ul>
+<ol start="3">
+<li>为 worker 分配相应的 supervisor 节点。</li>
+</ol>
+<p>下面主要来看一下步骤 3，相应实现位于 <code>WorkerScheduler#putAllWorkerToSupervisor</code> 方法中：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">putAllWorkerToSupervisor</span><span class="params">(List&lt;ResourceWorkerSlot&gt; assignedWorkers, List&lt;SupervisorInfo&gt; supervisors)</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 遍历处理 worker，如果指定了 supervisor，且 supervisor 存在空闲端口，则将其分配给该 supervisor</span></span><br><span class="line">    <span class="keyword">for</span> (ResourceWorkerSlot worker : assignedWorkers) {</span><br><span class="line">        <span class="keyword">if</span> (worker.getHostname() != <span class="keyword">null</span>) {</span><br><span class="line">            <span class="keyword">for</span> (SupervisorInfo supervisor : supervisors) {</span><br><span class="line">                <span class="comment">// 如果当前 worker 对应的 hostname 是该 supervisor，且 supervisor 存在空闲的 worker</span></span><br><span class="line">                <span class="keyword">if</span> (NetWorkUtils.equals(supervisor.getHostName(), worker.getHostname())</span><br><span class="line">                        &amp;&amp; supervisor.getAvailableWorkerPorts().size() &gt; <span class="number">0</span>) {</span><br><span class="line">                    <span class="comment">/*</span></span><br><span class="line"><span class="comment">                     * 基于当前 supervisor 信息更新对应的 worker 信息：</span></span><br><span class="line"><span class="comment">                     *  1. 保证 worker 对应的端口号是当前 supervisor 空闲的，否则选一个 supervisor 空闲的给 worker</span></span><br><span class="line"><span class="comment">                     *  2. 设置 worker 对应的 nodeId 为当前 supervisor 的 ID</span></span><br><span class="line"><span class="comment">                     */</span></span><br><span class="line">                    <span class="keyword">this</span>.putWorkerToSupervisor(supervisor, worker);</span><br><span class="line">                    <span class="keyword">break</span>;</span><br><span class="line">                }</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 更新 supervisor 列表，移除没有空闲端口的 supervisor</span></span><br><span class="line">    supervisors = <span class="keyword">this</span>.getResAvailSupervisors(supervisors);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 对 supervisor 按照空闲端口数由大到小排序</span></span><br><span class="line">    Collections.sort(supervisors, <span class="keyword">new</span> Comparator&lt;SupervisorInfo&gt;() {</span><br><span class="line"></span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="function"><span class="keyword">public</span> <span class="keyword">int</span> <span class="title">compare</span><span class="params">(SupervisorInfo o1, SupervisorInfo o2)</span> </span>{</span><br><span class="line">            <span class="keyword">return</span> -NumberUtils.compare(o1.getAvailableWorkerPorts().size(), o2.getAvailableWorkerPorts().size());</span><br><span class="line">        }</span><br><span class="line"></span><br><span class="line">    });</span><br><span class="line"></span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">     * 按照 supervisor 的负载对 worker 进行分配：</span></span><br><span class="line"><span class="comment">     * 1. 优先选择负载较低的 supervisor 进分配</span></span><br><span class="line"><span class="comment">     * 2. 如果 supervisor 都已经过载但还有未分配的 worker，则从过载 supervisor 优先选择空闲端口较多的进行分配</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">this</span>.putWorkerToSupervisor(assignedWorkers, supervisors);</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>如果 worker 指定了 supervisor 节点，则会将其分配给对应的 supervisor，对于剩余的 worker 来说会考虑 supervisor 节点的负载进行分配，以保证集群中 supervisor 负载的均衡性。Storm 依据集群中 supervisor 节点的平均空闲端口数作为标准来衡量 supervisor 节点的负载，如果一个 supervisor 节点的空闲端口数小于该值则认为该 supervisor 过载。集群负载均衡性的保证主要参考以下两个规则：</p>
+<ol>
+<li>优先选择负载较低的 supervisor 节点进分配。</li>
+<li>如果 supervisor 节点都处于过载状态，但还有未分配的 worker，则从过载 supervisor 节点中优先选择空闲端口较多的节点进行分配。</li>
+</ol>
+<p>再来看一下为 task 分配 worker 进程的过程，实现位于 <code>TaskScheduler#assign</code> 方法中，该方法按照组件的类别分先后对 task 进行 worker 分配，顺序如下：</p>
+<ol>
+<li>优先为设置了 <code>task.on.differ.node=true</code> 的组件的 task 进行分配；</li>
+<li>接着为剩余的用户自定义组件的 task 分配 worker；</li>
+<li>最后为系统组件分配 worker。</li>
+</ol>
+<p>方法实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> List&lt;ResourceWorkerSlot&gt; <span class="title">assign</span><span class="params">()</span> </span>{</span><br><span class="line">    <span class="keyword">if</span> (tasks.size() == <span class="number">0</span>) { <span class="comment">// 没有需要再分配的任务</span></span><br><span class="line">        assignments.addAll(<span class="keyword">this</span>.getRestAssignedWorkers());</span><br><span class="line">        <span class="keyword">return</span> assignments;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 1. 处理设置了 task.on.differ.node=true 的组件，为其在不同 supervisor 节点上分配 worker</span></span><br><span class="line">    Set&lt;Integer&gt; assignedTasks = <span class="keyword">this</span>.assignForDifferNodeTask();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2. 为剩余 task 分配 worker，不包含系统组件</span></span><br><span class="line">    tasks.removeAll(assignedTasks);</span><br><span class="line">    Map&lt;Integer, String&gt; systemTasks = <span class="keyword">new</span> HashMap&lt;&gt;();</span><br><span class="line">    <span class="keyword">for</span> (Integer task : tasks) {</span><br><span class="line">        String name = context.getTaskToComponent().get(task);</span><br><span class="line">        <span class="keyword">if</span> (Common.isSystemComponent(name)) {</span><br><span class="line">            systemTasks.put(task, name);</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        }</span><br><span class="line">        <span class="keyword">this</span>.assignForTask(name, task);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 3. 为系统组件 task 分配 worker, e.g. acker, topology master...</span></span><br><span class="line">    <span class="keyword">for</span> (Entry&lt;Integer, String&gt; entry : systemTasks.entrySet()) {</span><br><span class="line">        <span class="keyword">this</span>.assignForTask(entry.getValue(), entry.getKey());</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 记录所有分配了 task 的 worker 集合</span></span><br><span class="line">    assignments.addAll(<span class="keyword">this</span>.getRestAssignedWorkers());</span><br><span class="line">    <span class="keyword">return</span> assignments;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>对于设置了 <code>task.on.differ.node=true</code> 的组件，要求名下的 task 需要运行在不同的 supervisor 节点上，所以需要优先进行分配，否则如果一些 supervisor 因为配额已满从资源池移除之后，很可能导致没有足够多的 supervisor 节点来满足此类组件的 task 分配需求。</p>
+<p>对于这三类组件的 task 分配过程基本过程类似，基本流程可以概括如下：</p>
+<ol>
+<li>基于多重选择器为当前 task 选择最优 worker 进行分配；</li>
+<li>将 task 加入到被分配 worker 的 task 列表，并更新 worker 持有的 task 数目；</li>
+<li>检查当前 worker 分配的 task 数目，如果配额已满则将其从资源池移除，不再分配新的 task；</li>
+<li>更新 task 所属组件分配在指定 worker 上的 task 数目。</li>
+</ol>
+<p>完成了 task 到 worker，以及 worker 到 supervisor 的配置关系，也就相当于完成了对当前 topology 的任务分配过程，紧接着 Storm 会将任务分配信息记录到 ZK 对应的任务分配路径下面。需要清楚的一点是当前的分配还只是一个方案，Storm 集群并没有开始真正执行当前 topology，如果需要真正启动方案的执行，Storm 还需要调度各个 supervisor 节点按照方案启动相应的 worker 进程，并在每个 worker 进程上启动相应数量的线程来执行 task，相应过程我们后面会逐一进行分析。</p>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2018/11/16/storm/storm-topology-assignment/">https://plotor.github.io/2018/11/16/storm/storm-topology-assignment/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Storm/">Storm</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/JStorm/">JStorm</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2018/11/17/storm/storm-async-loop/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">JStorm 源码解析：基础线程模型</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2018/11/15/storm/storm-topology-build/"><span class="paginator-prev__text">JStorm 源码解析：拓扑的构建和提交过程</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%81%B0%E5%BA%A6%E5%8F%91%E5%B8%83-amp-%E7%83%AD%E9%83%A8%E7%BD%B2"><span class="toc-number">1.</span> <span class="toc-text">
+          灰度发布 &amp; 热部署</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%96%B0%E4%BB%BB%E5%8A%A1%E6%8F%90%E4%BA%A4"><span class="toc-number">2.</span> <span class="toc-text">
+          新任务提交</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

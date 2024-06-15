@@ -1,0 +1,1209 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="Class 文件（也叫字节码文件）与 JVM 一起支撑着 java 程序的跨平台运行，虽然两者目前主要服务于 java 语言，但是其最初的设计是为编程语言构建一个跨平台的基础运行环境，任何语言只要可以被编译为字节码文件，就可以依托于这一套基础运行环境，实现平台无关性。                     字节码文件结构       字节码文件是一组以 8 位字节为基础单位的二进制流，各个数据项">
+<meta property="og:type" content="article">
+<meta property="og:title" content="探秘 JVM：字节码文件结构与指令">
+<meta property="og:url" content="https://plotor.github.io/2016/10/30/jvm/class-file-format/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="Class 文件（也叫字节码文件）与 JVM 一起支撑着 java 程序的跨平台运行，虽然两者目前主要服务于 java 语言，但是其最初的设计是为编程语言构建一个跨平台的基础运行环境，任何语言只要可以被编译为字节码文件，就可以依托于这一套基础运行环境，实现平台无关性。                     字节码文件结构       字节码文件是一组以 8 位字节为基础单位的二进制流，各个数据项">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://plotor.github.io/images/2016/jvm-class-file-format.jpg">
+<meta property="og:image" content="https://plotor.github.io/images/2016/jvm-constant-pool-type.jpg">
+<meta property="article:published_time" content="2016-10-30T04:11:16.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.951Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="JVM">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://plotor.github.io/images/2016/jvm-class-file-format.jpg"><title>探秘 JVM：字节码文件结构与指令 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2016/10/30/jvm/class-file-format/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">探秘 JVM：字节码文件结构与指令</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2016-10-30</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">6.4k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">25分</span></span></div></header><div class="post-body"><p>Class 文件（也叫字节码文件）与 JVM 一起支撑着 java 程序的跨平台运行，虽然两者目前主要服务于 java 语言，但是其最初的设计是为编程语言构建一个跨平台的基础运行环境，任何语言只要可以被编译为字节码文件，就可以依托于这一套基础运行环境，实现平台无关性。</p>
+
+        <h3 id="字节码文件结构">
+          <a href="#字节码文件结构" class="heading-link"><i class="fas fa-link"></i></a>字节码文件结构</h3>
+      <p>字节码文件是一组以 8 位字节为基础单位的二进制流，各个数据项目（见下图）严格按照顺序紧凑排列，中间没有分隔符，当遇到需要占用 8 位字节以上空间的数据项时，则按照 <strong>高位优先</strong> 的方式分割成若干个 8 位字节进行存储。<a id="more"></a></p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2016/jvm-class-file-format.jpg" alt="image">
+      </p>
+<p>字节码文件主要包含两种数据类型：</p>
+<ol>
+<li><strong>无符号数</strong> ：无符号数属于基本数据类型，用于描述数字、索引引用、数量值，以及按照 UTF-8 编码的字符串，以 u1、u2、u4、u8 分表代表 1 个字节、2 个字节、4 个字节和 8 个字节的无符号数。</li>
+<li><strong>表</strong> ：通常由多个无符号数或其它表作为数据项构成复合数据类型，一般以 <code>_info</code> 结尾，用于描述具有层次关系的复合机构的数据。</li>
+</ol>
+
+        <h4 id="文件类型与版本">
+          <a href="#文件类型与版本" class="heading-link"><i class="fas fa-link"></i></a>文件类型与版本</h4>
+      <p>字节码文件作为一种文件类型，和普通文件类型一样，也是通过在字节流最开始设置标志位来表示当前文件为字节码类型文件，标志位的值为： <strong>0xCAFEBABE</strong> 。如下所示，类型标志位占用前 4 个字节，第 5 和 6 两个字节表示 <strong>次版本号（Minor Version）</strong> ，第 7 和 8 两个字节表示 <strong>主版本号（Major Version）</strong> 。示例中的次版本号是 0，主版本号是 <code>0x0034</code>，对应十进制是 52，也就是 java1.8 版本，通常 jdk 版本过低导致编译出错时，编译器会打印出需要的 jdk 版本信息就是这里对应的十进制数字。</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">编号：0102 0304 0506 0708 0910 1112 1314 1516</span><br><span class="line">字节：CAFE BABE 0000 0034 0014 0a00 0300 1107</span><br></pre></td></tr></tbody></table></div></figure>
+<p>除了查看字节码文件的字节流，我们还可以通过 <code>javap -verbose &lt;class file&gt;</code> 来查看一个字节码文件的结构，相对于字节流更加直观。</p>
+
+        <h4 id="常量池">
+          <a href="#常量池" class="heading-link"><i class="fas fa-link"></i></a>常量池</h4>
+      <p>常量池挨着版本信息，主要用于存放字面量和符号引用，其大小通常是不固定的，所以在常量池的最开始需要设置一个 u2 类型的数据（即 constant_pool_count），以表示常量池的大小。需要注意的一点是， <strong>这个容量值的计数是从 1 开始的，而 0 则作为一个特殊值，用于某些指向常量池的索引在特定情况下需要表达“不引用任何常量池项目”的含义</strong> 。</p>
+<p>Java 截止目前（JDK 13）共定义了 17 种常量池表类型（如下表所示），这些类型的共同点就是在表开始的第一位定义了一个 u1 类型的标志位（tag），用于表示当前具体的常量类型。</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>类型</th>
+<th>标志</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>CONSTANT_Utf8_info</td>
+<td>1</td>
+<td>UTF-8 编码的字符串</td>
+</tr>
+<tr>
+<td>CONSTANT_Integer_info</td>
+<td>3</td>
+<td>整型字面量</td>
+</tr>
+<tr>
+<td>CONSTANT_Float_info</td>
+<td>4</td>
+<td>浮点型字面量</td>
+</tr>
+<tr>
+<td>CONSTANT_Long_info</td>
+<td>5</td>
+<td>长整型字面量</td>
+</tr>
+<tr>
+<td>CONSTANT_Double_info</td>
+<td>6</td>
+<td>双精度浮点型字面量</td>
+</tr>
+<tr>
+<td>CONSTANT_Class_info</td>
+<td>7</td>
+<td>类或接口的符号引用</td>
+</tr>
+<tr>
+<td>CONSTANT_String_info</td>
+<td>8</td>
+<td>字符串类型字面量</td>
+</tr>
+<tr>
+<td>CONSTANT_Filedref_info</td>
+<td>9</td>
+<td>字段的符号引用</td>
+</tr>
+<tr>
+<td>CONSTANT_Methodref_info</td>
+<td>10</td>
+<td>类中方法的符号引用</td>
+</tr>
+<tr>
+<td>CONSTANT_InterfaceMethodref_info</td>
+<td>11</td>
+<td>接口中方法的符号引用</td>
+</tr>
+<tr>
+<td>CONSTANT_NameAndType_info</td>
+<td>12</td>
+<td>字段或方法的部分符号引用</td>
+</tr>
+<tr>
+<td>CONSTANT_MethodHandle_info</td>
+<td>15</td>
+<td>方法句柄</td>
+</tr>
+<tr>
+<td>CONSTANT_MethodType_info</td>
+<td>16</td>
+<td>方法类型</td>
+</tr>
+<tr>
+<td>CONSTANT_Dynamic_info</td>
+<td>17</td>
+<td>动态计算常量</td>
+</tr>
+<tr>
+<td>CONSTANT_InvokeDynamic_info</td>
+<td>18</td>
+<td>动态方法调用点</td>
+</tr>
+<tr>
+<td>CONSTANT_Module_info</td>
+<td>19</td>
+<td>模块</td>
+</tr>
+<tr>
+<td>CONSTANT_Package_info</td>
+<td>20</td>
+<td>模块中开放或者导出的包</td>
+</tr>
+</tbody></table></div>
+<p>详细结构总表：</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2016/jvm-constant-pool-type.jpg" alt="image">
+      </p>
+
+        <h4 id="访问标志位">
+          <a href="#访问标志位" class="heading-link"><i class="fas fa-link"></i></a>访问标志位</h4>
+      <p>访问标志位用于标识类或接口的访问信息，占据一个 u2，可用的标志位有 16 个，当前只定义了 9 个，具体如下：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>名称</th>
+<th>标志位</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>ACC_PUBLIC</td>
+<td>0x0001</td>
+<td>是否是 public 类型</td>
+</tr>
+<tr>
+<td>ACC_FINAL</td>
+<td>0x0010</td>
+<td>是否被声明为 final</td>
+</tr>
+<tr>
+<td>ACC_SUPER</td>
+<td>0x0020</td>
+<td>是否允许使用 invokespecial 字节码指令的新语义， invokespecial 在 jdk1.0.2 语义发生过改变，所以需要标识使用的是新语义还是旧语义</td>
+</tr>
+<tr>
+<td>ACC_INTERFACE</td>
+<td>0x0200</td>
+<td>标识接口</td>
+</tr>
+<tr>
+<td>ACC_ABSTRACT</td>
+<td>0x0400</td>
+<td>对于接口和抽象类而言值为 true</td>
+</tr>
+<tr>
+<td>ACC_SYNTHETIC</td>
+<td>0x1000</td>
+<td>标识当前类不是由用户代码产生的</td>
+</tr>
+<tr>
+<td>ACC_ANNOTATION</td>
+<td>0x2000</td>
+<td>标识注解</td>
+</tr>
+<tr>
+<td>ACC_ENUM</td>
+<td>0x4000</td>
+<td>标识枚举</td>
+</tr>
+<tr>
+<td>ACC_MODULE</td>
+<td>0x8000</td>
+<td>标识模块</td>
+</tr>
+</tbody></table></div>
+
+        <h4 id="索引">
+          <a href="#索引" class="heading-link"><i class="fas fa-link"></i></a>索引</h4>
+      <p>索引包含类索引（this_class）、父类索引（super_class），以及接口索引集合（interfaces），这三项联合起来确定类的继承关系。</p>
+<p><strong>类索引</strong> 用于确定类的全限定名，占用一个 u2，指向一个类型为 <code>CONSTANT_Class_info</code> 的类描述符常量，据此可以找到定义在 <code>CONSTANT_Utf8_info</code> 类型常量中的全限定名字符串。</p>
+<p><strong>父类索引</strong> 用于确定当前类的父类的全限定名，由于 java 不允许多重继承，且对象默认继承 Object 类，所以除了 Object 类外，所有的其它类都有父类索引。</p>
+<p>父类索引占用一个 u2，指向一个类型为 <code>CONSTANT_Class_info</code> 的类描述符常量，据此可以找到定义在 <code>CONSTANT_Utf8_info</code> 类型常量中的全限定名字符串。</p>
+<p><strong>接口索引集合</strong> 用于描述一个类实现了哪些接口，按照在 implements 关键字后面的组织顺序在字节码文件中依次排列。接口索引是一组 u2 类型数据的集合，并在最前面设置一个 u2 类型的接口计数器（interfaces_count），用于记录实现接口的数目。</p>
+
+        <h4 id="字段表集合">
+          <a href="#字段表集合" class="heading-link"><i class="fas fa-link"></i></a>字段表集合</h4>
+      <p>字段表用于描述接口或者类中声明的变量（包括类变量和实例变量，但不包括局部变量），不包含从父类或父接口继承而来的字段。字段表的格式如下：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>类型</th>
+<th>名称</th>
+<th>数量</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>u2</td>
+<td>access_flags</td>
+<td>1</td>
+<td>访问标识符，参考字段访问标识符表</td>
+</tr>
+<tr>
+<td>u2</td>
+<td>name_index</td>
+<td>1</td>
+<td>对于常量池项的引用，代表字段的简单名称</td>
+</tr>
+<tr>
+<td>u2</td>
+<td>descriptor_index</td>
+<td>1</td>
+<td>对于常量池项的引用，代表字段的描述符</td>
+</tr>
+<tr>
+<td>u2</td>
+<td>arrtibutes_count</td>
+<td>1</td>
+<td>属性个数</td>
+</tr>
+<tr>
+<td>attribute_info</td>
+<td>attributes</td>
+<td>attributes_count</td>
+<td>属性表</td>
+</tr>
+</tbody></table></div>
+<ul>
+<li><strong>字段访问标识符表</strong></li>
+</ul>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>标志名称</th>
+<th>标志值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>ACC_PUBLIC</td>
+<td>0x0001</td>
+<td>public</td>
+</tr>
+<tr>
+<td>ACC_PRIVATE</td>
+<td>0x0002</td>
+<td>private</td>
+</tr>
+<tr>
+<td>ACC_PROTECTED</td>
+<td>0x0004</td>
+<td>protected</td>
+</tr>
+<tr>
+<td>ACC_STATIC</td>
+<td>0x0008</td>
+<td>static</td>
+</tr>
+<tr>
+<td>ACC_FINAL</td>
+<td>0x0010</td>
+<td>final</td>
+</tr>
+<tr>
+<td>ACC_VOLATILE</td>
+<td>0x0040</td>
+<td>volatile</td>
+</tr>
+<tr>
+<td>ACC_TRANSIENT</td>
+<td>0x0080</td>
+<td>transient</td>
+</tr>
+<tr>
+<td>ACC_SYNTHETIC</td>
+<td>0x1000</td>
+<td>是否由编译器自动生成</td>
+</tr>
+<tr>
+<td>ACC_ENUM</td>
+<td>0x4000</td>
+<td>enum</td>
+</tr>
+</tbody></table></div>
+<ul>
+<li><strong>方法和字段描述符</strong></li>
+</ul>
+<p>描述符的作用在于用来描述字段的 <strong>数据类型</strong> 、<strong>方法的参数列表（数量、类型、顺序）</strong> ，以及 <strong>返回值</strong> 。依据规则，基本数据类型和 void 都用一个大写字母表示（具体如下），而对象类型则用字符 L 加对象的全限定名来表示。</p>
+<ul>
+<li>B：表示 byte</li>
+<li>C：表示 char</li>
+<li>D：表示 double</li>
+<li>F：表示 float</li>
+<li>I：表示 int</li>
+<li>J：表示 long，因为 L 表示对象</li>
+<li>S：表示 short</li>
+<li>Z：表示 boolean</li>
+<li>V：表示 void</li>
+<li>L：表示对象，包括所有基本类型的包装类型，比如 Ljava/lang/Object</li>
+</ul>
+<p>对于数组类型，每一维度都用一个前置的 <code>[</code> 字符来描述，比如二维数组 <code>String[][]</code> 表示成 <code>[[Ljava.lang.String;</code>，一维整型数组 <code>int[]</code> 表示成 <code>[I</code>。</p>
+<p>对于方法的描述，则按照 <strong>先参数列表，后返回值</strong> 的原则，所有的参数按照定义的顺序放在 <code>()</code> 内，比如：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">void method() -&gt; ()V</span><br><span class="line">String method() -&gt; ()Ljava.lang.String;</span><br><span class="line">int method(char[] a, int b, int c, double d) -&gt; ([CIID)I</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="方法表集合">
+          <a href="#方法表集合" class="heading-link"><i class="fas fa-link"></i></a>方法表集合</h4>
+      <p>Class 文件存储格式对于方法的描述几乎与属性完全一致，同样主要包含访问标志（access_flags）、名称索引（name_index）、描述符索引（descriptor_index），以及属性集合（attributes）等，如下表所示：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>类型</th>
+<th>名称</th>
+<th>数量</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>u2</td>
+<td>access_flags</td>
+<td>1</td>
+<td>访问标识符，参考方法访问标识符表</td>
+</tr>
+<tr>
+<td>u2</td>
+<td>name_index</td>
+<td>1</td>
+<td>对于常量池项的引用，代表方法的简单名称</td>
+</tr>
+<tr>
+<td>u2</td>
+<td>descriptor_index</td>
+<td>1</td>
+<td>对于常量池项的引用，代表方法的描述符</td>
+</tr>
+<tr>
+<td>u2</td>
+<td>arrtibutes_count</td>
+<td>1</td>
+<td>属性个数</td>
+</tr>
+<tr>
+<td>attribute_info</td>
+<td>attributes</td>
+<td>attributes_count</td>
+<td>属性表</td>
+</tr>
+</tbody></table></div>
+<ul>
+<li><strong>方法访问标识符表</strong></li>
+</ul>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>标志名称</th>
+<th>标志值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>ACC_PUBLIC</td>
+<td>0x0001</td>
+<td>public</td>
+</tr>
+<tr>
+<td>ACC_PRIVATE</td>
+<td>0x0002</td>
+<td>private</td>
+</tr>
+<tr>
+<td>ACC_PROTECTED</td>
+<td>0x0004</td>
+<td>protected</td>
+</tr>
+<tr>
+<td>ACC_STATIC</td>
+<td>0x0008</td>
+<td>static</td>
+</tr>
+<tr>
+<td>ACC_FINAL</td>
+<td>0x0010</td>
+<td>final</td>
+</tr>
+<tr>
+<td>ACC_SYNCHRONIZED</td>
+<td>0x0020</td>
+<td>synchronized</td>
+</tr>
+<tr>
+<td>ACC_BRIDGE</td>
+<td>0x0040</td>
+<td>是否是由编译器生成的桥接方法</td>
+</tr>
+<tr>
+<td>ACC_VARARGS</td>
+<td>0x0080</td>
+<td>是否接受可变参数</td>
+</tr>
+<tr>
+<td>ACC_NATIVE</td>
+<td>0x0100</td>
+<td>native</td>
+</tr>
+<tr>
+<td>ACC_ABSTRACT</td>
+<td>0x0400</td>
+<td>abstract</td>
+</tr>
+<tr>
+<td>ACC_STRICT</td>
+<td>0x0800</td>
+<td>strictfp</td>
+</tr>
+<tr>
+<td>ACC_SYNTHETIC</td>
+<td>0x1000</td>
+<td>是否由编译器自生成</td>
+</tr>
+</tbody></table></div>
+<p>对于方法体而言，在经过编译成字节码指令之后存放在属性表的一个名为 Code 的属性中。下面的示例是一个构造方法的字节码（javap 指令默认不显示 private 方法，需要添加 <code>-p</code> 参数）：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> org.zhenchao.jvm.ClassFormat();</span><br><span class="line">descriptor: ()V</span><br><span class="line">flags: ACC_PUBLIC</span><br><span class="line">Code:</span><br><span class="line">  stack=<span class="number">2</span>, locals=<span class="number">1</span>, args_size=<span class="number">1</span></span><br><span class="line">     <span class="number">0</span>: aload_0</span><br><span class="line">     1: invokespecial #1                  // Method java/lang/Object."&lt;init&gt;":()V</span><br><span class="line">     <span class="number">4</span>: aload_0</span><br><span class="line">     5: ldc           #2                  // String any</span><br><span class="line">     7: putfield      #3                  // Field instanceVariable:Ljava/lang/String;</span><br><span class="line">    <span class="number">10</span>: <span class="keyword">return</span></span><br><span class="line">  LineNumberTable:</span><br><span class="line">    line <span class="number">11</span>: <span class="number">0</span></span><br><span class="line">    line <span class="number">19</span>: <span class="number">4</span></span><br><span class="line">  LocalVariableTable:</span><br><span class="line">    Start  Length  Slot  Name   Signature</span><br><span class="line">        <span class="number">0</span>      <span class="number">11</span>     <span class="number">0</span>  <span class="keyword">this</span>   Lorg/zhenchao/jvm/ClassFormat;</span><br></pre></td></tr></tbody></table></div></figure>
+<p>在 java 程序中，方法的重载条件是方法名相同，但是参数签名不同（类型、个数，以及顺序），如果仅仅是返回值不同则不能视为重载。然而，对应到字节码文件则范围则更大， 也就是说如果两个方法的名称和参数签名相同，但是返回值不同，同样可以共存于同一个字节码文件中。这也为一些其他运行在 JVM 上的语言实现有别于 java 语言的特性留出了发挥空间。</p>
+
+        <h4 id="属性表集合">
+          <a href="#属性表集合" class="heading-link"><i class="fas fa-link"></i></a>属性表集合</h4>
+      <p>在 Class 文件、字段表，以及方法表中都可以携带自己的属性表集合，各属性表不要求严格顺序，只要不与已有的属性名重复即可，JVM 针对不能识别的属性在运行时会选择忽略。截止 JDK 12，预定义的属性共有 29 项，如下表所示：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>属性</th>
+<th>作用域</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Code</td>
+<td>方法表</td>
+<td>用于记录 java 方法体编译后的字节码</td>
+</tr>
+<tr>
+<td>ConstantValue</td>
+<td>字段表</td>
+<td>记录由 final 关键字定义的常量值</td>
+</tr>
+<tr>
+<td>Deprecated</td>
+<td>类 / 方法表 / 字段表</td>
+<td>deprecated 标识</td>
+</tr>
+<tr>
+<td>Exceptions</td>
+<td>方法表</td>
+<td>方法异常列表</td>
+</tr>
+<tr>
+<td>EnclosingMethod</td>
+<td>类文件</td>
+<td>用于标识类所属的外围方法，只有当该类是局部类或匿名类时才会拥有此属性</td>
+</tr>
+<tr>
+<td>InnerClasses</td>
+<td>类文件</td>
+<td>内部类列表</td>
+</tr>
+<tr>
+<td>LineNumberTable</td>
+<td>Code 属性</td>
+<td>源码中行号与字节码指令的映射关系</td>
+</tr>
+<tr>
+<td>LocalVariableTable</td>
+<td>Code 属性</td>
+<td>方法的局部变量描述</td>
+</tr>
+<tr>
+<td>LocalVariableTypeTable</td>
+<td>类</td>
+<td>使用特征签名代替描述符，以支持在引入泛型语法后能够描述泛型参数化类型，JDK 5 新增</td>
+</tr>
+<tr>
+<td>StackMapTable</td>
+<td>Code 属性</td>
+<td>服务于类型检查验证器（Type Checker），用于检查和处理目标方法的局部变量和操作数栈所需要的的类型是否匹配，JDK 6 新增</td>
+</tr>
+<tr>
+<td>Signature</td>
+<td>类 / 方法表 / 字段表</td>
+<td>由于 java 的泛型采用擦除法实现，为了避免擦除后导致签名混乱，需要使用此属性记录泛型信息，JDK 5 新增</td>
+</tr>
+<tr>
+<td>SourceFile</td>
+<td>类文件</td>
+<td>记录源文件名称</td>
+</tr>
+<tr>
+<td>SourceDebugExtension</td>
+<td>类文件</td>
+<td>用于存储额外的调试信息，JDK 5 新增</td>
+</tr>
+<tr>
+<td>Synthetic</td>
+<td>类 / 方法表 / 字段表</td>
+<td>标识方法或字段为编译期自动生成的</td>
+</tr>
+<tr>
+<td>RuntimeVisibleAnnotations</td>
+<td>类 / 方法表 / 字段表</td>
+<td>用于指明哪些注解是运行时可见的，JDK 5 新增</td>
+</tr>
+<tr>
+<td>RuntimeInvisibleAnnotations</td>
+<td>类 / 方法表 / 字段表</td>
+<td>用于指明哪些注解是运行时不可见的，JDK 5 新增</td>
+</tr>
+<tr>
+<td>RuntimeVisibleParameterAnnotations</td>
+<td>方法表</td>
+<td>用于指明哪些方法参数注解是运行时可见的，JDK 5 新增</td>
+</tr>
+<tr>
+<td>RuntimeInvisibleParameterAnnotations</td>
+<td>方法表</td>
+<td>用于指明哪些方法参数注解是运行时不可见的，JDK 5 新增</td>
+</tr>
+<tr>
+<td>AnnotationDefault</td>
+<td>方法表</td>
+<td>记录注解类元素的默认值，JDK 5 新增</td>
+</tr>
+<tr>
+<td>BootstrapMethods</td>
+<td>类文件</td>
+<td>用于保存 invokedynamic 指令引用的引导方法限定符，JDK 7 新增</td>
+</tr>
+<tr>
+<td>RuntimeVisibleTypeAnnotations</td>
+<td>类 / 方法表 / 字段表 / Code 属性</td>
+<td>为实现 JSR 308 中新增的类型注解提供支持，用于指明哪些类注解是运行时可见的，JDK 8 新增</td>
+</tr>
+<tr>
+<td>RuntimeInvisibleTypeAnnotations</td>
+<td>类 / 方法表 / 字段表 / Code 属性</td>
+<td>为实现 JSR 308 中新增的类型注解提供支持，用于指明哪些类注解是运行时不可见的，JDK 8 新增</td>
+</tr>
+<tr>
+<td>MethodParameters</td>
+<td>方法表</td>
+<td>用于支持将方法名称编译进 Class 文件（编译时添加 <code>-parameters</code> 参数），以在运行时获取，JDK 8 新增</td>
+</tr>
+<tr>
+<td>Module</td>
+<td>类</td>
+<td>用于记录一个 Module 的名称和相关信息，JDK 9 新增</td>
+</tr>
+<tr>
+<td>ModulePackages</td>
+<td>类</td>
+<td>用于记录一个模块中所有被 exports 或 opens 的包，JDK 9 新增</td>
+</tr>
+<tr>
+<td>ModuleMainClass</td>
+<td>类</td>
+<td>用于指定一个模块的主类，JDK 9 新增</td>
+</tr>
+<tr>
+<td>NestHost</td>
+<td>类</td>
+<td>用于支持嵌套类的反射和访问控制 API，一个内部类可以通过该属性获取自己的宿主类，JDK 11 新增</td>
+</tr>
+<tr>
+<td>NestMembers</td>
+<td>类</td>
+<td>用于支持嵌套类的反射和访问控制 API，一个内部类可以通过该属性获取自己有哪些内部类，JDK 11 新增</td>
+</tr>
+</tbody></table></div>
+<p>下面来重点来看一下 Code 属性。对于存在方法体的 java 方法，方法体部分经过 javac 编译之后变为字节码存储在方法表的 Code 属性中，该属性的结构如下：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>名称</th>
+<th>类型</th>
+<th>数量</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>attribute_name_index</td>
+<td>u2</td>
+<td>1</td>
+<td>固定为 Code，代表属性名</td>
+</tr>
+<tr>
+<td>attribute_length</td>
+<td>u4</td>
+<td>1</td>
+<td>属性的长度</td>
+</tr>
+<tr>
+<td>max_stack</td>
+<td>u2</td>
+<td>1</td>
+<td>代表操作数栈的最大深度，JVM 依据该值分配栈帧</td>
+</tr>
+<tr>
+<td>max_locals</td>
+<td>u2</td>
+<td>1</td>
+<td>代表局部变量表所需的存储空间，单位是 Slot</td>
+</tr>
+<tr>
+<td>code_length</td>
+<td>u4</td>
+<td>1</td>
+<td>字节码指令长度，实际中最大只使用了 u2 的空间，也就是说 <strong>JVM 限制一个方法最大不允许超过 65535 条字节码指令</strong> ，否则拒绝编译</td>
+</tr>
+<tr>
+<td>code</td>
+<td>u1</td>
+<td>code_length</td>
+<td>存储方法体对应的字节码指令</td>
+</tr>
+<tr>
+<td>exception_table_length</td>
+<td>u2</td>
+<td>1</td>
+<td>异常表长度</td>
+</tr>
+<tr>
+<td>exception_table</td>
+<td>exception_info</td>
+<td>exception_table_length</td>
+<td>异常表</td>
+</tr>
+<tr>
+<td>attributes_count</td>
+<td>u2</td>
+<td>1</td>
+<td>属性表长度</td>
+</tr>
+<tr>
+<td>attributes</td>
+<td>attribute_info</td>
+<td>attributes_count</td>
+<td>属性表</td>
+</tr>
+</tbody></table></div>
+<p>Code 属性示例：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">int</span> <span class="title">publicMethod</span><span class="params">(<span class="keyword">int</span> a, <span class="keyword">int</span> b)</span> <span class="keyword">throws</span> Exception </span>{</span><br><span class="line">    <span class="keyword">return</span> a + b;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述方法编译成字节码之后如下所示：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">int</span> <span class="title">publicMethod</span><span class="params">(<span class="keyword">int</span>, <span class="keyword">int</span>)</span> <span class="keyword">throws</span> java.lang.Exception</span>;</span><br><span class="line">descriptor: (II)I</span><br><span class="line">flags: ACC_PUBLIC</span><br><span class="line">Code:</span><br><span class="line">  stack=<span class="number">2</span>, locals=<span class="number">3</span>, args_size=<span class="number">3</span></span><br><span class="line">     <span class="number">0</span>: iload_1</span><br><span class="line">     <span class="number">1</span>: iload_2</span><br><span class="line">     <span class="number">2</span>: iadd</span><br><span class="line">     <span class="number">3</span>: ireturn</span><br><span class="line">  LineNumberTable:</span><br><span class="line">    line <span class="number">39</span>: <span class="number">0</span></span><br><span class="line">  LocalVariableTable:</span><br><span class="line">    Start  Length  Slot  Name   Signature  <span class="comment">// start和length合起来显示了该变量的作用域</span></span><br><span class="line">        <span class="number">0</span>       <span class="number">4</span>     <span class="number">0</span>  <span class="keyword">this</span>   Lorg/zhenchao/jvm/chapter6/ClassStructTest;</span><br><span class="line">        <span class="number">0</span>       <span class="number">4</span>     <span class="number">1</span>     a   I</span><br><span class="line">        <span class="number">0</span>       <span class="number">4</span>     <span class="number">2</span>     b   I</span><br><span class="line">Exceptions: <span class="comment">// 与 Code 属性平级</span></span><br><span class="line">  <span class="keyword">throws</span> java.lang.Exception</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述字节码的局部变量数 <code>locals</code> 和参数个数 <code>args_size</code> 值均为 3，然而实际上我们只定义了两个参数，多的那个是 this 引用，每个方法都隐式持有一个 this 引用，用于指向当前方法所属的类实例。</p>
+<p><strong>LineNumberTable</strong> 属性用于描述源码与字节码行号之间的映射关系，是生成字节码时的可选项（在执行 javac 时可以通过设置 <code>-g:none</code> 和 <code>-g:lines</code> 来关闭和打开）。如果指定不生成 LineNumberTable，当程序抛出异常时将不会显示发生异常的行号，并且在调试程序时也无法按照源码行来设置断点。</p>
+<p><strong>LocalVariableTable</strong> 用于描述栈帧局部变量表中的变量与源码中定义的变量之间的映射关系，也是生成字节码时的可选项（在执行 javac 时可以通过设置 <code>-g:none</code> 和 <code>-g:vars</code> 来关闭和打开）。如果指定不生成 LocalVariableTable，那么反编译或者引用这个方法时，所有的参数名称都会丢失，取而代之的是 arg0、arg1 之类的占位符。JDK 5 之后增加了姊妹属性 LocalVariableTypeTable，用于描述泛型类型。</p>
+<p>上述字节码中最后一行的 <strong>Exceptions</strong> 属性与 Code 属性平级（不要与 <code>exception_table</code> 混淆啦），其作用是列举出方法中可能抛出的受检异常，也就是 throws 关键字后面列举的异常列表。</p>
+
+        <h3 id="字节码指令">
+          <a href="#字节码指令" class="heading-link"><i class="fas fa-link"></i></a>字节码指令</h3>
+      <p>Java 字节码由一个操作码（Opcode）和零至多个紧随其后的操作数（Operand）构成，格式如下：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">操作码 [操作数1] [操作数2] ...</span><br></pre></td></tr></tbody></table></div></figure>
+<p>其中操作码占用 1 个字节，因此最多只能有 256 个，由于 JVM 采用面向操作数栈而不是寄存器的架构，所以 <strong>大多数操作码不包含操作数</strong> 。</p>
+<p>大多数操作码都包含一个字母用于表明其操作的数据类型（大部分都是首字母）。例如，i 表示 int 类型的数据操作，l 表示 long 类型的数据操作，s 代表 short 类型的数据操作，b 代表 byte 类型的数据操作，c 代表 char 类型的数据操作，f 代表 float 类型的数据操作，d 代表 double 类型的数据操作，以及 a 代表 reference 类型的数据操作。不过，仍然包含一些指令没有明确指明对应的操作类型。</p>
+<p>由于 java 的操作码只占用 1 个字节，上限个数只有 256 个，秉承着节约主义，就不能为所有的数据类型和对应的操作设计独立的操作码，这样会导致 256 个操作码很快被用完。所以，大部分操作码都不支持直接操作 byte、char，以及 short 类型，甚至没有任何操作码支持操作 boolean 类型，但是编译器会在编译期或运行期将 byte 和 short 类型带符号扩展（Sign-Extend）为相应的 int 类型，将 boolean 和 char 类型零位扩展（Zero-Extend）为相应的 int 类型数据，所以大多数对于这些类型的操作，本质上是在操作 int 类型。</p>
+
+        <h4 id="加载和存储指令">
+          <a href="#加载和存储指令" class="heading-link"><i class="fas fa-link"></i></a>加载和存储指令</h4>
+      <p>加载和存储指令用于 <strong>将数据在栈帧中的局部变量表和操作数栈之间来回进行传输</strong> ，包括：</p>
+<ul>
+<li>将一个局部变量加载到操作数栈</li>
+</ul>
+<p><code>iload</code>、<code>iload_&lt;n&gt;</code>、<code>lload</code>、<code>lload_&lt;n&gt;</code>、<code>fload</code>、<code>fload_&lt;n&gt;</code>、<code>dload</code>、<code>dload_&lt;n&gt;</code>、<code>aload</code>、<code>aload_&lt;n&gt;</code>，其中 a 表示引用类型，n 表示操作数，比如 <code>iload_0</code> 等同于 <code>iload 0</code>。</p>
+<ul>
+<li>将一个数值从操作数栈存储到局部变量表</li>
+</ul>
+<p><code>istore</code>、<code>istore_&lt;n&gt;</code>、<code>lstore</code>、<code>lstore_&lt;n&gt;</code>、<code>fstore</code>、<code>fstore_&lt;n&gt;</code>、<code>dstore</code>、<code>dstore_&lt;n&gt;</code>、<code>astore</code>、<code>astore_&lt;n&gt;</code>。</p>
+<ul>
+<li>将一个常量加载到操作数栈</li>
+</ul>
+<p><code>bipush</code>、<code>sipush</code>、<code>ldc</code>、<code>ldc_w</code>、<code>ldc2_w</code>、<code>aconst_null</code>、<code>iconst_m1</code>、<code>iconst_&lt;i&gt;</code>、<code>lconst_&lt;l&gt;</code>、<code>fconst_&lt;f&gt;</code>、<code>dconst_&lt;d&gt;</code>。</p>
+<ul>
+<li>扩充局部变量表的访问索引</li>
+</ul>
+<p><code>wide</code>。</p>
+
+        <h4 id="运算指令">
+          <a href="#运算指令" class="heading-link"><i class="fas fa-link"></i></a>运算指令</h4>
+      <p>运算指令用于对两个操作数栈上的数值进行某种特定的运算，并把结果重新存入到操作数栈顶。运算指令整体上可以分为两种：对整型数据进行运算的指令和对浮点型数据进行运算的指令。所有的运算指令包括：</p>
+<ul>
+<li>加法：<code>iadd</code>、<code>ladd</code>、<code>fadd</code>、<code>dadd</code>。</li>
+<li>减法：<code>isub</code>、<code>lsub</code>、<code>fsub</code>、<code>dsub</code>。</li>
+<li>乘法：<code>imul</code>、<code>lmul</code>、<code>fmul</code>、<code>dmul</code>。</li>
+<li>除法：<code>idiv</code>、<code>ldiv</code>、<code>fdiv</code>、<code>ddiv</code>。</li>
+<li>求余：<code>irem</code>、<code>lrem</code>、<code>frem</code>、<code>drem</code>。</li>
+<li>取反：<code>ineg</code>、<code>lneg</code>、<code>fneg</code>、<code>dneg</code>。</li>
+<li>位移：<code>ishl</code>、<code>lshl</code>、<code>fshl</code>、<code>dshl</code>。</li>
+<li>按位或：<code>ior</code>、<code>lor</code>。</li>
+<li>按位与：<code>iand</code>、<code>land</code>。</li>
+<li>按位异或：<code>ixor</code>、<code>lxor</code>。</li>
+<li>局部变量自增：<code>iinc</code>。</li>
+<li>比较：<code>dcmpg</code>、<code>dcmpl</code>、<code>fcmpg</code>、<code>fcmpl</code>、<code>lcmp</code>。</li>
+</ul>
+<p>整型和浮点型数的运算指令在溢出和被零除时有各自不同的行为表现。对于整型数据，JVM 规范并没有明确定义溢出的计算规则，仅规定只有除法指令（idiv 和 ldiv）和求余指令（irem 和 lrem）在遇到除数为零时会抛出 ArithmeticException 异常。对于浮点型数据，JVM 要求必须严格遵循 IEEE-754 规范。</p>
+<p>JVM 在处理浮点数据运算时不会抛出任何异常，当操作溢出时将使用有符号的无穷大进行表示；如果某个操作结果没有明确的数学定义的话，将使用 NaN（Not a Number）值进行表示；所有使用 NaN 值作为操作数的运算，结果都会返回 NaN。</p>
+<p>在对 long 类型数据进行比较时，JVM 采用带符号的比较方式，而对于浮点型数据则采用 IEEE-754 规范所定义的无信号比较（Nonsignaling Comparison）方式。</p>
+
+        <h4 id="类型转换指令">
+          <a href="#类型转换指令" class="heading-link"><i class="fas fa-link"></i></a>类型转换指令</h4>
+      <p>类型转换指令用于将两种不同的数值类型进行相互转换，一般用于实现代码中的显式类型转换，或者处理数据类型相关指令无法与数据类型一一对应的问题。数据类型转换分为 <strong>宽化转换</strong> 和 <strong>窄化转换</strong> ，其中宽化转换是虚拟机直接支持的，无需依赖对应的转换指令。宽化转换包括：</p>
+<ol>
+<li>int 类型到 long、float 或 double 类型的转换。</li>
+<li>long 类型到 float 和 double 类型的转换。</li>
+<li>float 类型到 double 类型的转换。</li>
+</ol>
+<p>窄化转换由于会导致结果正负变换或精度丢失等问题，所以需要使用转换指令来完成，包括：<code>i2b</code>、<code>i2c</code>、<code>i2s</code>、<code>l2i</code>、<code>f2i</code>、<code>f2l</code>、<code>d2i</code>、<code>d2l</code>、<code>d2f</code>。JVM 规范明确规定数值类型的窄化转换指令永远不会导致 JVM 抛出运行时异常。</p>
+<p>JVM 在将一个浮点数窄化转换成 int 或 long 类型时，必须遵循以下转换原则：</p>
+<ol>
+<li>如果浮点数是 NaN，则转换结果是 0。</li>
+<li>如果浮点数不是无穷大，则使用 IEEE-754 的向零舍入模式取整，得到的结果如果如果溢出，则依据正负号使用对应的最大最小正数值代替。</li>
+</ol>
+<p>对于从 double 类型到 float 类型的转换，则使用 IEEE-754 向最接近数舍入模式舍入得到一个可以使用 float 类型表示的数字。如果转换结果的绝对值太小，无法使用 float 类型进行表示的话，则返回 float 类型的正负零；如果转换结果的绝对值太大，无法使用 float 类型进行表示的话，则返回 float 类型的正负无穷大。</p>
+
+        <h4 id="对象创建和访问指令">
+          <a href="#对象创建和访问指令" class="heading-link"><i class="fas fa-link"></i></a>对象创建和访问指令</h4>
+      <p>虽然类实例和数据都是对象，但是 JVM 对于类实例和数据的创建与操作分别定义了不同的指令，如下所示：</p>
+<ul>
+<li>创建类实例：<code>new</code>。</li>
+<li>创建数组：<code>newarray</code>、<code>anewarray</code>、<code>multianewarray</code>。</li>
+<li>访问类字段和实例字段：<code>getfield</code>、<code>putfield</code>、<code>getstatic</code>、<code>putstatic</code>。</li>
+<li>加载一个数组元素到操作数栈：<code>baload</code>、<code>caload</code>、<code>saload</code>、<code>iaload</code>、<code>laload</code>、<code>faload</code>、<code>daload</code>、<code>aaload</code>。</li>
+<li>将一个操作数栈的值存储到数组元素：<code>bastore</code>、<code>castore</code>、<code>sastore</code>、<code>iastore</code>、<code>fastore</code>、<code>dastore</code>、<code>aastore</code>。</li>
+<li>取数组长度：<code>arraylength</code>。</li>
+<li>检查类实例类型：<code>instanceof</code>、<code>checkcast</code>。</li>
+</ul>
+
+        <h4 id="操作数栈管理指令">
+          <a href="#操作数栈管理指令" class="heading-link"><i class="fas fa-link"></i></a>操作数栈管理指令</h4>
+      <ul>
+<li>将栈顶一个或两个元素出栈：<code>pop</code>、<code>pop2</code>。</li>
+<li>复制栈顶一个或两个数值，并将复制值或双份复制值重新压入栈顶：<code>dup</code>、<code>dup2</code>、<code>dup_x1</code>、<code>dup2_x1</code>、<code>dup_x2</code>、<code>dup2_x2</code>。</li>
+<li>交换栈最顶端两个元素：<code>swap</code>。</li>
+</ul>
+
+        <h4 id="控制转移指令">
+          <a href="#控制转移指令" class="heading-link"><i class="fas fa-link"></i></a>控制转移指令</h4>
+      <p>控制转移指令可以让 JVM 有条件或无条件的从指定位置指令的下一条指令继续执行。控制转移指令包括：</p>
+<ul>
+<li>条件分支：<code>ifeq</code>、<code>iflt</code>、<code>ifle</code>、<code>ifne</code>、<code>ifgt</code>、<code>ifge</code>、<code>ifnull</code>、<code>ifnonnull</code>、<code>if_icmpeq</code>、<code>if_icmpne</code>、<code>if_icmplt</code>、<code>if_icmpgt</code>、<code>if_icmple</code>、<code>if_icmpge</code>、<code>if_acmpeq</code>、<code>if_acmpne</code>。</li>
+<li>复合条件分支：<code>tableswitch</code>、<code>lookupswitch</code>。</li>
+<li>无条件分支：<code>goto</code>、<code>goto_w</code>、<code>jsr</code>、<code>jsr_w</code>、<code>ret</code>。</li>
+</ul>
+<p>JVM 定义了专门的指令用于处理 int 和 reference 类型的条件分支比较操作，也有专门的指令用来检测 null。对于 long 、float 和 double 类型的条件分支比较，JVM 会先执行相应类型的比较运算指令，比较操作返回一个 int 型值到操作数栈，随后再执行 int 类型的条件分支比较操作。</p>
+
+        <h4 id="方法调用和返回指令">
+          <a href="#方法调用和返回指令" class="heading-link"><i class="fas fa-link"></i></a>方法调用和返回指令</h4>
+      <p>方法调用指令与数据类型无关，但是方法返回指令需要依据返回值区分数据类型。方法调用指令包括：</p>
+<ul>
+<li><code>invokevirtual</code>：用于调用对象的实例方法。</li>
+<li><code>invokeinterface</code>：用于调用接口方法。</li>
+<li><code>invokespecial</code>：用于调用一些需要特殊处理的实例方法，包括实例初始化方法、私有方法、父类方法。</li>
+<li><code>invokestatic</code>：用于调用类静态方法。</li>
+<li><code>invokedynamic</code>：用于在运行时动态解析出调用点限定符所引用的方法。</li>
+</ul>
+<p>返回指令与返回类型有关，包括 <code>ireturn</code>、<code>lreturn</code>、<code>freturn</code>、<code>dreturn</code>、<code>areturn</code>，以及供 void 方法、<code>&lt;init&gt;</code>、<code>&lt;clinit&gt;</code> 方法使用的 <code>return</code> 指令。</p>
+
+        <h4 id="异常处理指令">
+          <a href="#异常处理指令" class="heading-link"><i class="fas fa-link"></i></a>异常处理指令</h4>
+      <p>显式抛出异常的操作（throw 语句）都由 <code>athrow</code> 指令实现，而处理异常（catch 语句）却不是由字节码指令实现，而是采用异常表来完成。</p>
+
+        <h4 id="同步指令">
+          <a href="#同步指令" class="heading-link"><i class="fas fa-link"></i></a>同步指令</h4>
+      <p>同步（synchronized 关键字）分为方法级别的同步和代码块级别的同步，这两种同步在 JVM 中都是基于 <strong>管程（Monitor）</strong> 实现。</p>
+<p>方法级别的同步是隐式的，通过方法表中的 <code>ACC_SYNCHRONIZED</code> 访问标志来标记一个方法是同步方法，当指令调用该方法时，会先检查 <code>ACC_SYNCHRONIZED</code> 标志位是否被设置，如果被设置了则无法获取管程（锁），必须等待其它指令释放。</p>
+<p>同步代码段则基于指令 monitorenter 和 monitorexit 两条指令实现同步，对于异常情况需要中断同步，所以字节码在实现时会主动添加一个异常处理器，并在异常产生时执行 monitorexit 指令，保证不因为异常而导致持有的锁无法正确释放。</p>
+<p>关于 synchronized 关键字推荐进一步阅读 <a href="/2018/08/03/java/juc-synchronized/">深入理解 JUC：synchronized 关键字</a>。</p>
+
+        <h3 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h3>
+      <ol>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/26418340/">Java 虚拟机规范（Java SE 8 版）</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/24722612/">深入理解 java 虚拟机（第 2 版）</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/34907497/">深入理解 java 虚拟机（第 3 版）</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+</ol>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2016/10/30/jvm/class-file-format/">https://plotor.github.io/2016/10/30/jvm/class-file-format/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/JVM/">JVM</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2016/12/04/jvm/class-loading/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">探秘 JVM：类加载机制</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2016/10/23/jvm/garbage-collection/"><span class="paginator-prev__text">探秘 JVM：垃圾收集机制</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AD%97%E8%8A%82%E7%A0%81%E6%96%87%E4%BB%B6%E7%BB%93%E6%9E%84"><span class="toc-number">1.</span> <span class="toc-text">
+          字节码文件结构</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%96%87%E4%BB%B6%E7%B1%BB%E5%9E%8B%E4%B8%8E%E7%89%88%E6%9C%AC"><span class="toc-number">1.1.</span> <span class="toc-text">
+          文件类型与版本</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%B8%B8%E9%87%8F%E6%B1%A0"><span class="toc-number">1.2.</span> <span class="toc-text">
+          常量池</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%AE%BF%E9%97%AE%E6%A0%87%E5%BF%97%E4%BD%8D"><span class="toc-number">1.3.</span> <span class="toc-text">
+          访问标志位</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%B4%A2%E5%BC%95"><span class="toc-number">1.4.</span> <span class="toc-text">
+          索引</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%AD%97%E6%AE%B5%E8%A1%A8%E9%9B%86%E5%90%88"><span class="toc-number">1.5.</span> <span class="toc-text">
+          字段表集合</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%96%B9%E6%B3%95%E8%A1%A8%E9%9B%86%E5%90%88"><span class="toc-number">1.6.</span> <span class="toc-text">
+          方法表集合</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%B1%9E%E6%80%A7%E8%A1%A8%E9%9B%86%E5%90%88"><span class="toc-number">1.7.</span> <span class="toc-text">
+          属性表集合</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AD%97%E8%8A%82%E7%A0%81%E6%8C%87%E4%BB%A4"><span class="toc-number">2.</span> <span class="toc-text">
+          字节码指令</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%8A%A0%E8%BD%BD%E5%92%8C%E5%AD%98%E5%82%A8%E6%8C%87%E4%BB%A4"><span class="toc-number">2.1.</span> <span class="toc-text">
+          加载和存储指令</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%BF%90%E7%AE%97%E6%8C%87%E4%BB%A4"><span class="toc-number">2.2.</span> <span class="toc-text">
+          运算指令</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%B1%BB%E5%9E%8B%E8%BD%AC%E6%8D%A2%E6%8C%87%E4%BB%A4"><span class="toc-number">2.3.</span> <span class="toc-text">
+          类型转换指令</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%AF%B9%E8%B1%A1%E5%88%9B%E5%BB%BA%E5%92%8C%E8%AE%BF%E9%97%AE%E6%8C%87%E4%BB%A4"><span class="toc-number">2.4.</span> <span class="toc-text">
+          对象创建和访问指令</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%93%8D%E4%BD%9C%E6%95%B0%E6%A0%88%E7%AE%A1%E7%90%86%E6%8C%87%E4%BB%A4"><span class="toc-number">2.5.</span> <span class="toc-text">
+          操作数栈管理指令</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%8E%A7%E5%88%B6%E8%BD%AC%E7%A7%BB%E6%8C%87%E4%BB%A4"><span class="toc-number">2.6.</span> <span class="toc-text">
+          控制转移指令</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%96%B9%E6%B3%95%E8%B0%83%E7%94%A8%E5%92%8C%E8%BF%94%E5%9B%9E%E6%8C%87%E4%BB%A4"><span class="toc-number">2.7.</span> <span class="toc-text">
+          方法调用和返回指令</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%BC%82%E5%B8%B8%E5%A4%84%E7%90%86%E6%8C%87%E4%BB%A4"><span class="toc-number">2.8.</span> <span class="toc-text">
+          异常处理指令</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%90%8C%E6%AD%A5%E6%8C%87%E4%BB%A4"><span class="toc-number">2.9.</span> <span class="toc-text">
+          同步指令</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">3.</span> <span class="toc-text">
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

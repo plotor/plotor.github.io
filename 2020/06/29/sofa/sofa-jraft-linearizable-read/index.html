@@ -1,0 +1,477 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="关于线性一致性读的定义，简单而言就是在 T 时刻执行写入操作，那么在 T 时刻之后一定能够读取到之前写入的值。Raft 算法能够至少保证集群节点数据的最终一致性，也就说就某一特定时刻而言各个节点之间的数据状态允许存在滞后。在分布式场景下如果允许各个节点随机响应用户的读请求，则可能会读取到脏数据。如果希望基于 Raft 算法实现线性一致性读语义，最简单的方式就是将读操作作为一个指令提交给 Raft">
+<meta property="og:type" content="article">
+<meta property="og:title" content="SOFA-JRaft 源码解析：线性一致性读">
+<meta property="og:url" content="https://plotor.github.io/2020/06/29/sofa/sofa-jraft-linearizable-read/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="关于线性一致性读的定义，简单而言就是在 T 时刻执行写入操作，那么在 T 时刻之后一定能够读取到之前写入的值。Raft 算法能够至少保证集群节点数据的最终一致性，也就说就某一特定时刻而言各个节点之间的数据状态允许存在滞后。在分布式场景下如果允许各个节点随机响应用户的读请求，则可能会读取到脏数据。如果希望基于 Raft 算法实现线性一致性读语义，最简单的方式就是将读操作作为一个指令提交给 Raft">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2020-06-29T09:10:36.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.972Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Raft">
+<meta property="article:tag" content="SOFA-JRaft">
+<meta name="twitter:card" content="summary"><title>SOFA-JRaft 源码解析：线性一致性读 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2020/06/29/sofa/sofa-jraft-linearizable-read/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">SOFA-JRaft 源码解析：线性一致性读</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2020-06-29</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">4.3k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">18分</span></span></div></header><div class="post-body"><p>关于线性一致性读的定义，简单而言就是在 T 时刻执行写入操作，那么在 T 时刻之后一定能够读取到之前写入的值。Raft 算法能够至少保证集群节点数据的最终一致性，也就说就某一特定时刻而言各个节点之间的数据状态允许存在滞后。在分布式场景下如果允许各个节点随机响应用户的读请求，则可能会读取到脏数据。如果希望基于 Raft 算法实现线性一致性读语义，最简单的方式就是将读操作作为一个指令提交给 Raft 集群，由于 Raft 算法能够保证指令执行的顺序性，所以该读操作指令一定能够读取到在此之前写入的值（本文将此类线性一致性读策略命名为 RaftLog Read）。然而，RaftLog Read 的缺点也是显而易见的，每次读操作都需要走一遍完整的 Raft 算法流程势必效率低下，并且大部分的应用场景都具备读多写少的特征，所以该策略势必会让 Raft 集群产生大量的日志文件，增加磁盘和网络的开销。</p>
+<p>换一个角度思考，在 Raft 算法中更新操作都由 Leader 节点负责响应，那么极端一点每次都从 Leader 节点读数据是不是就万事大吉了呢？先不说这种方式将一个分布式系统退化成了单机系统，我们还需要考虑下面两个问题：</p>
+<ul>
+<li>日志数据从提交到被业务状态机所应用这中间存在一定的时间滞后性，所以直接执行读操作不一定能够读取到最新的数据。</li>
+<li>当前 Leader 节点不一定是有效的，因为 Leader 节点的变更通常有一个时间差，而这中间存在导致脏读的可能性。</li>
+</ul>
+<a id="more"></a>
+
+<p>对于一个分布式系统而言，只能从 Leader 节点读这显然是不能接受的，所以我们的真正需求是能够从各个节点发起读请求，同时还需要保证读写的线性一致性。为此，Raft 算法的最终实现思路可以概括如下：</p>
+<ol>
+<li>确定当前 Leader 节点的有效性；</li>
+<li>从 Leader 节点拉取最新的 comittedIndex 值，即 lastComittedIndex 值；</li>
+<li>等待本地已被业务状态应用的 LogEntry 对应的 logIndex 值超过该 lastComittedIndex 位置。</li>
+</ol>
+<p>如果目标 Leader 节点是有效的，那么由于写操作在前（令时刻为 <code>T1</code>），在发起读操作的那一刻（令时刻为 <code>T2(T2 &gt; T1)</code>）开始，该 Leader 节点已提交的日志中必定包含 <code>T1</code> 时刻的写操作指令，也就是说该写操作对应 LogEntry 的 logIndex 必定小于等于 lastComittedIndex 值。所以，如果我们在本地等待业务状态机完成对于 lastComittedIndex 位置之前日志的应用，一定能够保证 <code>T2</code> 时刻的读操作能够从本地看到 <code>T2</code> 时刻 Leader 节点的数据状态，又 <code>T2 &gt; T1</code>，所以 <code>T2</code> 时刻的读操作至少能够看到 <code>T1</code> 时刻的写结果。</p>
+<p>既然证明了上述思路能够让 Raft 算法实现线性一致性读语义，那么接下去问题就演变成如何确定当前 Leader 节点是否有效。Raft 算法为此提出了两种思路，即：ReadIndex Read 和 Lease Read。</p>
+<ul>
+<li><strong>ReadIndex Read</strong></li>
+</ul>
+<p>我们的目标是确定当前 Leader 节点是否有效，直观的思路就是让该 Leader 节点向所有的 Follower 节点发送一次心跳请求，如果过半数的 Follower 节点都能正常响应该心跳请求，则视为当前 Leader 节点仍然有效，这要是 ReadIndex Read 的核心思想。相对于 RaftLog Read，ReadIndex Read 策略虽然也需要与各个 Follower 节点进行一次 RPC 交互（心跳请求交互的开销极小），但是省去了日志流程，在磁盘和网络开销层面都更加友好，整体性能也完胜 RaftLog Read。</p>
+<ul>
+<li><strong>Lease Read</strong></li>
+</ul>
+<p>ReadIndex Read 相对于 RaftLog Read 策略，在保证线性一致性读语义的前提下在磁盘占用、网络开销，以及读性能等方面都有明显的改善，但是不足之处在于仍然会与各个 Follower 节点进行一次 RPC 交互，能不能消除这一次 RPC 交互呢？为此，Raft 算法基于 <code>clock + heartbeat</code> 的思想提出了 Lease Read 策略。</p>
+<p>Lease Read 策略下 Leader 节点会记录一轮成功心跳请求的开始时间（即向各个 Follower 节点成功发送心跳 RPC 请求的最早时间戳），令其为 startTime。由于 Raft 的选举由超时策略触发（令超时时长为 electionTimeout），所以我们可以认为所有的 Follower 节点在 <code>startTime + electionTimeout</code> 时间之前都不会发起新一轮的选举请求（因为心跳请求会重置 Follower 节点的选举计时器），即对应的 Leader 节点在此时间之前一定是有效的，从而避免了向各个 Follower 节点发送心跳请求的操作。</p>
+<p>然而，Lease Read 策略的应用有一个前提，即所有节点宿主机的时钟频率是一致的，如果某个节点的时钟频率相对较快则会导致该节点在 <code>startTime + electionTimeout</code> 之前出现超时的情况。为了解决此类时钟漂移的问题，我们可以将 <code>startTime + electionTimeout</code> 修改为 <code>startTime + electionTimeout / clockDriftBound</code>，即容忍一定的时间漂移，不过这只是降低了问题出现的可能性，并没有完全解决问题。好在大多数情况下 CPU 的时钟频率都是准确的，并且 Lease Read 策略相对于 ReadIndex Read 策略在性能层面表现更优（JRaft 给出的统计提升在 15% 左右），所以业务可以基于自己的应用场景决策使用哪种线性一致性读策略。</p>
+
+        <h3 id="实现内幕">
+          <a href="#实现内幕" class="heading-link"><i class="fas fa-link"></i></a>实现内幕</h3>
+      <p>上面介绍了线性一致性读的定义，以及在 Raft 算法中提供线性一致性读语义的 3 种策略及其优缺点，本小节我们开始从 JRaft 算法库的实现层面去分析如何实现这些策略。</p>
+<p>JRaft 节点定义了 <code>Node#readIndex</code> 方法用于实现向 JRaft 集群发送一个线性一致性读请求，并感知当前节点是否完成与 Leader 节点就当前时刻 Leader 节点已经提交的数据的同步状态。该方法接收两个参数，其中 requestContext 参数用于封装一些请求上下文信息，而 done 参数则会在节点完成线性一致性读处理时被回调，具体实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">readIndex</span><span class="params">(<span class="keyword">final</span> <span class="keyword">byte</span>[] requestContext, <span class="keyword">final</span> ReadIndexClosure done)</span> </span>{</span><br><span class="line">    <span class="comment">// 当前节点正在被关闭</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">this</span>.shutdownLatch != <span class="keyword">null</span>) {</span><br><span class="line">        Utils.runClosureInThread(done,</span><br><span class="line">                <span class="keyword">new</span> Status(RaftError.ENODESHUTDOWN, <span class="string">"Node is shutting down."</span>));</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> IllegalStateException(<span class="string">"Node is shutting down"</span>);</span><br><span class="line">    }</span><br><span class="line">    Requires.requireNonNull(done, <span class="string">"Null closure"</span>);</span><br><span class="line">    <span class="comment">// 向 ReadOnlyService 提交一个 ReadIndex 请求，</span></span><br><span class="line">    <span class="comment">// 当本地数据与 Leader 节点数据在特定的位置（lastCommittedIndex）同步时，响应回调</span></span><br><span class="line">    <span class="keyword">this</span>.readOnlyService.addRequest(requestContext, done);</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>如果当前节点处于正常运行状态，则上述方法会调用 <code>ReadOnlyService#addRequest</code> 方法以 Disruptor 消息的形式向集群提交一个线性一致性读请求事件，而处理这一类型事件的逻辑则由 <code>ReadOnlyServiceImpl#executeReadIndexEvents</code> 方法实现：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">executeReadIndexEvents</span><span class="params">(<span class="keyword">final</span> List&lt;ReadIndexEvent&gt; events)</span> </span>{</span><br><span class="line">    <span class="keyword">if</span> (events.isEmpty()) {</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 构造 ReadIndex 请求</span></span><br><span class="line">    <span class="keyword">final</span> ReadIndexRequest.Builder rb = ReadIndexRequest.newBuilder() <span class="comment">//</span></span><br><span class="line">            .setGroupId(<span class="keyword">this</span>.node.getGroupId()) <span class="comment">//</span></span><br><span class="line">            .setServerId(<span class="keyword">this</span>.node.getServerId().toString());</span><br><span class="line"></span><br><span class="line">    <span class="keyword">final</span> List&lt;ReadIndexState&gt; states = <span class="keyword">new</span> ArrayList&lt;&gt;(events.size());</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">final</span> ReadIndexEvent event : events) {</span><br><span class="line">        rb.addEntries(ZeroByteStringHelper.wrap(event.requestContext.get()));</span><br><span class="line">        states.add(<span class="keyword">new</span> ReadIndexState(event.requestContext, event.done, event.startTime));</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">final</span> ReadIndexRequest request = rb.build();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 处理 ReadIndex 请求</span></span><br><span class="line">    <span class="keyword">this</span>.node.handleReadIndexRequest(request, <span class="keyword">new</span> ReadIndexResponseClosure(states, request));</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述实现的主要逻辑在于构造 ReadIndex 请求，然后调用 <code>NodeImpl#handleReadIndexRequest</code> 方法处理该请求。发起线性一致性读请求的节点可以是 Leader 节点，也可以是 Follower 或 Learner 节点：</p>
+<ul>
+<li>对于 Follower 或 Learner 节点而言，需要将请求转发给 Leader 节点，以获取当前 Leader 节点的 lastCommittedIndex 位置。</li>
+<li>对于 Leader 节点而言，其目的是读取本地的 lastCommittedIndex 值返回给请求节点，但是在返回之前需要验证当前 Leader 节点的有效性。</li>
+</ul>
+<p>方法 <code>NodeImpl#handleReadIndexRequest</code> 实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">handleReadIndexRequest</span><span class="params">(<span class="keyword">final</span> ReadIndexRequest request, <span class="keyword">final</span> RpcResponseClosure&lt;ReadIndexResponse&gt; done)</span> </span>{</span><br><span class="line">    <span class="keyword">final</span> <span class="keyword">long</span> startMs = Utils.monotonicMs();</span><br><span class="line">    <span class="keyword">this</span>.readLock.lock();</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="keyword">switch</span> (<span class="keyword">this</span>.state) {</span><br><span class="line">            <span class="comment">// 当前节点是 LEADER 角色</span></span><br><span class="line">            <span class="keyword">case</span> STATE_LEADER:</span><br><span class="line">                <span class="comment">// 基于 ReadIndexRead 或 LeaseRead 策略验证当前 Leader 节点是否仍然有效</span></span><br><span class="line">                readLeader(request, ReadIndexResponse.newBuilder(), done);</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            <span class="comment">// 当前节点是 FOLLOWER 角色</span></span><br><span class="line">            <span class="keyword">case</span> STATE_FOLLOWER:</span><br><span class="line">                <span class="comment">// 向 Leader 节点发送 ReadIndex 请求</span></span><br><span class="line">                readFollower(request, done);</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            <span class="comment">// 当前正在执行 LEADER 节点切换</span></span><br><span class="line">            <span class="keyword">case</span> STATE_TRANSFERRING:</span><br><span class="line">                done.run(<span class="keyword">new</span> Status(RaftError.EBUSY, <span class="string">"Is transferring leadership."</span>));</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            <span class="keyword">default</span>:</span><br><span class="line">                done.run(<span class="keyword">new</span> Status(RaftError.EPERM, <span class="string">"Invalid state for readIndex: %s."</span>, <span class="keyword">this</span>.state));</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">        }</span><br><span class="line">    } <span class="keyword">finally</span> {</span><br><span class="line">        <span class="comment">// ... metrics</span></span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述方法依据当前节点的角色分而治之，对于 Follower 或 Learner 节点而言只是简单的将 ReadIndex 请求转发给 Leader 节点进行处理，实现比较简单。下面重点来看一下 <code>NodeImpl#readLeader</code> 方法的实现，不管当前 ReadIndex 请求是来自 Leader 节点还是 Follower 节点，最终都需要转发给 Leader 节点执行。方法 <code>NodeImpl#readLeader</code> 实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">readLeader</span><span class="params">(<span class="keyword">final</span> ReadIndexRequest request,</span></span></span><br><span class="line"><span class="function"><span class="params">                        <span class="keyword">final</span> ReadIndexResponse.Builder respBuilder,</span></span></span><br><span class="line"><span class="function"><span class="params">                        <span class="keyword">final</span> RpcResponseClosure&lt;ReadIndexResponse&gt; closure)</span> </span>{</span><br><span class="line">    <span class="comment">// 获取仲裁值，即集群节点的半数加 1</span></span><br><span class="line">    <span class="keyword">final</span> <span class="keyword">int</span> quorum = getQuorum();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 当前集群只有一个节点，直接返回 lastCommittedIndex 值</span></span><br><span class="line">    <span class="keyword">if</span> (quorum &lt;= <span class="number">1</span>) {</span><br><span class="line">        <span class="comment">// Only one peer, fast path.</span></span><br><span class="line">        respBuilder.setSuccess(<span class="keyword">true</span>) <span class="comment">//</span></span><br><span class="line">                .setIndex(<span class="keyword">this</span>.ballotBox.getLastCommittedIndex());</span><br><span class="line">        closure.setResponse(respBuilder.build());</span><br><span class="line">        closure.run(Status.OK());</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 获取本地记录的 lastCommittedIndex 值</span></span><br><span class="line">    <span class="keyword">final</span> <span class="keyword">long</span> lastCommittedIndex = <span class="keyword">this</span>.ballotBox.getLastCommittedIndex();</span><br><span class="line">    <span class="comment">// 校验 term 值是否发生变化，以保证对应的 lastCommittedIndex 值是有效的</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">this</span>.logManager.getTerm(lastCommittedIndex) != <span class="keyword">this</span>.currTerm) {</span><br><span class="line">        <span class="comment">// Reject read only request when this leader has not committed any log entry at its term</span></span><br><span class="line">        closure.run(<span class="keyword">new</span> Status(</span><br><span class="line">                RaftError.EAGAIN,</span><br><span class="line">                <span class="string">"ReadIndex request rejected because leader has not committed any log entry at its term, logIndex=%d, currTerm=%d."</span>,</span><br><span class="line">                lastCommittedIndex, <span class="keyword">this</span>.currTerm));</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">// 记录 lastCommittedIndex 到请求响应对象中</span></span><br><span class="line">    respBuilder.setIndex(lastCommittedIndex);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 对于来自 Follower 节点或 Learner 节点的请求，peerId 字段会记录这些节点已知的 leaderId 值，所以不为 null</span></span><br><span class="line">    <span class="keyword">if</span> (request.getPeerId() != <span class="keyword">null</span>) {</span><br><span class="line">        <span class="comment">// request from follower or learner, check if the follower/learner is in current conf.</span></span><br><span class="line">        <span class="keyword">final</span> PeerId peer = <span class="keyword">new</span> PeerId();</span><br><span class="line">        peer.parse(request.getServerId());</span><br><span class="line">        <span class="comment">// 请求来源节点并不是当前 Leader 节点管理范围内的节点</span></span><br><span class="line">        <span class="keyword">if</span> (!<span class="keyword">this</span>.conf.contains(peer) &amp;&amp; !<span class="keyword">this</span>.conf.containsLearner(peer)) {</span><br><span class="line">            closure.run(<span class="keyword">new</span> Status(RaftError.EPERM,</span><br><span class="line">                    <span class="string">"Peer %s is not in current configuration: %s."</span>, peer, <span class="keyword">this</span>.conf));</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 基于参数决策是走 ReadIndexRead 还是 LeaseRead 策略，默认走 ReadIndexRead 策略，</span></span><br><span class="line">    <span class="comment">// 如果是 LeaseRead，则基于时间戳检查集群中是否有过半数的节点仍然认可当前 Leader 节点，</span></span><br><span class="line">    ReadOnlyOption readOnlyOpt = <span class="keyword">this</span>.raftOptions.getReadOnlyOptions();</span><br><span class="line">    <span class="keyword">if</span> (readOnlyOpt == ReadOnlyOption.ReadOnlyLeaseBased &amp;&amp; !isLeaderLeaseValid()) {</span><br><span class="line">        <span class="comment">// If leader lease timeout, we must change option to ReadOnlySafe</span></span><br><span class="line">        readOnlyOpt = ReadOnlyOption.ReadOnlySafe;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="keyword">switch</span> (readOnlyOpt) {</span><br><span class="line">        <span class="comment">// ReadIndexRead 策略</span></span><br><span class="line">        <span class="keyword">case</span> ReadOnlySafe:</span><br><span class="line">            <span class="keyword">final</span> List&lt;PeerId&gt; peers = <span class="keyword">this</span>.conf.getConf().getPeers();</span><br><span class="line">            Requires.requireTrue(peers != <span class="keyword">null</span> &amp;&amp; !peers.isEmpty(), <span class="string">"Empty peers"</span>);</span><br><span class="line">            <span class="comment">// 向所有的 Follower 节点发送心跳请求，以检查当前 Leader 节点是否仍然有效</span></span><br><span class="line">            <span class="keyword">final</span> ReadIndexHeartbeatResponseClosure heartbeatDone =</span><br><span class="line">                    <span class="keyword">new</span> ReadIndexHeartbeatResponseClosure(closure, respBuilder, quorum, peers.size());</span><br><span class="line">            <span class="comment">// Send heartbeat requests to followers</span></span><br><span class="line">            <span class="keyword">for</span> (<span class="keyword">final</span> PeerId peer : peers) {</span><br><span class="line">                <span class="keyword">if</span> (peer.equals(<span class="keyword">this</span>.serverId)) {</span><br><span class="line">                    <span class="keyword">continue</span>;</span><br><span class="line">                }</span><br><span class="line">                <span class="keyword">this</span>.replicatorGroup.sendHeartbeat(peer, heartbeatDone);</span><br><span class="line">            }</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="comment">// LeaseRead 策略，能够走到这里，说明集群中有超过半数的节点仍然认可当前 Leader 节点</span></span><br><span class="line">        <span class="keyword">case</span> ReadOnlyLeaseBased:</span><br><span class="line">            <span class="comment">// Responses to followers and local node.</span></span><br><span class="line">            respBuilder.setSuccess(<span class="keyword">true</span>);</span><br><span class="line">            closure.setResponse(respBuilder.build());</span><br><span class="line">            closure.run(Status.OK());</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>Leader 节点处理线性一致性读请求的整体执行流程可以概括为：</p>
+<ol>
+<li>如果当前集群只有一个节点，则立即响应成功；</li>
+<li>否则，校验当前节点本地 lastCommittedIndex 值是否有效，如果无效则响应异常；</li>
+<li>否则，对于来自 Follower 或 Learner 节点的请求，需要校验请求来源节点是否是有效节点，即这些节点位于当前 Leader 节点的主权范围内，如果不是则响应异常；</li>
+<li>否则，基于 ReadIndex Read 或 Lease Read 策略判断当前节点 LEADER 角色的有效性，如果有效则响应成功，否则响应失败。</li>
+</ol>
+<p>当一个节点刚刚竞选成为 LEADER 角色时，此时该节点本地的 lastCommittedIndex 值并不一定是当前整个系统最新的 lastCommittedIndex 值，所以上述步骤二需要校验本地 lastCommittedIndex 值的有效性，如果对应的 term 值不匹配则一定是无效的。此外，前面在分析主节点选举机制时曾介绍过当一个节点竞选成功后会将当前集群的节点配置信息作为任期内第一条 LogEntry 进行提交，这一操作能够保证 Leader 节点的 lastCommittedIndex 值是集群范围内最新的。</p>
+<p>在获取到最新的 lastCommittedIndex 位置之后，只要能够确定当前 Leader 节点是有效的即能返回该 lastCommittedIndex 值。Raft 算法提出了两种策略以验证当前 Leader 节点的有效性，即 ReadIndex Read 和 Lease Read。JRaft 算法库在实现上允许我们在节点启动时通过参数指定具体的策略，默认则采用 ReadIndex Read 策略。</p>
+<p>对于 ReadIndex Read 策略而言，Leader 节点会调用 <code>ReplicatorGroup#sendHeartbeat</code> 方法向集群中除自己以外的所有节点发送一次心跳请求，如果集群中过半数的节点能够成功响应该请求，则视为当前 Leader 节点仍然有效。关于心跳机制已在前面分析日志复制机制时介绍过，这里不再重复说明。</p>
+<p>对于 Lease Read 策略而言，Leader 节点会基于租约机制判断当前 LEADER 角色是否仍然有效，即判断最近一轮向所有 Follower 节点成功发送 RPC 请求的最早时间距离当前时间是否在租约范围内。判断的过程由 <code>NodeImpl#isLeaderLeaseValid</code> 方法实现：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">boolean</span> <span class="title">isLeaderLeaseValid</span><span class="params">()</span> </span>{</span><br><span class="line">    <span class="keyword">final</span> <span class="keyword">long</span> monotonicNowMs = Utils.monotonicMs();</span><br><span class="line">    <span class="comment">// 检查距离最近校验当前 Leader 节点有效性的时间是否在租约范围内</span></span><br><span class="line">    <span class="keyword">if</span> (checkLeaderLease(monotonicNowMs)) {</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">// 检查管理的所有 Follower 节点是否有超过半数仍然认为当前 Leader 节点有效</span></span><br><span class="line">    checkDeadNodes0(<span class="keyword">this</span>.conf.getConf().getPeers(), monotonicNowMs, <span class="keyword">false</span>, <span class="keyword">null</span>);</span><br><span class="line">    <span class="keyword">return</span> checkLeaderLease(monotonicNowMs);</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">boolean</span> <span class="title">checkLeaderLease</span><span class="params">(<span class="keyword">final</span> <span class="keyword">long</span> monotonicNowMs)</span> </span>{</span><br><span class="line">    <span class="comment">// 最近一次向所有活跃 Follower 节点成功发送 RPC 请求的最早时间距离指定时间是否在有效租约范围内</span></span><br><span class="line">    <span class="keyword">return</span> monotonicNowMs - <span class="keyword">this</span>.lastLeaderTimestamp &lt; <span class="keyword">this</span>.options.getLeaderLeaseTimeoutMs();</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>关于 <code>NodeImpl#checkDeadNodes0</code> 方法的实现已在前面介绍主节点选举机制时分析过，这里不再展开。</p>
+<p>最后来看一下针对线性一致性读响应 ReadIndexResponseClosure 的处理过程，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">(<span class="keyword">final</span> Status status)</span> </span>{</span><br><span class="line">    <span class="comment">// 响应异常，说明 Leader 节点本地的 lastCommittedIndex 值无效，</span></span><br><span class="line">    <span class="comment">// 或者当前请求节点不是一个有效节点，或者节点状态不能够响应当前请求</span></span><br><span class="line">    <span class="keyword">if</span> (!status.isOk()) {</span><br><span class="line">        <span class="comment">// 快速失败</span></span><br><span class="line">        notifyFail(status);</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">final</span> ReadIndexResponse readIndexResponse = getResponse();</span><br><span class="line">    <span class="comment">// 响应失败，说明 Leader 节点的 LEADER 角色无效</span></span><br><span class="line">    <span class="keyword">if</span> (!readIndexResponse.getSuccess()) {</span><br><span class="line">        notifyFail(<span class="keyword">new</span> Status(-<span class="number">1</span>, <span class="string">"Fail to run ReadIndex task, maybe the leader stepped down."</span>));</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Success</span></span><br><span class="line">    <span class="keyword">final</span> ReadIndexStatus readIndexStatus = <span class="keyword">new</span> ReadIndexStatus(</span><br><span class="line">            <span class="keyword">this</span>.states, <span class="keyword">this</span>.request, readIndexResponse.getIndex());</span><br><span class="line">    <span class="comment">// 为各个 ReadIndex 请求填充从 Leader 节点读取到的 lastCommittedIndex 值</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">final</span> ReadIndexState state : <span class="keyword">this</span>.states) {</span><br><span class="line">        <span class="comment">// Records current commit log index.</span></span><br><span class="line">        state.setIndex(readIndexResponse.getIndex());</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="keyword">boolean</span> doUnlock = <span class="keyword">true</span>;</span><br><span class="line">    ReadOnlyServiceImpl.<span class="keyword">this</span>.lock.lock();</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="comment">// 本地已经应用的 LogEntry 的 logIndex 已经超过 lastCommittedIndex 位置，</span></span><br><span class="line">        <span class="comment">// 说明就 lastCommittedIndex 位置而言，此位置之前的数据已经能够保证与 Leader 节点同步</span></span><br><span class="line">        <span class="keyword">if</span> (readIndexStatus.isApplied(ReadOnlyServiceImpl.<span class="keyword">this</span>.fsmCaller.getLastAppliedIndex())) {</span><br><span class="line">            <span class="comment">// Already applied, notify readIndex request.</span></span><br><span class="line">            ReadOnlyServiceImpl.<span class="keyword">this</span>.lock.unlock();</span><br><span class="line">            doUnlock = <span class="keyword">false</span>;</span><br><span class="line">            <span class="comment">// 回调响应各个 ReadIndex 请求</span></span><br><span class="line">            notifySuccess(readIndexStatus);</span><br><span class="line">        }</span><br><span class="line">        <span class="comment">// 本地已经应用的 LogEntry 的 logIndex 还未到达 lastCommittedIndex 位置，</span></span><br><span class="line">        <span class="comment">// 缓存当前请求，等待对应的 LogEntry 在本地被应用时回调响应</span></span><br><span class="line">        <span class="keyword">else</span> {</span><br><span class="line">            <span class="comment">// Not applied, add it to pending-notify cache.</span></span><br><span class="line">            ReadOnlyServiceImpl.<span class="keyword">this</span>.pendingNotifyStatus</span><br><span class="line">                    .computeIfAbsent(readIndexStatus.getIndex(), k -&gt; <span class="keyword">new</span> ArrayList&lt;&gt;(<span class="number">10</span>)) <span class="comment">//</span></span><br><span class="line">                    .add(readIndexStatus);</span><br><span class="line">        }</span><br><span class="line">    } <span class="keyword">finally</span> {</span><br><span class="line">        <span class="keyword">if</span> (doUnlock) {</span><br><span class="line">            ReadOnlyServiceImpl.<span class="keyword">this</span>.lock.unlock();</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>如果目标 Leader 节点的 LEADER 角色仍然有效，则当前节点会等待本地被应用到状态机的 LogEntry 的 logIndex 位置不小于从该 Leader 节点获取到的 lastComittedIndex 值。这样可以保证就 lastComittedIndex 这个位置而言，本地与 Leader 的数据是同步的，否则就需要等待本地的数据与 Leader 节点的数据进行同步。ReadOnlyServiceImpl 实现了 LastAppliedLogIndexListener 接口，所以当完成应用一批日志数据到状态机中时，相应的 <code>ReadOnlyServiceImpl#onApplied</code> 方法也会被回调，从而尝试触发执行那些等待数据同步的回调。</p>
+
+        <h3 id="总结">
+          <a href="#总结" class="heading-link"><i class="fas fa-link"></i></a>总结</h3>
+      <p>本文对线性一致性读的定义进行了介绍，并对 Raft 算法提供线性一致性读语义的 3 种策略进行了说明，同时比对了这些策略的优缺点，最后从 JRaft 的源码层面分析了如何实现线性一致性读。JRaft 支持 ReadIndex Read 和 Lease Read 两种线性一致性读策略，并且默认采用 ReadIndex Read 策略。前面我们曾分析了这两种策略各自的优缺点，业务可以结合自己的应用场景进行决策。不过需要注意的一点是，无论采用哪种策略，线性一致性读都需要与 Leader 节点进行交互，当 QPS 较高时需要考量 Leader 节点的负载能力。</p>
+
+        <h3 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h3>
+      <ol>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://raft.github.io/">Raft Consensus Algorithm</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://www.sofastack.tech/projects/sofa-jraft/overview/">SOFA-JRaft 官网</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://www.sofastack.tech/blog/sofa-jraft-linear-consistent-read-implementation/">SOFA-JRaft：线性一致读实现剖析</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://pingcap.com/blog-cn/lease-read/">TiKV 功能介绍 - Lease Read</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+</ol>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2020/06/29/sofa/sofa-jraft-linearizable-read/">https://plotor.github.io/2020/06/29/sofa/sofa-jraft-linearizable-read/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Raft/">Raft</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/SOFA-JRaft/">SOFA-JRaft</a></span></div><nav class="post-paginator paginator"><div class="paginator-next"><a class="paginator-next__link" href="/2020/06/22/sofa/sofa-jraft-snapshot/"><span class="paginator-prev__text">SOFA-JRaft 源码解析：快照机制</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%9E%E7%8E%B0%E5%86%85%E5%B9%95"><span class="toc-number">1.</span> <span class="toc-text">
+          实现内幕</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">2.</span> <span class="toc-text">
+          总结</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">3.</span> <span class="toc-text">
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

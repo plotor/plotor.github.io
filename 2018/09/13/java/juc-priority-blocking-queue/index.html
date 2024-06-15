@@ -1,0 +1,471 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="优先级队列 PriorityQueue 应该是大家都比较熟悉的一个集合组件，本文将要介绍的 PriorityBlockingQueue 是 PriorityQueue 的线程安全版本。PriorityBlockingQueue 底层依赖于数组作为存储结构，最大容量上限是 Integer.MAX_VALUE - 8，所以几乎可以将其视为无界的。同 PriorityQueue 一样，PriorityB">
+<meta property="og:type" content="article">
+<meta property="og:title" content="深入理解 JUC：PriorityBlockingQueue">
+<meta property="og:url" content="https://plotor.github.io/2018/09/13/java/juc-priority-blocking-queue/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="优先级队列 PriorityQueue 应该是大家都比较熟悉的一个集合组件，本文将要介绍的 PriorityBlockingQueue 是 PriorityQueue 的线程安全版本。PriorityBlockingQueue 底层依赖于数组作为存储结构，最大容量上限是 Integer.MAX_VALUE - 8，所以几乎可以将其视为无界的。同 PriorityQueue 一样，PriorityB">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2018-09-13T07:40:56.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.957Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="并发编程">
+<meta name="twitter:card" content="summary"><title>深入理解 JUC：PriorityBlockingQueue | 指  间</title><link ref="canonical" href="https://plotor.github.io/2018/09/13/java/juc-priority-blocking-queue/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">深入理解 JUC：PriorityBlockingQueue</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2018-09-13</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">3.2k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">14分</span></span></div></header><div class="post-body"><p>优先级队列 PriorityQueue 应该是大家都比较熟悉的一个集合组件，本文将要介绍的 PriorityBlockingQueue 是 PriorityQueue 的线程安全版本。PriorityBlockingQueue 底层依赖于数组作为存储结构，最大容量上限是 <code>Integer.MAX_VALUE - 8</code>，所以几乎可以将其视为无界的。同 PriorityQueue 一样，PriorityBlockingQueue 同样引入了堆数据结构来编排队列元素的优先级，默认使用最小堆结构。<a id="more"></a></p>
+<p>此外，由 Blocking 字样我们可以推断出 PriorityBlockingQueue 是一个阻塞队列。PriorityBlockingQueue 实现自 BlockingQueue 接口，并基于 ReentrantLock 锁保证线程安全。不过需要注意的一点是，PriorityBlockingQueue 的阻塞仅针对出队列操作而言，当队列为空时出队列的线程会阻塞等待其它线程往队列中添加新的元素。对于入队列操作来说，因为 PriorityBlockingQueue 定义为无界，所以执行入队列的线程会立即得到响应，如果队列底层数组已满则该线程会尝试对底层数组进行扩容，当底层数据达到容量上限而无法继续扩容时会抛出 OOM 异常。</p>
+<p>下面先来了解一下 PriorityBlockingQueue 的字段定义，如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">PriorityBlockingQueue</span>&lt;<span class="title">E</span>&gt; <span class="keyword">extends</span> <span class="title">AbstractQueue</span>&lt;<span class="title">E</span>&gt; <span class="keyword">implements</span> <span class="title">BlockingQueue</span>&lt;<span class="title">E</span>&gt;, <span class="title">Serializable</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 队列默认初始容量 */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> DEFAULT_INITIAL_CAPACITY = <span class="number">11</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 队列容量上限</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * Some VMs reserve some header words in an array.</span></span><br><span class="line"><span class="comment">     * Attempts to allocate larger arrays may result in OutOfMemoryError: Requested array size exceeds VM limit</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> MAX_ARRAY_SIZE = Integer.MAX_VALUE - <span class="number">8</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 存储队列元素的数组，按照最小堆组织</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * Priority queue represented as a balanced binary heap:</span></span><br><span class="line"><span class="comment">     * the two children of queue[n] are queue[2*n+1] and queue[2*(n+1)].</span></span><br><span class="line"><span class="comment">     * The priority queue is ordered by comparator, or by the elements' natural ordering,</span></span><br><span class="line"><span class="comment">     * if comparator is null: For each node n in the heap and each descendant d of n, n &lt;= d.</span></span><br><span class="line"><span class="comment">     * The element with the lowest value is in queue[0], assuming the queue is nonempty.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">transient</span> Object[] queue;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 队列中元素个数 */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">transient</span> <span class="keyword">int</span> size;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 队列元素比较器，如果为 null 则使用元素自带的比较器 */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">transient</span> Comparator&lt;? <span class="keyword">super</span> E&gt; comparator;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 保证队列操作线程安全的可重入独占锁 */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> ReentrantLock lock;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 记录因为队列为空而阻塞的线程 */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> Condition notEmpty;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 扩容标记位，保证同一时间只有一个线程在扩容队列，状态为 0 或 1：</span></span><br><span class="line"><span class="comment">     * - 0： 表示当前没有在执行扩容操作</span></span><br><span class="line"><span class="comment">     * - 1： 表示当前正在执行扩容操作</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">transient</span> <span class="keyword">volatile</span> <span class="keyword">int</span> allocationSpinLock;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 辅助支持序列化和反序列化 */</span></span><br><span class="line">    <span class="keyword">private</span> PriorityQueue&lt;E&gt; q;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// ... 省略方法实现</span></span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>PriorityBlockingQueue 默认初始时的底层数组大小设置为 11，并在元素已满时触发扩容操作，字段 <code>PriorityBlockingQueue#allocationSpinLock</code> 用于控制同一时间只有一个线程在执行扩容。当某个线程检测到当前底层数组已满时会基于 CAS 操作尝试将该字段值由 0 改为 1，然后开始执行扩容，并在完成之后重置该标记字段。</p>
+<p>字段 <code>PriorityBlockingQueue#comparator</code> 用于指定元素比较器以判定队列元素的优先级，如果该字段为 null，则 PriorityBlockingQueue 会基于元素自带的比较器排列优先级。对于基本类型而言则参考元素的自然顺序，对于自定义对象来说，需要保证这些对象实现了 <code>java.lang.Comparable</code> 接口，否则会抛出 ClassCastException 异常。</p>
+
+        <h3 id="核心方法实现">
+          <a href="#核心方法实现" class="heading-link"><i class="fas fa-link"></i></a>核心方法实现</h3>
+      <p>PriorityBlockingQueue 实现自 BlockingQueue 接口，下面针对核心方法的实现逐一进行分析。</p>
+
+        <h4 id="添加元素：offer-amp-add-amp-put">
+          <a href="#添加元素：offer-amp-add-amp-put" class="heading-link"><i class="fas fa-link"></i></a>添加元素：offer &amp; add &amp; put</h4>
+      <p>针对添加元素的操作，PriorityBlockingQueue 实现了 <code>PriorityBlockingQueue#offer</code>、<code>PriorityBlockingQueue#add</code> 和 <code>PriorityBlockingQueue#put</code> 方法，不过后两者都是直接调用了 <code>PriorityBlockingQueue#offer</code> 方法。</p>
+<p>此外，该方法的超时版本 <code>PriorityBlockingQueue#offer(E, long, TimeUnit)</code> 也是直接委托给 <code>PriorityBlockingQueue#offer</code> 方法执行，并没有真正实现超时等待机制，这主要是因为 PriorityBlockingQueue 是无界的，所有的添加操作都能够被立即响应，而不会阻塞。</p>
+<p>下面展开分析一下 <code>PriorityBlockingQueue#offer</code> 方法的实现，如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">offer</span><span class="params">(E e)</span> </span>{</span><br><span class="line">    <span class="comment">// 待添加元素不能为 null</span></span><br><span class="line">    <span class="keyword">if</span> (e == <span class="keyword">null</span>) {</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> NullPointerException();</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">final</span> ReentrantLock lock = <span class="keyword">this</span>.lock;</span><br><span class="line">    <span class="comment">// 加锁</span></span><br><span class="line">    lock.lock();</span><br><span class="line">    <span class="keyword">int</span> n, cap;</span><br><span class="line">    Object[] array;</span><br><span class="line">    <span class="comment">// 如果队列中的元素个数大于等于队列的容量，则执行扩容操作</span></span><br><span class="line">    <span class="keyword">while</span> ((n = size) &gt;= (cap = (array = queue).length)) {</span><br><span class="line">        <span class="keyword">this</span>.tryGrow(array, cap); <span class="comment">// 扩容</span></span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="comment">// 将待添加元素插入到堆的合适位置（最小堆）</span></span><br><span class="line">        Comparator&lt;? <span class="keyword">super</span> E&gt; cmp = comparator;</span><br><span class="line">        <span class="keyword">if</span> (cmp == <span class="keyword">null</span>) {</span><br><span class="line">            siftUpComparable(n, e, array);</span><br><span class="line">        } <span class="keyword">else</span> {</span><br><span class="line">            <span class="comment">// 自定义比较器</span></span><br><span class="line">            siftUpUsingComparator(n, e, array, cmp);</span><br><span class="line">        }</span><br><span class="line">        <span class="comment">// 结点计数加 1</span></span><br><span class="line">        size = n + <span class="number">1</span>;</span><br><span class="line">        <span class="comment">// 唤醒一个之前因为队列为空而阻塞的线程</span></span><br><span class="line">        notEmpty.signal();</span><br><span class="line">    } <span class="keyword">finally</span> {</span><br><span class="line">        <span class="comment">// 释放锁</span></span><br><span class="line">        lock.unlock();</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>PriorityBlockingQueue 同样不允许往其中添加 null 元素，如果待添加的元素值合法则执行：</p>
+<ol>
+<li>加锁，保证同一时间只有一个线程在操作队列；</li>
+<li>判断队列是否已满，如果是则执行扩容操作；</li>
+<li>将元素基于最小堆数据结构的约束插入到底层数据的合适位置；</li>
+<li>队列结点计数加 1；</li>
+<li>因为当前队列至少包含一个元素，所以尝试唤醒一个之前因为队列为空而阻塞的线程；</li>
+<li>释放锁并返回。</li>
+</ol>
+<p>继续来看一下上述步骤中的扩容过程，实现位于 <code>PriorityBlockingQueue#tryGrow</code> 方法中，如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">tryGrow</span><span class="params">(Object[] array, <span class="keyword">int</span> oldCap)</span> </span>{</span><br><span class="line">    <span class="comment">// 扩容之前，先释放锁，避免扩容期间阻塞其它线程的出队列、入队列操作</span></span><br><span class="line">    lock.unlock(); <span class="comment">// must release and then re-acquire main lock</span></span><br><span class="line">    Object[] newArray = <span class="keyword">null</span>;</span><br><span class="line">    <span class="keyword">if</span> (allocationSpinLock == <span class="number">0</span> &amp;&amp;</span><br><span class="line">            <span class="comment">// 基于 CAS 操作将扩容标记位由 0 改为 1</span></span><br><span class="line">            UNSAFE.compareAndSwapInt(<span class="keyword">this</span>, allocationSpinLockOffset, <span class="number">0</span>, <span class="number">1</span>)) {</span><br><span class="line">        <span class="keyword">try</span> {</span><br><span class="line">            <span class="comment">// 如果当前队列长度小于 64，则扩容为 2(n + 1)，否则扩容为 (1 + 1/2)n</span></span><br><span class="line">            <span class="keyword">int</span> newCap = oldCap + ((oldCap &lt; <span class="number">64</span>) ? (oldCap + <span class="number">2</span>) : (oldCap &gt;&gt; <span class="number">1</span>)); <span class="comment">// grow faster if small</span></span><br><span class="line">            <span class="comment">// 避免队列容量超过允许上限</span></span><br><span class="line">            <span class="keyword">if</span> (newCap - MAX_ARRAY_SIZE &gt; <span class="number">0</span>) {    <span class="comment">// possible overflow</span></span><br><span class="line">                <span class="keyword">int</span> minCap = oldCap + <span class="number">1</span>;</span><br><span class="line">                <span class="keyword">if</span> (minCap &lt; <span class="number">0</span> || minCap &gt; MAX_ARRAY_SIZE) {</span><br><span class="line">                    <span class="keyword">throw</span> <span class="keyword">new</span> OutOfMemoryError();</span><br><span class="line">                }</span><br><span class="line">                newCap = MAX_ARRAY_SIZE;</span><br><span class="line">            }</span><br><span class="line">            <span class="keyword">if</span> (newCap &gt; oldCap &amp;&amp; queue == array) {</span><br><span class="line">                newArray = <span class="keyword">new</span> Object[newCap];</span><br><span class="line">            }</span><br><span class="line">        } <span class="keyword">finally</span> {</span><br><span class="line">            <span class="comment">// 重置扩容标记</span></span><br><span class="line">            allocationSpinLock = <span class="number">0</span>;</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 当前线程扩容失败，则让渡其它线程获取锁</span></span><br><span class="line">    <span class="keyword">if</span> (newArray == <span class="keyword">null</span>) {</span><br><span class="line">        Thread.yield();</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 加锁</span></span><br><span class="line">    lock.lock();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 替换底层存储为扩容后的数组，并复制元素</span></span><br><span class="line">    <span class="keyword">if</span> (newArray != <span class="keyword">null</span> &amp;&amp; queue == array) {</span><br><span class="line">        queue = newArray;</span><br><span class="line">        System.arraycopy(array, <span class="number">0</span>, newArray, <span class="number">0</span>, oldCap);</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>在开始执行扩容之前，当前线程会释放持有的锁，以避免在扩容期间阻塞其它线程的出队列操作，然后基于 CAS 操作修改扩容标记位 <code>PriorityBlockingQueue#allocationSpinLock</code>，保证同一时间只有一个线程在执行扩容。一开始数组较小（长度小于 64）时，线程将对底层数组成倍扩容（即 <code>2(n + 1)</code>），然后再按照 50% 的比例进行扩容（即 <code>(1 + 1/2) * n</code>），如果底层数组已经到达容量上限，则会抛出 OOM 异常。</p>
+<p>线程在完成扩容操作之后会重置扩容标记，如果有线程在竞争 CAS 时失败则会尝试让渡其它线程获取锁。这里主要是让渡给成功完成扩容操作的线程，因为此时扩容操作还未真正完成，该线程需要尝试获取锁以继续用扩容后的数组替换当前底层数组。</p>
+<p>继续回到 <code>PriorityBlockingQueue#offer</code> 方法，如果扩容操作完成或者本次入队列操作无需触发扩容，则接下去线程会将待添加的元素按照最小堆的约束插入到底层数据的合适位置。此时需要区分两种情况，如果在构造 PriorityBlockingQueue 对象时指定了比较器 Comparator，则会调用 <code>PriorityBlockingQueue#siftUpUsingComparator</code> 方法基于该比较器执行最小堆插入操作，否则调用 <code>PriorityBlockingQueue#siftUpComparable</code> 方法按照元素的自然顺序将当前元素插入到最小堆中。</p>
+<p>基于数组实现的堆结构，在操作上是比较简单的，读者可以自行参考源码，本文不对最小堆 <code>siftUp*</code> 和 <code>siftDown*</code> 操作展开分析。</p>
+
+        <h4 id="获取元素：poll-amp-peek-amp-take">
+          <a href="#获取元素：poll-amp-peek-amp-take" class="heading-link"><i class="fas fa-link"></i></a>获取元素：poll &amp; peek &amp; take</h4>
+      <p>前面几篇介绍的队列都满足 FIFO 的特性，在执行出队列时返回的都是在队列中存活时间最长的元素。对于 PriorityBlockingQueue 而言，结点的顺序则按照优先级进行编排，所以这里获取元素的操作返回的是队列中优先级最高的结点。</p>
+<p>针对获取元素的操作，PriorityBlockingQueue 实现了 <code>PriorityBlockingQueue#poll</code>、<code>PriorityBlockingQueue#peek</code> 和 <code>PriorityBlockingQueue#take</code> 方法。其中 <code>PriorityBlockingQueue#peek</code> 方法仅获取最小堆堆顶结点元素值，而不移除该结点，实现上比较简单。方法 <code>PriorityBlockingQueue#take</code> 相对于 <code>PriorityBlockingQueue#poll</code> 的区别在于，当队列为空时该方法会无限期阻塞，直到有其它线程往队列中插入新的元素，或者该线程被中断。实现层面，二者大同小异，所以下面以 <code>PriorityBlockingQueue#poll</code> 方法为例展开分析从 PriorityBlockingQueue 中获取元素操作的具体实现。</p>
+<p>PriorityBlockingQueue 针对 <code>PriorityBlockingQueue#poll</code> 方法定义了两个版本，区别在于当队列为空时是立即返回还是阻塞等待一段时间，而在实现思路上是一致的。这里以不带超时参数的版本为例展开分析，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> E <span class="title">poll</span><span class="params">()</span> </span>{</span><br><span class="line">    <span class="keyword">final</span> ReentrantLock lock = <span class="keyword">this</span>.lock;</span><br><span class="line">    <span class="comment">// 加锁</span></span><br><span class="line">    lock.lock();</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="comment">// 出队列，获取最小堆堆顶元素值，并移除堆顶结点，调整最小堆</span></span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">this</span>.dequeue();</span><br><span class="line">    } <span class="keyword">finally</span> {</span><br><span class="line">        <span class="comment">// 释放锁</span></span><br><span class="line">        lock.unlock();</span><br><span class="line">    }</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">private</span> E <span class="title">dequeue</span><span class="params">()</span> </span>{</span><br><span class="line">    <span class="keyword">int</span> n = size - <span class="number">1</span>;</span><br><span class="line">    <span class="keyword">if</span> (n &lt; <span class="number">0</span>) {</span><br><span class="line">        <span class="comment">// 当前队列为空，直接返回 null</span></span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">    } <span class="keyword">else</span> {</span><br><span class="line">        Object[] array = queue;</span><br><span class="line">        <span class="comment">// 获取堆顶元素值</span></span><br><span class="line">        E result = (E) array[<span class="number">0</span>];</span><br><span class="line">        <span class="comment">// 调整堆的结构，以便再次满足最小堆定义</span></span><br><span class="line">        E x = (E) array[n];</span><br><span class="line">        array[n] = <span class="keyword">null</span>;</span><br><span class="line">        Comparator&lt;? <span class="keyword">super</span> E&gt; cmp = comparator;</span><br><span class="line">        <span class="keyword">if</span> (cmp == <span class="keyword">null</span>) {</span><br><span class="line">            siftDownComparable(<span class="number">0</span>, x, array, n);</span><br><span class="line">        } <span class="keyword">else</span> {</span><br><span class="line">            <span class="comment">// 自定义比较器</span></span><br><span class="line">            siftDownUsingComparator(<span class="number">0</span>, x, array, n, cmp);</span><br><span class="line">        }</span><br><span class="line">        <span class="comment">// 队列结点计数减 1</span></span><br><span class="line">        size = n;</span><br><span class="line">        <span class="keyword">return</span> result;</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>对于优先级队列而言，出队列操作获取到的是队列中优先级最高的元素，因为底层依赖于最小堆实现，所以只需要移除最小堆堆顶结点，并返回结点元素即可。但是因为这样破坏了堆的结构，所以需要调用 <code>shiftDown*</code> 方法从上往下进行调整，以再次满足最小堆结构的约束。</p>
+
+        <h4 id="移除元素：remove">
+          <a href="#移除元素：remove" class="heading-link"><i class="fas fa-link"></i></a>移除元素：remove</h4>
+      <p>针对移除元素的操作，PriorityBlockingQueue 实现了 <code>PriorityBlockingQueue#remove</code> 方法，并提供了有参和无参的版本，其中无参版本实际上是委托给 <code>PriorityBlockingQueue#poll</code> 方法执行的。下面来分析一下有参版本的实现，如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">remove</span><span class="params">(Object o)</span> </span>{</span><br><span class="line">    <span class="keyword">final</span> ReentrantLock lock = <span class="keyword">this</span>.lock;</span><br><span class="line">    <span class="comment">// 加锁</span></span><br><span class="line">    lock.lock();</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="comment">// 获取待删除元素的数组下标</span></span><br><span class="line">        <span class="keyword">int</span> i = <span class="keyword">this</span>.indexOf(o);</span><br><span class="line">        <span class="keyword">if</span> (i == -<span class="number">1</span>) {</span><br><span class="line">            <span class="comment">// 不存在</span></span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">        }</span><br><span class="line">        <span class="comment">// 移除元素</span></span><br><span class="line">        <span class="keyword">this</span>.removeAt(i);</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">    } <span class="keyword">finally</span> {</span><br><span class="line">        <span class="comment">// 释放锁</span></span><br><span class="line">        lock.unlock();</span><br><span class="line">    }</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">removeAt</span><span class="params">(<span class="keyword">int</span> i)</span> </span>{</span><br><span class="line">    Object[] array = queue;</span><br><span class="line">    <span class="keyword">int</span> n = size - <span class="number">1</span>;</span><br><span class="line">    <span class="comment">// 当前移除的是最后一个元素</span></span><br><span class="line">    <span class="keyword">if</span> (n == i) { <span class="comment">// removed last element</span></span><br><span class="line">        array[i] = <span class="keyword">null</span>;</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">// 当前移除的是中间元素</span></span><br><span class="line">    <span class="keyword">else</span> {</span><br><span class="line">        <span class="comment">// 将数组最后一个位置置为 null，并调整堆的结构以满足最小堆定义</span></span><br><span class="line">        E moved = (E) array[n];</span><br><span class="line">        array[n] = <span class="keyword">null</span>;</span><br><span class="line">        Comparator&lt;? <span class="keyword">super</span> E&gt; cmp = comparator;</span><br><span class="line">        <span class="comment">// 自上而下调整堆结构以满足最小堆定义</span></span><br><span class="line">        <span class="keyword">if</span> (cmp == <span class="keyword">null</span>) {</span><br><span class="line">            siftDownComparable(i, moved, array, n);</span><br><span class="line">        } <span class="keyword">else</span> {</span><br><span class="line">            siftDownUsingComparator(i, moved, array, n, cmp);</span><br><span class="line">        }</span><br><span class="line">        <span class="comment">// 自下而上调整堆结构以满足最小堆定义</span></span><br><span class="line">        <span class="keyword">if</span> (array[i] == moved) {</span><br><span class="line">            <span class="keyword">if</span> (cmp == <span class="keyword">null</span>) {</span><br><span class="line">                siftUpComparable(i, moved, array);</span><br><span class="line">            } <span class="keyword">else</span> {</span><br><span class="line">                siftUpUsingComparator(i, moved, array, cmp);</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">// 队列结点计数减 1</span></span><br><span class="line">    size = n;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>如果待删除的元素是优先级最低的元素，则只需要将底层数组末尾结点置为 null 即可，否则，对于其它优先级的元素来说，在执行删除之后需要调整堆结构以满足最小堆定义。</p>
+
+        <h4 id="其它操作：size-amp-contains">
+          <a href="#其它操作：size-amp-contains" class="heading-link"><i class="fas fa-link"></i></a>其它操作：size &amp; contains</h4>
+      <p>方法 <code>PriorityBlockingQueue#contains</code> 接收一个参数，用于判断队列中是否包含值等于参数的结点。</p>
+<p>方法 <code>PriorityBlockingQueue#size</code> 用于返回当前队列中包含的结点个数，因为 PriorityBlockingQueue 已经定义了 <code>PriorityBlockingQueue#size</code> 字段，用于对队列中的结点进行计数，所以该方法只需要返回字段值即可。</p>
+
+        <h3 id="总结">
+          <a href="#总结" class="heading-link"><i class="fas fa-link"></i></a>总结</h3>
+      <p>本文分析了 PriorityBlockingQueue 的设计与实现。PriorityBlockingQueue 是优先级队列 PriorityQueue 的线程安全版本，基于最小堆实现元素的优先级排列。不同于前面几篇我们介绍的队列的 FIFO 特性，PriorityBlockingQueue 出队列的元素并非是在队列中存活时间最长的元素，而是优先级最高的元素。</p>
+<p>PriorityBlockingQueue 的底层虽然依赖于数组作为存储结构，但因为容量上限足够大，所以几乎可以视为无界的。当底层数组存满时，PriorityBlockingQueue 并不会让入队列的线程阻塞等待，而是转去扩容底层数组，以继续容纳新的元素。当然，如果容量到达上限，无法继续扩容时，入队列操作会触发 OOM 异常。</p>
+
+        <h3 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h3>
+      <ol>
+<li>JDK 1.8 源码</li>
+</ol>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2018/09/13/java/juc-priority-blocking-queue/">https://plotor.github.io/2018/09/13/java/juc-priority-blocking-queue/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Java/">Java</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/">并发编程</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2018/09/14/java/juc-delay-queue/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">深入理解 JUC：DelayQueue</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2018/09/12/java/juc-linked-blocking-queue/"><span class="paginator-prev__text">深入理解 JUC：LinkedBlockingQueue</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E6%96%B9%E6%B3%95%E5%AE%9E%E7%8E%B0"><span class="toc-number">1.</span> <span class="toc-text">
+          核心方法实现</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%B7%BB%E5%8A%A0%E5%85%83%E7%B4%A0%EF%BC%9Aoffer-amp-add-amp-put"><span class="toc-number">1.1.</span> <span class="toc-text">
+          添加元素：offer &amp; add &amp; put</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%8E%B7%E5%8F%96%E5%85%83%E7%B4%A0%EF%BC%9Apoll-amp-peek-amp-take"><span class="toc-number">1.2.</span> <span class="toc-text">
+          获取元素：poll &amp; peek &amp; take</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%A7%BB%E9%99%A4%E5%85%83%E7%B4%A0%EF%BC%9Aremove"><span class="toc-number">1.3.</span> <span class="toc-text">
+          移除元素：remove</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%85%B6%E5%AE%83%E6%93%8D%E4%BD%9C%EF%BC%9Asize-amp-contains"><span class="toc-number">1.4.</span> <span class="toc-text">
+          其它操作：size &amp; contains</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">2.</span> <span class="toc-text">
+          总结</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">3.</span> <span class="toc-text">
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

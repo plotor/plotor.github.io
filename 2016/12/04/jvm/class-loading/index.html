@@ -1,0 +1,619 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="JVM 的类加载机制描述了类数据从字节码文件加载到内存，并对其进行校验、解析、初始化，并最终成为能够直接被 JVM 使用的 java 数据类型的过程。 类的整个生命周期可以分为  加载、连接（验证、准备、解析）、初始化、使用、卸载 5 个阶段（加载、连接和初始化构成了类加载全过程），其中连接又可以细分为验证、准备、解析 3 个阶段。如下图所示：">
+<meta property="og:type" content="article">
+<meta property="og:title" content="探秘 JVM：类加载机制">
+<meta property="og:url" content="https://plotor.github.io/2016/12/04/jvm/class-loading/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="JVM 的类加载机制描述了类数据从字节码文件加载到内存，并对其进行校验、解析、初始化，并最终成为能够直接被 JVM 使用的 java 数据类型的过程。 类的整个生命周期可以分为  加载、连接（验证、准备、解析）、初始化、使用、卸载 5 个阶段（加载、连接和初始化构成了类加载全过程），其中连接又可以细分为验证、准备、解析 3 个阶段。如下图所示：">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://plotor.github.io/images/2016/jvm-class-loading.png">
+<meta property="og:image" content="https://plotor.github.io/images/2016/jvm-classloader.png">
+<meta property="article:published_time" content="2016-12-04T11:27:43.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.953Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="JVM">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://plotor.github.io/images/2016/jvm-class-loading.png"><title>探秘 JVM：类加载机制 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2016/12/04/jvm/class-loading/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">探秘 JVM：类加载机制</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2016-12-04</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">7.1k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">28分</span></span></div></header><div class="post-body"><p>JVM 的类加载机制描述了类数据从字节码文件加载到内存，并对其进行校验、解析、初始化，并最终成为能够直接被 JVM 使用的 java 数据类型的过程。</p>
+<p>类的整个生命周期可以分为  <strong>加载、连接（验证、准备、解析）、初始化、使用、卸载</strong> 5 个阶段（加载、连接和初始化构成了类加载全过程），其中连接又可以细分为验证、准备、解析 3 个阶段。如下图所示：</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2016/jvm-class-loading.png" alt="image">
+      </p>
+<a id="more"></a>
+
+<p>上述步骤除解析步骤外，对于同一个类而言各个阶段的执行按照图示箭头所指的顺序逐步执行（相邻阶段的结束和开始不严格按照先后顺序，可能存在重叠）。解析阶段在一些情况下会在初始化之后进行，主要是为了支持 java 语言的动态绑定机制。</p>
+<p>JVM 规范并未明确触发加载机制的时机，但是规定执行初始化操作 <strong>有且只有 6 种</strong> 情况（此前一定执行了对相应类的加载、验证，以及准备操作），如下：</p>
+<ol>
+<li>遇到 <code>new</code>、<code>getstatic</code>、<code>putstatic</code>、<code>invokestatic</code> 指令，即 new 一个对象，亦或是读写类的静态字段（被 final 修饰的除外），亦或是调用一个类的静态方法。</li>
+<li>利用反射机制对类进行反射调用。</li>
+<li>当初始化一个类时，如果其父类没有被初始化，则先初始化其父类。</li>
+<li>虚拟机启动时，用户需要指定一个驱动类（包含 main 方法的类），JVM 会先初始化这个类。</li>
+<li>使用 JDK 7 的动态语言支持，如果一个 MethodHandle 实例最后的解析结果为 REF_getStatic、REF_putStatic、REF_invokeStatic 和 REF_newInvokeSpecial 四种类型的方法句柄，且该方法句柄对应的类没有进行过初始化。</li>
+<li>如果一个类实现的接口中定义了 default 方法，当初始化该类时会触发初始化该接口。</li>
+</ol>
+<p>上述 6 种场景称为对一个类型的主动引用，除此之外所有的引用类型的方式都不会触发初始化操作，称为被动引用。</p>
+<p><strong>注意：</strong> 上述第 3 点对于接口而言并不适用，初始化一个接口或类并不要求其实现的接口全部都完成了初始化，只有在接口的非常量字段被使用时才会初始化该接口，这也是单独规定第 6 条的原因。</p>
+<p>关于对象的创建，这里再引申一点，在 java 中显式创建一个对象的方式主要分为 5 种，包括：new 一个对象；克隆机制；反射机制；反序列化机制；调用 <code>Unsafe#allocateInstance</code> 方法。</p>
+<p>除了显式创建对象外，虚拟机还会隐式的创建对象，比如创建类的 Class 引用，创建常量对象等。其中，克隆机制和反序列化机制通过直接复制已有的数据来初始化新建对象的实例字段；方法 <code>Unsafe#allocateInstance</code> 则没有初始化实例字段；而 new 语句和反射机制则是通过调用构造器来初始化实例字段。</p>
+
+        <h3 id="类加载过程">
+          <a href="#类加载过程" class="heading-link"><i class="fas fa-link"></i></a>类加载过程</h3>
+      <p>加载、连接（验证、准备和解析），以及初始化构成了类加载的全过程。</p>
+
+        <h4 id="加载">
+          <a href="#加载" class="heading-link"><i class="fas fa-link"></i></a>加载</h4>
+      <p>当我们编写的代码被编译成字节码文件之后，虚拟机必须将其装载到内存中才能执行，而加载通俗的说就是将静态字节码二进制流文件加载到内存中的过程，该阶段主要完成 3 件事情：</p>
+<ol>
+<li>通过一个类的全限定名获取该类的二进制字节流，具体从哪里获取没有要求，可以是文件系统、运行时生成，也可以来自网络等；</li>
+<li>将这个字节流所代表的静态存储结构转化为方法区的运行时数据结构；</li>
+<li>在内存中生成一个代表该类的 Class 对象，作为方法区中该类各种数据的访问入口。</li>
+</ol>
+<p><strong>注意：</strong> 一个类的 Class 引用虽然是一个对象，但却存储在方法区，而不是堆内存中。</p>
+<p>在加载阶段，对于非数组类型而言，可以通过 JVM 内置的类加载器或用户自定义的类加载器去加载二进制字节流。对于数组类型而言，情况则有所不同， <strong>数组类本身并不通过类加载器创建，而是由 JVM 直接在内存中动态构造</strong> ，但是数组类的元素类型还是需要由类加载器完成加载。</p>
+
+        <h4 id="连接">
+          <a href="#连接" class="heading-link"><i class="fas fa-link"></i></a>连接</h4>
+      <p>连接阶段可以进一步分为 <strong>验证、准备，以及解析</strong> 三个阶段，下面就各阶段所执行的工作进行介绍。</p>
+
+        <h5 id="验证">
+          <a href="#验证" class="heading-link"><i class="fas fa-link"></i></a>验证</h5>
+      <p>验证阶段主要是验证字节码文件中包含的信息是否符合 JVM 规范，并且不会危害 JVM 运行安全，主要从文件格式、元数据、字节码，以及符号引用 4 个层面进行验证，如果验证不通过则抛出 VerifyError 异常。</p>
+<ol>
+<li><strong>文件格式验证</strong> ：该阶段主要验证字节流是否符合字节码文件的格式规范，同时保证能够被当前版本的虚拟机处理。这一阶段基于字节流进行验证，是整个验证过程的第一阶段，验证通过之后字节流才能够进入方法区中进行储存，后面三个阶段的验证都是基于方法区中的数据展开验证。</li>
+<li><strong>元数据验证</strong> ：该阶段主要是对字节码描述的信息进行语义分析，保证这些消息不违反 java 语言规范，主要是对类的元数据信息进行语义校验。</li>
+<li><strong>字节码验证</strong> ：该阶段主要是对类的方法实现进行校验分析，通过数据流分析和控制流分析以确定程序实现是合法且符合逻辑的。这一阶段的验证相当复杂，所以在 JDK 6 之后引入了 StackMapTable 属性，该属性描述了方法体所有基本块开始时本地变量表和操作数栈应有的状态，从而不再需要根据推导来验证这些状态的合法性，只要检查 StackMapTable 即可。</li>
+<li><strong>符号引用验证</strong> ：该阶段发生在虚拟机将符号引用转换化为直接引用的时候，这个动作发生在解析阶段，主要是校验引用自身和被引用方的正确性，以保证解析阶段能够正常执行。</li>
+</ol>
+<p>验证阶段相对比较耗时，是非常重要却不必要的过程，如果所运行的全部代码都已经被反复使用和验证过，那么可以使用 <code>-Xverify:none</code> 参数关闭大部分的类验证策略，从而缩短虚拟机的加载过程。</p>
+
+        <h5 id="准备">
+          <a href="#准备" class="heading-link"><i class="fas fa-link"></i></a>准备</h5>
+      <p>准备阶段主要是为类变量（即 static 变量）分配内存并初始化为相应的类型默认值。需要注意的是这里的操作只针对类变量，实例变量会在对象实例化时随着对象一起被分配到堆内存中。此外，这里的赋值是赋类型默认值，我们在代码中显式指定的初始值将会在调用类初始化方法 <code>&lt;clinit&gt;</code> 时（即初始化阶段）完成赋值，但是对于静态常量（被 static final 修饰）在这一步已经具备了真实值。</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">int</span> a = <span class="number">123</span>;</span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> b = <span class="number">456</span>;</span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> c = <span class="number">123</span> + <span class="number">456</span>;</span><br></pre></td></tr></tbody></table></div></figure>
+<p>例如上述代码中的两个变量，在当前阶段 a 对应的值是 0，而 b 对应的值是 456，因为 a 是一个类变量，在本阶段会为其分配内存空间，并初始化为类型默认值（int 类型的默认值为 0），而真正赋值为 123 要等到初始化阶段。然而，b 就不一样，因为 b 是一个静态常量，编译器会在编译阶段就将其赋值为 456，对于 c 也同样如此，编译器在编译阶段就会将其赋值为 579。</p>
+
+        <h5 id="解析">
+          <a href="#解析" class="heading-link"><i class="fas fa-link"></i></a>解析</h5>
+      <p>解析阶段的目的是将常量池中的符号引用替换为直接引用，主要针对 <strong>类或接口、字段、类方法、接口方法、方法类型、方法句柄，以及调用点限定符</strong> 7 类符号引用进行解析。</p>
+<p><strong>符号引用</strong> 以一组符号描述所引用的目标对象，可以是任何形式的字面量，只要使用时能够无歧义定位目标即可。符号引用与虚拟机实现内存布局无关，不同虚拟机接受的符号引用是相同的（因为符号引用是字节码层面定义的），引用的目标也不一定已经加载到内存。在字节码文件中以 CONSTANT_Class_info、CONSTANT_Fieldref_info，以及 CONSTANT_Methodref_info 等类型的常量形式出现。 <strong>直接引用</strong> 可以是直接指向目标的指针、相对偏移量，或是一个能间接定位目标的句柄。直接引用与虚拟机内存布局相关，不同虚拟机翻译出来的直接引用一般不同，且其引用的目标一定存在于内存。</p>
+<ul>
+<li><strong>类或接口符号引用解析</strong></li>
+</ul>
+<p>假设当前代码所处的类为 A，现在需要把符号引用 N 解析为对应的类或接口 B 的直接引用，整个解析过程如下：</p>
+<ol>
+<li>如果 B 不是数组类型，那么虚拟机会将代表 N 的全限定名传递给 A 的类加载器去加载整个类 B，加载过程中由于元数据验证、字节码验证的需要，可能会触发其他的类加载操作，一旦出现任何异常则解析阶段失败；</li>
+<li>如果 B 是数组类型，并且数组的元素类型为对象（<code>eg. [Ljava/lang/Integer</code>），则依据 1 中的规则加载数据元素类型，否则由虚拟机生成一个代表此数组维度和元素的数组对象；</li>
+<li>验证 A 是否具备对 B 的访问权限，如果不具备则抛 IllegalAccessError 异常。</li>
+</ol>
+<ul>
+<li><strong>字段解析</strong></li>
+</ul>
+<p>字段符号解析需要先对字段所属的类或接口的符号引用进行解析，假设这个类或接口是 B，那么字段的解析过程：</p>
+<ol>
+<li>如果 B 本身包含的 <strong>简单名称和字段描述符</strong> 都与目标相匹配的字段，则返回该字段的直接引用；</li>
+<li>否则，如果 B 实现了接口，将会按照继承关系从下往上递归搜索各个接口，如果发现了相应字段则返回该字段的直接引用；</li>
+<li>否则，如果具备父类（Object 类除外），则递归搜索父类，如果发现了相应字段则返回该字段的直接引用；</li>
+<li>否则，查找失败，抛 NoSuchFieldError</li>
+</ol>
+<p>上述过程中对于查找到的字段会进行权限验证，如果不具备访问权限，则抛 IllegalAccessError。</p>
+<ul>
+<li><strong>类方法解析</strong></li>
+</ul>
+<p>类方法解析也需要先对方法所属的类（不包括接口，类方法和接口方法的解析是分开的）的符号引用进行解析，假设这个类是 B，那么方法的解析过程：</p>
+<ol>
+<li>在 B 中查找是否有 <strong>简单名称和描述符</strong> 都与目标方法匹配的方法，如果有的话则返回该方法的直接引用；</li>
+<li>否则，在父类中递归查找；</li>
+<li>否则，在 B 实现的接口中递归查找，如果找到说明 B 是一个抽象类，抛 AbstractMethodError；</li>
+<li>否则，查找失败，抛 NoSuchMethodError。</li>
+</ol>
+<p>上述过程中对于查找到的方法会进行权限验证，如果不具备访问权限则抛 IllegalAccessError。</p>
+<ul>
+<li><strong>接口方法解析</strong></li>
+</ul>
+<p>接口方法也需要先对方法所属的接口（不包括类）的符号引用进行解析，假设这个接口是 B，那么方法的解析过程：</p>
+<ol>
+<li>在 B 中查找是否有 <strong>简单名称和描述符</strong> 都与目标方法匹配的方法，如果有的话则返回该方法的直接引用；</li>
+<li>否则，在父接口中递归查找；</li>
+<li>否则，查找失败，抛 NoSuchMethodError；</li>
+</ol>
+<p>接口方法的访问权限都是 public，所以不存在访问权限问题。</p>
+
+        <h4 id="初始化">
+          <a href="#初始化" class="heading-link"><i class="fas fa-link"></i></a>初始化</h4>
+      <p>初始化阶段主要是执行类或接口初始化方法 <code>&lt;clinit&gt;</code>，该方法由编译器自动收集类中所有类变量赋值动作和静态语句块（<code>static{...}</code>）中的语句合并而成（ <strong>如果没有定义类变量和静态语句块，可以不用生成 <code>&lt;clinit&gt;</code> 方法</strong> ），组织顺序按照在源文件中定义的顺序，例如：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ClinitMethod</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">int</span> a = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">static</span> {</span><br><span class="line">        b = <span class="number">2</span>;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">int</span> b;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>编译器会自动收集类变量赋值语句和静态代码块生成对应的类初始化方法，编译后的字节码如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> {};</span><br><span class="line">  descriptor: ()V</span><br><span class="line">  flags: ACC_STATIC</span><br><span class="line">  Code:</span><br><span class="line">    stack=<span class="number">1</span>, locals=<span class="number">0</span>, args_size=<span class="number">0</span></span><br><span class="line">       <span class="number">0</span>: iconst_1</span><br><span class="line">       1: putstatic     #2                  // Field a:I</span><br><span class="line">       <span class="number">4</span>: iconst_2</span><br><span class="line">       5: putstatic     #3                  // Field b:I</span><br><span class="line">       <span class="number">8</span>: <span class="keyword">return</span></span><br><span class="line">    LineNumberTable:</span><br><span class="line">      line <span class="number">9</span>: <span class="number">0</span></span><br><span class="line">      line <span class="number">12</span>: <span class="number">4</span></span><br><span class="line">      line <span class="number">13</span>: <span class="number">8</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>类变量在 <code>&lt;clinit&gt;</code> 方法中的组织顺序遵循在代码中定义的顺序，需要注意的是 <strong>在静态代码块中只能访问定义在静态语句块之前的变量，定义在之后的变量在静态语句块中可以赋值但不能访问</strong> 。如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ClinitMethod</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">int</span> a = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">static</span> {</span><br><span class="line">        System.out.println(a); <span class="comment">// OK</span></span><br><span class="line">        b = <span class="number">2</span>;</span><br><span class="line">        System.out.println(b); <span class="comment">// ERROR</span></span><br><span class="line">        System.out.println(ClinitMethod.b); <span class="comment">// OK</span></span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">int</span> b;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>类初始化方法 <code>&lt;clinit&gt;</code> 不同于构造方法 <code>&lt;init&gt;</code>，不需要在 <code>&lt;clinit&gt;</code> 中隐式或者显式调用父类的初始化方法，JVM 可以保证在执行子类的 <code>&lt;clinit&gt;</code> 方法之前完成对父类的 <code>&lt;clinit&gt;</code> 方法的执行， <strong>因此父类的静态代码块要先于子类执行</strong> 。</p>
+<p>接口中虽然不允许使用静态代码块，但是仍然存在变量初始化的赋值操作，所以也会生成 <code>&lt;clinit&gt;</code> 方法。然而，与类不同的是， <strong>接口中的 <code>&lt;clinit&gt;</code> 方法在执行时不要求父接口的 <code>&lt;clinit&gt;</code> 方法执行完毕，只有当使用到一个接口的变量时才会触发执行 <code>&lt;clinit&gt;</code> 方法</strong> 。</p>
+<p>方法 <code>&lt;clinit&gt;</code> 是线程安全的，可以将其视为一个同步的方法，当一个线程执行该方法时其它线程会被阻塞，所以一般不推荐在其中编写比较耗时的代码逻辑。</p>
+
+        <h3 id="类加载器">
+          <a href="#类加载器" class="heading-link"><i class="fas fa-link"></i></a>类加载器</h3>
+      <p>类加载器（Class Loader）的作用是用来获取一个全限定类名对应的字节流，对于任何一个类都需要由加载它的类加载器和这个类本身一同确立其在 JVM 中的唯一性。下面的示例演示了对于同一个类，使用自定义类加载器和虚拟机内置类加载器加载之后的场景：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">ClassLoader loader = <span class="keyword">new</span> ClassLoader() {</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> Class&lt;?&gt; loadClass(String name) <span class="keyword">throws</span> ClassNotFoundException {</span><br><span class="line">        <span class="keyword">try</span> {</span><br><span class="line">            InputStream is = <span class="keyword">this</span>.getClass().getResourceAsStream(name.substring(name.lastIndexOf(<span class="string">"."</span>) + <span class="number">1</span>) + <span class="string">".class"</span>);</span><br><span class="line">            <span class="keyword">if</span> (<span class="keyword">null</span> == is) {</span><br><span class="line">                <span class="keyword">return</span> <span class="keyword">super</span>.loadClass(name);</span><br><span class="line">            }</span><br><span class="line">            <span class="keyword">byte</span>[] buffer = <span class="keyword">new</span> <span class="keyword">byte</span>[is.available()];</span><br><span class="line">            is.read(buffer);</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">super</span>.defineClass(name, buffer, <span class="number">0</span>, buffer.length);</span><br><span class="line">        } <span class="keyword">catch</span> (IOException e) {</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> ClassNotFoundException(name, e);</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">};</span><br><span class="line"></span><br><span class="line"><span class="keyword">final</span> String className = ClassLoading.class.getName();</span><br><span class="line"></span><br><span class="line">Object obj1 = loader.loadClass(className).newInstance();</span><br><span class="line">System.out.println(obj1.getClass().getName());</span><br><span class="line"></span><br><span class="line">ClassLoader classLoader = ClassLoader.getSystemClassLoader();</span><br><span class="line">Object obj2 = classLoader.loadClass(className).newInstance();</span><br><span class="line">Object obj3 = classLoader.loadClass(className).newInstance();</span><br><span class="line">System.out.println(<span class="string">"obj2.class equals obj1.class: "</span> + obj2.getClass().equals(obj1.getClass())); <span class="comment">// true</span></span><br><span class="line">System.out.println(<span class="string">"obj2.class equals obj3.class: "</span> + obj2.getClass().equals(obj3.getClass())); <span class="comment">// false</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>运行结果：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">org.zhenchao.jvm.ClassLoading</span><br><span class="line">obj2.class equals obj1.class: false</span><br><span class="line">obj2.class equals obj3.class: true</span><br></pre></td></tr></tbody></table></div></figure>
+<p>可以看到针对同一个类，使用自定义类加载器和应用程序类加载器加载得到的对象所指向的 Class 引用并不是同一个，也就是说在方法区中存在两个不同的 ClassLoading 类的 Class 引用。这证明了在 JVM 中唯一确定一个类，除了类的全限定名之外，还需要考虑加载该类的类加载器。</p>
+
+        <h4 id="三层类加载器">
+          <a href="#三层类加载器" class="heading-link"><i class="fas fa-link"></i></a>三层类加载器</h4>
+      <p>站在开发者的角度来看，JVM 类加载器可以分为三层进行组织，由上到下依次是启动类加载器（Bootstrap Class Loader）、扩展类加载器（Extension Class Loader），以及应用程序类加载器（Application Class Loader）。</p>
+<ul>
+<li><strong>启动类加载器</strong></li>
+</ul>
+<p>启动类加载器负责加载 <code>${JAVA_HOME}/lib</code> 目录下，或者 <strong>-Xbootclasspath</strong> 参数指定路径下，且能够被 JVM 识别的类库（仅按照文件名进行匹配）。该类加载器采用 C++ 语言编写，且无法被 java 程序直接引用，如果在编写自定义类加载器时希望指定启动类加载器为父类加载器，直接利用 null 值代替即可。</p>
+<ul>
+<li><strong>扩展类加载器</strong></li>
+</ul>
+<p>扩展类加载器由 <code>sun.misc.Launcher$ExtClassLoader</code> 类实现，采用 java 语言编写，负责加载 <code>${JAVA_HOME}/lib/ext</code> 目录下，或者被 <code>java.ext.dirs</code> 系统变量所指定路径中的所有类库。</p>
+<ul>
+<li><strong>应用程序类加载器</strong></li>
+</ul>
+<p>应用程序类加载器由 <code>sun.misc.Launcher$AppClassLoader</code> 类实现，采用 java 语言编写，上述例子中 <code>ClassLoader#getSystenClassLoader</code> 返回的即是该加载器（所以也叫系统类加载器），负责加载用户类路径（ClassPath）所指定的类库。</p>
+
+        <h4 id="双亲委派机制">
+          <a href="#双亲委派机制" class="heading-link"><i class="fas fa-link"></i></a>双亲委派机制</h4>
+      <p>JVM 中类加载器关系如下图所示，各个类加载器之间是一种父子关系，但是这种父子关系不是以继承来实现，而是使用了组合。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2016/jvm-classloader.png" alt="image">
+      </p>
+<p>当一个类需要被加载时，JVM 采用双亲委派机制为该类寻找合适的类加载器。因为类加载器采用的是装饰模式，即子类加载器会包装父类加载器，所以子类的加载器的功能要比父类更强。除了系统内置的三个类加载器以外，还允许用户自定义类加载器。然而，我们不能保证所有用户都是善意的（比如用户自定义了一个 <code>java.lang.String</code> 类，如果能够覆盖 JDK 自带的 String 类则是一件非常危险的事情）。</p>
+<p>为了保证安全性，JVM 会尽量采用上层类加载器去加载类（因为上层加载器相对下层类加载器更加安全），所以当要加载一个类时，当前类加载器就会首先委托父类加载器尝试加载，如果父类加载器有能力加载则会继续向上委托，直到某一个类加载器的父类加载器不能加载时即开始执行真正加载操作。</p>
+<p>所有的类加载器中除了启动类加载器是由 C++ 语言实现外，其余的类加载器均由 java 语言实现。下面从源码层面来看一下双亲委派机制的实现：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">protected</span> Class&lt;?&gt; loadClass(String name, <span class="keyword">boolean</span> resolve) <span class="keyword">throws</span> ClassNotFoundException {</span><br><span class="line">    <span class="keyword">synchronized</span> (<span class="keyword">this</span>.getClassLoadingLock(name)) { <span class="comment">// 同步加锁</span></span><br><span class="line">        <span class="comment">// 校验输入的类名，并检查类是否已经被加载过</span></span><br><span class="line">        Class&lt;?&gt; c = <span class="keyword">this</span>.findLoadedClass(name);</span><br><span class="line">        <span class="keyword">if</span> (c == <span class="keyword">null</span>) {</span><br><span class="line">            <span class="keyword">try</span> {</span><br><span class="line">                <span class="keyword">if</span> (parent != <span class="keyword">null</span>) {</span><br><span class="line">                    <span class="comment">// 委托给父类加载器进行加载</span></span><br><span class="line">                    c = parent.loadClass(name, <span class="keyword">false</span>);</span><br><span class="line">                } <span class="keyword">else</span> {</span><br><span class="line">                    <span class="comment">// 父类加载器为 null，说明是启动类加载器</span></span><br><span class="line">                    c = <span class="keyword">this</span>.findBootstrapClassOrNull(name);</span><br><span class="line">                }</span><br><span class="line">            } <span class="keyword">catch</span> (ClassNotFoundException e) {</span><br><span class="line">                <span class="comment">// ClassNotFoundException thrown if class not found from the non-null parent class loader</span></span><br><span class="line">            }</span><br><span class="line"></span><br><span class="line">            <span class="comment">// 父类加载器加载失败，使用当前类加载器进行加载</span></span><br><span class="line">            <span class="keyword">if</span> (c == <span class="keyword">null</span>) {</span><br><span class="line">                <span class="comment">// If still not found, then invoke findClass in order to find the class.</span></span><br><span class="line">                <span class="comment">// 模板方法，由子类实现</span></span><br><span class="line">                c = <span class="keyword">this</span>.findClass(name);</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 如果需要，执行解析操作</span></span><br><span class="line">        <span class="keyword">if</span> (resolve) {</span><br><span class="line">            <span class="keyword">this</span>.resolveClass(c);</span><br><span class="line">        }</span><br><span class="line">        <span class="keyword">return</span> c;</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>双亲委派机制的规则本来也不复杂，所以源码实现上也比较简单，具体的执行过程如上述代码注释。</p>
+<p>我们看到 <code>ClassLoader#loadClass</code> 方法在双亲加载失败时会执行 <code>ClassLoader#findClass</code> 逻辑，这是一个模板方法，也是我们自定义类加载器时推荐覆盖实现的方法。下面的示例自定义了一个类加载器 MyClassLoader：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">MyClassLoader</span> <span class="keyword">extends</span> <span class="title">ClassLoader</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> Class&lt;?&gt; findClass(String name) <span class="keyword">throws</span> ClassNotFoundException {</span><br><span class="line">        <span class="keyword">try</span> {</span><br><span class="line">          <span class="keyword">byte</span>[] bytes = FileUtils.readFileToByteArray(FileUtils.getFile(</span><br><span class="line">                  String.format(<span class="string">"/home/work/bin/%s.class"</span>, name.replaceAll(<span class="string">"\\."</span>, File.separator))));</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">super</span>.defineClass(name, bytes, <span class="number">0</span>, bytes.length);</span><br><span class="line">        } <span class="keyword">catch</span> (IOException e) {</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> ClassNotFoundException(<span class="string">"class not found : "</span> + name, e);</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception </span>{</span><br><span class="line">        MyClassLoader loader = <span class="keyword">new</span> MyClassLoader();</span><br><span class="line">        Class clazz = loader.loadClass(<span class="string">"org.zhenchao.jvm.User"</span>);</span><br><span class="line">        Object obj = clazz.newInstance(); <span class="comment">// 这里如果强转会抛 ClassNotFoundException，因为两个类对应的 Class 对象不一致</span></span><br><span class="line">        System.out.println(obj.getClass().getClassLoader().toString());</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>MyClassLoader 的逻辑就是尝试加载我们指定的类。通过覆盖实现 <code>ClassLoader#findClass</code> 方法，我们定义了从本地文件系统加载 User 类字节码文件，并调用 <code>ClassLoader#defineClass</code> 方法由字节数组解析获取类的 Class 对象，从而完成了自定义类加载逻辑。</p>
+<p>这里我们加载的 class 文件位于 <code>/home/work/bin</code> 目录下，由前面的讲解我们知道启动类加载器会加载 <code>${JAVA_HOME}/lib</code> 路径或 <code>-Xbootstrapclasspath</code> 参数指定路径下的类；扩展类加载器会加载 <code>${JAVA_HOME}/lib/ext</code> 路径下或 <code>java.ext.dirs</code> 指定路径下的类；应用程序类加载器则会加载用户类路径（ClassPath）下的类。一般来说，即使我们自定义了类加载器加载 User 类，但是按照双亲委派原则该类还是会被应用程序类加载器所加载，因为 User 类位于用户类路径下。为了让 MyClassLoader 能够加载该类，这里特意将 User.class 放置在了一个系统类加载器找不到的地方，也就达到了我们的目的。</p>
+<p>双亲委派机制虽然是 JVM 默认的，但却不是强制的，所以我们可以破坏该机制。典型破坏双亲委派机制的应用场景就是 Tomcat 的类加载机制，这个我们留到后面再说。下面我们自定义一个 HackClassLoader 类加载器来破坏这一机制，我们需要做的就是覆盖 <code>ClassLoader#loadClass</code> 方法。HackClassLoader 类加载器的实现中会判定当前类的全限定名，如果是 <code>org.zhenchao.jvm</code> 包下面的类就采用 HackClassLoader 类加载器进行加载，否则继续执行双亲委派。具体实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">HackClassLoader</span> <span class="keyword">extends</span> <span class="title">ClassLoader</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> Class&lt;?&gt; loadClass(String name, <span class="keyword">boolean</span> resolve) <span class="keyword">throws</span> ClassNotFoundException {</span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">null</span> != name &amp;&amp; name.startsWith(<span class="string">"org.zhenchao.jvm"</span>)) {</span><br><span class="line">            <span class="keyword">try</span> {</span><br><span class="line">                File file = FileUtils.getFile(name.replaceAll(<span class="string">"\\."</span>, File.separator) + <span class="string">".class"</span>);</span><br><span class="line">                <span class="keyword">byte</span>[] bytes = FileUtils.readFileToByteArray(file);</span><br><span class="line">                <span class="keyword">return</span> <span class="keyword">super</span>.defineClass(name, bytes, <span class="number">0</span>, bytes.length);</span><br><span class="line">            } <span class="keyword">catch</span> (IOException e) {</span><br><span class="line">                <span class="keyword">throw</span> <span class="keyword">new</span> ClassNotFoundException(<span class="string">"class not found : "</span> + name, e);</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">super</span>.loadClass(name, resolve);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception </span>{</span><br><span class="line">        Class clazz = Class.forName(<span class="string">"org.zhenchao.jvm.User"</span>, <span class="keyword">true</span>, <span class="keyword">new</span> HackClassLoader());</span><br><span class="line">        Object obj = clazz.newInstance();</span><br><span class="line">        System.out.println(obj.getClass().getClassLoader().toString());</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>所以，通过覆盖实现 <code>ClassLoader#loadClass</code> 方法是很容易实现对于双亲委派机制的破坏的，有时候这种破坏是有意为之的，而有时候则是不小心造成的错误。为了避免错误的覆盖 <code>ClassLoader#loadClass</code> 方法而破坏双亲委派机制，JDK 提供了 <code>ClassLoader#findClass</code> 方法供我们选择。如果仅仅是希望改变虚拟机检索字节码文件的方式，则完全可以通过覆盖 <code>ClassLoader#findClass</code> 方法予以实现。</p>
+<p>最后我们一起来了解一下 Tomcat 对于双亲委派机制的“破坏”。Tomcat 为什么要自定义类加载器呢，我觉得主要有两方面的原因：</p>
+<ol>
+<li>一个 tomcat 实例下可以运行多个 web 应用，需要保证应用之间的依赖不相互干扰。</li>
+<li>提供自动装载的能力，当 <code>WEB-INF/classes</code> 或 <code>WEB-INF/lib</code> 目录下的类发生变化时，WEB 应用程序可以重新载入这些类，而不需要重启服务器。Tomcat 通过设置一个单独的线程来不断检查这些类的时间戳，以便能够及时载入。</li>
+</ol>
+<p>关于 tomcat 的类加载机制这里先不展开探讨，留待以后用专门的文章进行说明。</p>
+
+        <h3 id="类成员初始化顺序">
+          <a href="#类成员初始化顺序" class="heading-link"><i class="fas fa-link"></i></a>类成员初始化顺序</h3>
+      <p>类成员初始化的基本原则是 <strong>先静态，后非静态，先父类，后子类</strong> 。初始化顺序可以基本概括为：</p>
+<ol>
+<li>父类静态变量 &gt; 父类静态代码块；</li>
+<li>子类静态变量 &gt; 子类静态代码块；</li>
+<li>main 函数；</li>
+<li>父类实例变量 &gt; 父类构造代码块 &gt; 父类构造方法；</li>
+<li>子类实例变量 &gt; 子类构造代码块 &gt; 子类构造方法。</li>
+</ol>
+<p>下面定义了一个父类 Parent 和一个子类 Child：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Parent</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">int</span> spa = <span class="number">11</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">static</span> {</span><br><span class="line">        System.out.println(<span class="string">"parent static code block"</span>);</span><br><span class="line">        System.out.println(<span class="string">"spa = "</span> + spa);</span><br><span class="line">        System.out.println(<span class="string">"spb = "</span> + Parent.spb);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">int</span> spb = <span class="number">12</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">static</span> {</span><br><span class="line">        System.out.println(<span class="string">"spb = "</span> + spb);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">int</span> pa = <span class="number">13</span>;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">int</span> pb = <span class="number">14</span>;</span><br><span class="line"></span><br><span class="line">    {</span><br><span class="line">        System.out.println(<span class="string">"parent code block"</span>);</span><br><span class="line">        System.out.println(<span class="string">"pa = "</span> + pa);</span><br><span class="line">        System.out.println(<span class="string">"pb = "</span> + pb);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">Parent</span><span class="params">()</span> </span>{</span><br><span class="line">        System.out.println(<span class="string">"parent constructor"</span>);</span><br><span class="line">        <span class="keyword">this</span>.foo();</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">foo</span><span class="params">()</span> </span>{</span><br><span class="line">        System.out.println(<span class="string">"parent foo"</span>);</span><br><span class="line">        System.out.println(<span class="string">"spa: "</span> + spa);</span><br><span class="line">        System.out.println(<span class="string">"spb: "</span> + spb);</span><br><span class="line">        System.out.println(<span class="string">"pa: "</span> + pa);</span><br><span class="line">        System.out.println(<span class="string">"pb: "</span> + pb);</span><br><span class="line">    }</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Child</span> <span class="keyword">extends</span> <span class="title">Parent</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">int</span> sca = <span class="number">21</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">static</span> {</span><br><span class="line">        System.out.println(<span class="string">"child static code block"</span>);</span><br><span class="line">        System.out.println(<span class="string">"sca = "</span> + sca);</span><br><span class="line">        System.out.println(<span class="string">"scb = "</span> + Child.scb);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">int</span> scb = <span class="number">22</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">static</span> {</span><br><span class="line">        System.out.println(<span class="string">"scb = "</span> + scb);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">int</span> ca = <span class="number">23</span>;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">int</span> cb = <span class="number">24</span>;</span><br><span class="line"></span><br><span class="line">    {</span><br><span class="line">        System.out.println(<span class="string">"child code block"</span>);</span><br><span class="line">        System.out.println(<span class="string">"ca = "</span> + ca);</span><br><span class="line">        System.out.println(<span class="string">"cb = "</span> + cb);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">Child</span><span class="params">()</span> </span>{</span><br><span class="line">        System.out.println(<span class="string">"child constructor"</span>);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>{</span><br><span class="line">        System.out.println(<span class="string">"main method"</span>);</span><br><span class="line">        Child child = <span class="keyword">new</span> Child();</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">foo</span><span class="params">()</span> </span>{</span><br><span class="line">        System.out.println(<span class="string">"child foo"</span>);</span><br><span class="line">        System.out.println(<span class="string">"sca: "</span> + sca);</span><br><span class="line">        System.out.println(<span class="string">"scb: "</span> + scb);</span><br><span class="line">        System.out.println(<span class="string">"ca: "</span> + ca);</span><br><span class="line">        System.out.println(<span class="string">"cb: "</span> + cb);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>以上述代码为例，类中成员的初始化顺序如下：</p>
+<ol>
+<li>当首次创建某个类对象的时候，或者该类的静态字段或静态方法首次被访问时，JVM 需要查找该类的路径以定位该类的字节码文件；</li>
+<li>载入父类的字节码文件（创建对应的 Class 对象），初始化父类 Parent 中的静态字段，同时执行父类中静态代码块 <code>static{...}</code>，顺序按照从上到下执行；</li>
+<li>载入子类的字节码文件（创建对应的 Class 对象），初始化子类 Child 中的静态字段，同时执行子类中的静态代码块 <code>static{...}</code>，顺序按照从上到下执行；</li>
+<li>进入 main 方法（因为接下去要创建对象，而 main 方法是入口，这也是为什么 main 需要用 static 修饰）；</li>
+<li>使用 new 操作符创建对象，首先在堆上为待创建的对象分配足够的存储空间，这块存储空间会被清零，所以自动将类中所有字段设置成对应的类型默认值；</li>
+<li>对 Parent 类中的非静态字段和构造代码块按照从上到下进行初始化（执行构造代码块 <code>{...}</code>，将属性设为用户指定的值），每次创建子类对象都会执行一次父类的非静态字段和构造代码块；</li>
+<li>执行 Parent 类的构造方法，这里到底执行父类的哪一个构造方法取决于子类的具体调用；</li>
+<li>对 Child 类中的非静态字段和构造代码块按照从上到下进行初始化（执行构造代码块 <code>{...}</code>，将属性设为用户指定的值）；</li>
+<li>执行 Child 类的构造方法。</li>
+</ol>
+<p>需要注意的几点：</p>
+<ol>
+<li>静态字段和代码块的初始化只在类首次被加载时执行一次，静态字段的初始化不必担心非法向前引用，因为会导致编译报错。</li>
+<li>如果某个方法被子类覆盖了，那么在父类的构造方法中调用这个方法的时候会去调用子类中的这个方法，如果这个方法使用了子类的成员变量，由于这时子类的成员变量还未来得及初始化，就会出现向前引用的问题。所以不要在构造方法中调用可以让子类覆盖的方法，以避免发生向前引用，在构造方法中应该只调用声明为 private 或者 final 的方法。</li>
+<li>如果一个 final 字段在声明的时候进行了初始化，且初始化值是常量或常量表达式，那么该字段在所属类字节码文件还未被加载的时候就已经完成了初始化，如果赋值延迟到构造方法中则另当别论。</li>
+</ol>
+
+        <h3 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h3>
+      <ol>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/26418340/">Java 虚拟机规范（Java SE 8 版）</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/24722612/">深入理解 java 虚拟机（第 2 版）</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/34907497/">深入理解 java 虚拟机（第 3 版）</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+</ol>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2016/12/04/jvm/class-loading/">https://plotor.github.io/2016/12/04/jvm/class-loading/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/JVM/">JVM</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2016/12/10/jvm/bytecode-engine/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">探秘 JVM：字节码执行引擎</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2016/10/30/jvm/class-file-format/"><span class="paginator-prev__text">探秘 JVM：字节码文件结构与指令</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%B1%BB%E5%8A%A0%E8%BD%BD%E8%BF%87%E7%A8%8B"><span class="toc-number">1.</span> <span class="toc-text">
+          类加载过程</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%8A%A0%E8%BD%BD"><span class="toc-number">1.1.</span> <span class="toc-text">
+          加载</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%BF%9E%E6%8E%A5"><span class="toc-number">1.2.</span> <span class="toc-text">
+          连接</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E9%AA%8C%E8%AF%81"><span class="toc-number">1.2.1.</span> <span class="toc-text">
+          验证</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E5%87%86%E5%A4%87"><span class="toc-number">1.2.2.</span> <span class="toc-text">
+          准备</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E8%A7%A3%E6%9E%90"><span class="toc-number">1.2.3.</span> <span class="toc-text">
+          解析</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="toc-number">1.3.</span> <span class="toc-text">
+          初始化</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%B1%BB%E5%8A%A0%E8%BD%BD%E5%99%A8"><span class="toc-number">2.</span> <span class="toc-text">
+          类加载器</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%89%E5%B1%82%E7%B1%BB%E5%8A%A0%E8%BD%BD%E5%99%A8"><span class="toc-number">2.1.</span> <span class="toc-text">
+          三层类加载器</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%8F%8C%E4%BA%B2%E5%A7%94%E6%B4%BE%E6%9C%BA%E5%88%B6"><span class="toc-number">2.2.</span> <span class="toc-text">
+          双亲委派机制</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%B1%BB%E6%88%90%E5%91%98%E5%88%9D%E5%A7%8B%E5%8C%96%E9%A1%BA%E5%BA%8F"><span class="toc-number">3.</span> <span class="toc-text">
+          类成员初始化顺序</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">4.</span> <span class="toc-text">
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

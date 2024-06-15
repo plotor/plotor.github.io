@@ -1,0 +1,454 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="Spring 为开发人员提供了极其灵活和强大的配置使用方式，在方便开发的同时也为容器的初始化过程带来了不确定性。本文所要介绍的循环依赖就是其中之一，尤其在一些大型项目中，循环依赖的配置往往是我们不经意而为之的，幸好 Spring 能够在初始化的过程中检测到对象之间的循环依赖，并能够在一定程度上予以处理。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Spring IoC 源码解析：循环依赖的检测与处理">
+<meta property="og:url" content="https://plotor.github.io/2017/07/08/spring/spring-ioc-circular-reference/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="Spring 为开发人员提供了极其灵活和强大的配置使用方式，在方便开发的同时也为容器的初始化过程带来了不确定性。本文所要介绍的循环依赖就是其中之一，尤其在一些大型项目中，循环依赖的配置往往是我们不经意而为之的，幸好 Spring 能够在初始化的过程中检测到对象之间的循环依赖，并能够在一定程度上予以处理。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2017-07-08T12:02:45.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.989Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Spring">
+<meta name="twitter:card" content="summary"><title>Spring IoC 源码解析：循环依赖的检测与处理 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2017/07/08/spring/spring-ioc-circular-reference/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">Spring IoC 源码解析：循环依赖的检测与处理</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2017-07-08</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">2.3k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">9分</span></span></div></header><div class="post-body"><p>Spring 为开发人员提供了极其灵活和强大的配置使用方式，在方便开发的同时也为容器的初始化过程带来了不确定性。本文所要介绍的循环依赖就是其中之一，尤其在一些大型项目中，循环依赖的配置往往是我们不经意而为之的，幸好 Spring 能够在初始化的过程中检测到对象之间的循环依赖，并能够在一定程度上予以处理。<a id="more"></a></p>
+
+        <h3 id="什么是循环依赖">
+          <a href="#什么是循环依赖" class="heading-link"><i class="fas fa-link"></i></a>什么是循环依赖</h3>
+      <p>以最简单的循环依赖举例，假设我们定义了两个类 A 和 B，如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Component</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">A</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> B b;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">A</span><span class="params">(<span class="meta">@Autowired</span> B b)</span> </span>{</span><br><span class="line">        <span class="keyword">this</span>.b = b;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// ... getter &amp; setter</span></span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="meta">@Component</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">B</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> A a;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">B</span><span class="params">(<span class="meta">@Autowired</span> A a)</span> </span>{</span><br><span class="line">        <span class="keyword">this</span>.a = a;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// ... getter &amp; setter</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述示例中 A 对象引用了 B 对象，B 对象反过来又引用了 A 对象，此时如果我们基于 Spring 管理对象 A 和 B 之间的依赖关系，就会存在循环依赖的问题。启动容器会看到抛出的异常中包含如下字样：</p>
+<blockquote>
+<p>Requested bean is currently in creation: Is there an unresolvable circular reference?</p>
+</blockquote>
+<p>当然，上述示例只是一个演示，实际开发中我们不会犯这么低级的配置错误，但是如果项目规模足够大，经过多层引用之后难免出现循环依赖，这往往是我们不经意而为之的。</p>
+
+        <h3 id="循环依赖的检测与处理">
+          <a href="#循环依赖的检测与处理" class="heading-link"><i class="fas fa-link"></i></a>循环依赖的检测与处理</h3>
+      <p>那么 Spring 如何检测和处理循环依赖呢？我们先给出结论：</p>
+<blockquote>
+<p><strong>Spring 仅能够处理 singleton 对象之间基于 setter 注入方式造成的循环依赖，除此之外全部抛出 BeanCurrentlyInCreationException 异常。</strong></p>
+</blockquote>
+<p>也就是说如果按照如下配置，Spring 是能够正常完成初始化的：</p>
+<figure class="highlight xml"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!--单例：setter注入--&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">bean</span> <span class="attr">id</span>=<span class="string">"a"</span> <span class="attr">class</span>=<span class="string">"org.zhenchao.spring.ioc.A"</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">"b"</span> <span class="attr">ref</span>=<span class="string">"b"</span>/&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">bean</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">bean</span> <span class="attr">id</span>=<span class="string">"b"</span> <span class="attr">class</span>=<span class="string">"org.zhenchao.spring.ioc.B"</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">property</span> <span class="attr">name</span>=<span class="string">"a"</span> <span class="attr">ref</span>=<span class="string">"a"</span>/&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">bean</span>&gt;</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>当然， <strong>如果是属性注入方式同样能够被解决，该注入方式本质上还是 setter 注入</strong> ，只是不再被 Spring 推荐使用。然而，如果是采用构造方法注入，或者造成循环依赖的对象不是 singleton 类型，则容器只能以抛出 BeanCurrentlyInCreationException 异常而结束。</p>
+<p>那么 Spring 又是怎么检测出循环依赖配置的呢？由前面文章对于容器初始化过程的分析，我们知道实例化一个 bean 的过程主要分为三步：</p>
+<ol>
+<li>创建 bean 实例，主要由 <code>AbstractAutowireCapableBeanFactory#createBeanInstance</code> 方法完成；</li>
+<li>填充 bean 属性，依赖注入的过程发生于此，由 <code>AbstractAutowireCapableBeanFactory#populateBean</code> 方法完成；</li>
+<li>初始化 bean 实例，主要是调用初始化方法，由 <code>AbstractAutowireCapableBeanFactory#initializeBean</code> 方法完成。</li>
+</ol>
+<p>循环依赖主要发生在上述步骤中的第 1 和第 2 步。设想，如果我们在创建 A 对象的时候发现需要填充类型为 B 的属性，这个时候就需要转而去创建 B 对象，但是在创建 B 对象的时候发现又需要填充类型为 A 的属性，这个时候 A 对象和 B 对象都处于创建过程中，造成了死循环。如果我们把这两步拆开又会怎么样呢？即先把 A 对象和 B 对象先创建好，对应的属性先用 null 填充，然后再使用相应类型的对象填充属性，这样就破解了环路，这也是 Spring 解决基于 setter 注入方式导致的循环依赖的基本思路。</p>
+<p>下面具体分析 Spring 是如何实现这一思路的。首先列出整个过程中需要用到的几个用于记录状态的集合类型属性：</p>
+<ul>
+<li><code>DefaultSingletonBeanRegistry#singletonFactories</code>：Map 类型，用于记录 beanName 和创建 bean 对象的工厂之间的映射关系。</li>
+<li><code>DefaultSingletonBeanRegistry#earlySingletonObjects</code>：Map 类型，用于记录 beanName 和原始 bean 实例之间的映射关系，此时的 bean 对象刚刚被创建，还没有注入属性。</li>
+<li><code>DefaultSingletonBeanRegistry#singletonObjects</code>：Map 类型，用于记录 beanName 和最终 bean 实例之间的映射关系。</li>
+</ul>
+<p>这三个属性构成了一些人口中描述的三级缓存。其中 singletonObjects 和 earlySingletonObjects 两个属性虽然都是记录 beanName 与 bean 实例之间的映射关系，但是区别在于后者中记录的 bean 实例还没有填充属性值，并且这两个集合中存放的内容是互斥的。</p>
+<p>Spring 在完成创建 bean 实例之后，且在填充 bean 属性之前，即上述步骤中的 1 和 2 之间，会执行如下这样一段代码：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">boolean</span> earlySingletonExposure = (mbd.isSingleton() <span class="comment">// 单例</span></span><br><span class="line">        &amp;&amp; <span class="keyword">this</span>.allowCircularReferences <span class="comment">// 允许自动解决循环依赖</span></span><br><span class="line">        &amp;&amp; <span class="keyword">this</span>.isSingletonCurrentlyInCreation(beanName)); <span class="comment">// 当前 bean 正在创建中</span></span><br><span class="line"><span class="keyword">if</span> (earlySingletonExposure) {</span><br><span class="line">    <span class="comment">// 为避免循环依赖，在完成 bean 实例化之前，将对应的 ObjectFactory 注册到容器中</span></span><br><span class="line">    <span class="keyword">this</span>.addSingletonFactory(beanName,</span><br><span class="line">            <span class="comment">// 获取 bean 的提前引用</span></span><br><span class="line">            () -&gt; <span class="keyword">this</span>.getEarlyBeanReference(beanName, mbd, bean));</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">addSingletonFactory</span><span class="params">(String beanName, ObjectFactory&lt;?&gt; singletonFactory)</span> </span>{</span><br><span class="line">    Assert.notNull(singletonFactory, <span class="string">"Singleton factory must not be null"</span>);</span><br><span class="line">    <span class="keyword">synchronized</span> (<span class="keyword">this</span>.singletonObjects) {</span><br><span class="line">        <span class="keyword">if</span> (!<span class="keyword">this</span>.singletonObjects.containsKey(beanName)) {</span><br><span class="line">            <span class="keyword">this</span>.singletonFactories.put(beanName, singletonFactory);</span><br><span class="line">            <span class="keyword">this</span>.earlySingletonObjects.remove(beanName);</span><br><span class="line">            <span class="keyword">this</span>.registeredSingletons.add(beanName);</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述实现的主要逻辑就是判断是否需要提前曝光正在实例化的 bean 对象，如果需要则将创建 bean 实例的 ObjectFactory 对象记录到 singletonFactories 属性中。</p>
+<p>如果此时正好有另外一个操作试图获取正在创建中的 bean 实例，则会进入 <code>DefaultSingletonBeanRegistry#getSingleton(java.lang.String)</code> 方法。该方法将获取我们之前缓存的 ObjectFactory 对象，并调用 <code>ObjectFactory#getObject</code> 方法获取到之前创建的目标 bean 实例，并记录到 earlySingletonObjects 中，同时移除 singletonFactories 中缓存的 ObjectFactory 对象。而实例化过程也会很快调用 <code>DefaultSingletonBeanRegistry#addSingleton</code> 方法，将最终的 bean 实例记录到 singletonObjects 属性中，并移除所有的临时记录。</p>
+<p>那么为什么用构造方法注入就会抛异常，而 setter 注入则不会呢？这是因为在创建 singleton 对象之前，Spring 会调用 <code>DefaultSingletonBeanRegistry#beforeSingletonCreation</code> 方法检查指定 bean 是否正在被创建，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">beforeSingletonCreation</span><span class="params">(String beanName)</span> </span>{</span><br><span class="line">    <span class="keyword">if</span> (!<span class="keyword">this</span>.inCreationCheckExclusions.contains(beanName) &amp;&amp; !<span class="keyword">this</span>.singletonsCurrentlyInCreation.add(beanName)) {</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> BeanCurrentlyInCreationException(beanName);</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述方法在每次创建 singleton 对象之前都会被调用，对于创建同一个 bean 实例的第二次之后的调用就会触发该方法抛出异常。如果是构造方法注入，因为创建目标 bean 对象需要调用包含依赖对象类型参数的构造方法，而循环依赖势必导致当前构造方法的循环调用，从而触发上述方法抛出异常。然而，对于 setter 注入来说就不存在这样的问题，因为 Spring 对于 bean 实例的构造是分两步走的：第一步创建目标 bean 对象；第二步执行属性填充，将相应的依赖注入到该对象中。这样即使有循环依赖也不会阻碍对象的创建，因为此时调用的是无参构造方法（即使有参数，参数中也不包含循环依赖的对象），所以基于 setter 方式注入的 singleton 对象导致的循环依赖，容器的初始化机制能够很好的予以处理。</p>
+<p>那么非 singleton 的怎么就不行了呢？我们先来看一下相关实现，Spring 定义了一个 <code>AbstractBeanFactory#prototypesCurrentlyInCreation</code> 集合变量记录当前线程内正在创建 bean 实例的 beanName，并且在创建一个非 singleton bean 之前，容器会调用 <code>AbstractBeanFactory#isPrototypeCurrentlyInCreation</code> 方法进行校验，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (<span class="keyword">this</span>.isPrototypeCurrentlyInCreation(beanName)) {</span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">     * 只有在单例模式下才会尝试解决循环依赖问题，</span></span><br><span class="line"><span class="comment">     * 对于原型模式，如果存在循环依赖，直接抛出异常</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">throw</span> <span class="keyword">new</span> BeanCurrentlyInCreationException(beanName);</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">protected</span> <span class="keyword">boolean</span> <span class="title">isPrototypeCurrentlyInCreation</span><span class="params">(String beanName)</span> </span>{</span><br><span class="line">    Object curVal = <span class="keyword">this</span>.prototypesCurrentlyInCreation.get();</span><br><span class="line">    <span class="keyword">return</span> (curVal != <span class="keyword">null</span> &amp;&amp; (curVal.equals(beanName) || (curVal <span class="keyword">instanceof</span> Set &amp;&amp; ((Set&lt;?&gt;) curVal).contains(beanName))));</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>如果存在循环依赖则抛出 BeanCurrentlyInCreationException 异常。</p>
+<p>Spring 为什么需要这样设计呢？一些解释是 Spring 没有缓存创建非 singleton bean 实例的中间状态，我个人觉得这只考虑到了一个方面。对于非 singleton bean 而言，完全可以复用 singleton 那一套予以实现，保证好线程安全即可。之所以 Spring 不这么做，个人认为还出于性能方面的考量。非 singleton bean 对象的特点是每次获取都会返回一个新的对象，并且这个过程可能是频繁调用的，这样就会降低框架的性能，同时增加内存占用，而很多时候循环依赖是因为开发者的错误配置导致的，这个时候还不如直接抛出异常，快速失败为好。</p>
+
+        <h3 id="总结">
+          <a href="#总结" class="heading-link"><i class="fas fa-link"></i></a>总结</h3>
+      <p>本文我们分析了 Spring 如何检测和处理循环依赖。Spring 通过拆分对象创建和属性注入为两个独立过程，巧妙的破解了对于 singleton 对象执行 setter 注入场景下的依赖环路，从而在一定程度上解决了循环依赖问题。尽管如此，还是建议大家在日常开发中在编码层面避免循环依赖问题，让实现更加优雅。</p>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2017/07/08/spring/spring-ioc-circular-reference/">https://plotor.github.io/2017/07/08/spring/spring-ioc-circular-reference/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Spring/">Spring</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2017/07/16/spring/spring-aop/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">Spring AOP 源码解析：注解式切面增强机制</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2017/06/03/spring/spring-ioc-application-context/"><span class="paginator-prev__text">Spring IoC 源码解析：高级容器的初始化过程</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF%E5%BE%AA%E7%8E%AF%E4%BE%9D%E8%B5%96"><span class="toc-number">1.</span> <span class="toc-text">
+          什么是循环依赖</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%BE%AA%E7%8E%AF%E4%BE%9D%E8%B5%96%E7%9A%84%E6%A3%80%E6%B5%8B%E4%B8%8E%E5%A4%84%E7%90%86"><span class="toc-number">2.</span> <span class="toc-text">
+          循环依赖的检测与处理</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">3.</span> <span class="toc-text">
+          总结</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

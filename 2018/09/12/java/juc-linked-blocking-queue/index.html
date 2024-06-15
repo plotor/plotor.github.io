@@ -1,0 +1,523 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="上一篇我们分析了无界非阻塞线程安全队列 ConcurrentLinkedQueue 的设计与实现，本篇我们继续分析线程安全队列 LinkedBlockingQueue 的实现机制。由 Blocking 字样可以推断出 LinkedBlockingQueue 是阻塞队列，前面我们介绍过阻塞队列和非阻塞队列在实现上的区别，知道阻塞队列一般是基于锁机制来保证线程安全，本文我们就一起来分析一下 Linke">
+<meta property="og:type" content="article">
+<meta property="og:title" content="深入理解 JUC：LinkedBlockingQueue">
+<meta property="og:url" content="https://plotor.github.io/2018/09/12/java/juc-linked-blocking-queue/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="上一篇我们分析了无界非阻塞线程安全队列 ConcurrentLinkedQueue 的设计与实现，本篇我们继续分析线程安全队列 LinkedBlockingQueue 的实现机制。由 Blocking 字样可以推断出 LinkedBlockingQueue 是阻塞队列，前面我们介绍过阻塞队列和非阻塞队列在实现上的区别，知道阻塞队列一般是基于锁机制来保证线程安全，本文我们就一起来分析一下 Linke">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2018-09-12T03:55:36.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.960Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="并发编程">
+<meta name="twitter:card" content="summary"><title>深入理解 JUC：LinkedBlockingQueue | 指  间</title><link ref="canonical" href="https://plotor.github.io/2018/09/12/java/juc-linked-blocking-queue/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">深入理解 JUC：LinkedBlockingQueue</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2018-09-12</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">4.4k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">18分</span></span></div></header><div class="post-body"><p>上一篇我们分析了无界非阻塞线程安全队列 ConcurrentLinkedQueue 的设计与实现，本篇我们继续分析线程安全队列 LinkedBlockingQueue 的实现机制。由 Blocking 字样可以推断出 LinkedBlockingQueue 是阻塞队列，前面我们介绍过阻塞队列和非阻塞队列在实现上的区别，知道阻塞队列一般是基于锁机制来保证线程安全，本文我们就一起来分析一下 LinkedBlockingQueue 是如何基于锁构建线程安全队列的。<a id="more"></a></p>
+<p>同样由 Linked 关键字我们可以推断出 LinkedBlockingQueue 底层依赖于链表实现，在 LinkedBlockingQueue 的内部实现了一个单链表，用以存放队列元素。其中，结点 Node 类定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="class"><span class="keyword">class</span> <span class="title">Node</span>&lt;<span class="title">E</span>&gt; </span>{</span><br><span class="line"></span><br><span class="line">    E item;</span><br><span class="line">    Node&lt;E&gt; next;</span><br><span class="line"></span><br><span class="line">    Node(E x) {</span><br><span class="line">        item = x;</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>其中 next 指针的指向分为 3 种情况：</p>
+<ol>
+<li>指向某个具体的后继结点。</li>
+<li>指向自己，意味着后继结点为 <code>head.next</code>。</li>
+<li>指向 null，说明当前结点是队列的尾结点，没有后继结点。</li>
+</ol>
+<p>LinkedBlockingQueue 定义了 head 和 last 指针分别指向队列的头结点和尾结点。此外，LinkedBlockingQueue 还定义了如下字段：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">LinkedBlockingQueue</span>&lt;<span class="title">E</span>&gt; <span class="keyword">extends</span> <span class="title">AbstractQueue</span>&lt;<span class="title">E</span>&gt; <span class="keyword">implements</span> <span class="title">BlockingQueue</span>&lt;<span class="title">E</span>&gt;, <span class="title">Serializable</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 当前队列的容量上限 */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">int</span> capacity;</span><br><span class="line">    <span class="comment">/** 记录当前队列的元素个数 */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> AtomicInteger count = <span class="keyword">new</span> AtomicInteger();</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 队列头结点 */</span></span><br><span class="line">    <span class="keyword">transient</span> Node&lt;E&gt; head;</span><br><span class="line">    <span class="comment">/** 队列尾结点 */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">transient</span> Node&lt;E&gt; last;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 用于控制 take、poll 等操作，保证同一时间只有一个线程从队列获取元素 */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> ReentrantLock takeLock = <span class="keyword">new</span> ReentrantLock();</span><br><span class="line">    <span class="comment">/** 条件队列，记录出队列时因为队列为空而等待的线程 */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> Condition notEmpty = takeLock.newCondition();</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 用户控制 put、offer 等操作，保证同一时间只有一个线程往队列添加元素 */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> ReentrantLock putLock = <span class="keyword">new</span> ReentrantLock();</span><br><span class="line">    <span class="comment">/** 条件队列，记录入队列时因为队列已满而等待的线程 */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> Condition notFull = putLock.newCondition();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// ... 省略方法定义</span></span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>由上述字段定义可以看出，LinkedBlockingQueue 限制了队列的容量上限，并使用 AtomicInteger 类型字段对队列中的元素个数进行计数。虽然 LinkedBlockingQueue 底层依赖于链表实现，理论上是无界的，但是 LinkedBlockingQueue 在实现上却限制了队列的容量上限（默认为 <code>Integer.MAX_VALUE</code>）。</p>
+<p>此外，针对出队列和入队列操作，LinkedBlockingQueue 分别设置了一把独占可重入锁，即 takeLock 和 putLock，从而保证同一时间只有一个线程执行出队列操作，只有一个线程执行入队列操作，且出队列的线程与入队列的线程彼此之间不相互影响。针对一些阻塞版本的出队列入队列方法，如果队列为空，则出队列线程会被记录到条件队列 notEmpty 中进行等待，如果队列已满，则入队列线程会被记录到条件队列 notFull 中进行等待。</p>
+
+        <h3 id="BlockingQueue-接口">
+          <a href="#BlockingQueue-接口" class="heading-link"><i class="fas fa-link"></i></a>BlockingQueue 接口</h3>
+      <p>BlockingQueue 接口继承自 Queue 接口，用于描述阻塞队列。当队列无法及时响应用户请求时，例如当我们尝试从空队列中获取元素，或者继续往已满的有界队列中添加元素，BlockingQueue 定义了以下 4 种响应形式：</p>
+<ol>
+<li>抛出异常。</li>
+<li>立即返回特殊值，例如 null 或 false。</li>
+<li>无限期阻塞当前请求，直到队列状态变为可用。</li>
+<li>超时阻塞当前请求，直到队列状态变为可用。</li>
+</ol>
+<p>BlockingQueue 接口的定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">BlockingQueue</span>&lt;<span class="title">E</span>&gt; <span class="keyword">extends</span> <span class="title">Queue</span>&lt;<span class="title">E</span>&gt; </span>{</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">boolean</span> <span class="title">offer</span><span class="params">(E e)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">boolean</span> <span class="title">offer</span><span class="params">(E e, <span class="keyword">long</span> timeout, TimeUnit unit)</span> <span class="keyword">throws</span> InterruptedException</span>;</span><br><span class="line">    <span class="function"><span class="keyword">boolean</span> <span class="title">add</span><span class="params">(E e)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">put</span><span class="params">(E e)</span> <span class="keyword">throws</span> InterruptedException</span>;</span><br><span class="line"></span><br><span class="line">    <span class="function">E <span class="title">poll</span><span class="params">(<span class="keyword">long</span> timeout, TimeUnit unit)</span> <span class="keyword">throws</span> InterruptedException</span>;</span><br><span class="line">    <span class="function">E <span class="title">take</span><span class="params">()</span> <span class="keyword">throws</span> InterruptedException</span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">boolean</span> <span class="title">remove</span><span class="params">(Object o)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">boolean</span> <span class="title">contains</span><span class="params">(Object o)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">int</span> <span class="title">remainingCapacity</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">int</span> <span class="title">drainTo</span><span class="params">(Collection&lt;? <span class="keyword">super</span> E&gt; c)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">int</span> <span class="title">drainTo</span><span class="params">(Collection&lt;? <span class="keyword">super</span> E&gt; c, <span class="keyword">int</span> maxElements)</span></span>;</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>针对各方法的含义说明如下：</p>
+<ul>
+<li><code>offer</code>：往队列中添加元素，如果成功则返回 true，对于有界队列来说，如果队列已满则返回 false，而不是抛出异常。BlockingQueue 同时还声明了超时版本的 offer 方法。</li>
+<li><code>add</code>：往队列中添加元素，如果成功则返回 true，对于有界队列来说，如果队列已满则抛出 IllegalStateException 异常。</li>
+<li><code>put</code>：往队列中添加元素，对于有界队列来说，如果队列已满则阻塞当前请求，期间支持响应中断。</li>
+<li><code>poll</code>：移除队列头结点，并返回结点元素值，如果队列为空则等待指定时间，并在超时时返回 null，期间支持响应中断。</li>
+<li><code>take</code>：仅获取头结点元素值而不删除结点，如果队列为空则阻塞等待，期间支持响应中断。</li>
+<li><code>remove</code>：接收一个参数，从队列中删除值等于该参数的结点，如果存在多个结点满足要求，则删除第一个。</li>
+<li><code>contains</code>：接收一个参数，判断队列中是否存在值等于该参数的结点。</li>
+<li><code>remainingCapacity</code>：返回队列的剩余容量，如果是无界队列，则返回 <code>Integer.MAX_VALUE</code>。</li>
+<li><code>drainTo</code>：从队列中移除所有（或指定个数）结点，并将结点元素放入参数指定的集合中返回，相对于逐个移除更加高效。</li>
+</ul>
+
+        <h3 id="核心方法实现">
+          <a href="#核心方法实现" class="heading-link"><i class="fas fa-link"></i></a>核心方法实现</h3>
+      <p>LinkedBlockingQueue 实现自 BlockingQueue 接口，下面针对核心方法的实现逐一进行分析。</p>
+
+        <h4 id="添加元素：offer-amp-add-amp-put">
+          <a href="#添加元素：offer-amp-add-amp-put" class="heading-link"><i class="fas fa-link"></i></a>添加元素：offer &amp; add &amp; put</h4>
+      <p>针对添加元素的操作，LinkedBlockingQueue 实现了 <code>LinkedBlockingQueue#offer</code>、<code>LinkedBlockingQueue#add</code> 和 <code>LinkedBlockingQueue#put</code> 方法，其中 <code>LinkedBlockingQueue#add</code> 是对 <code>LinkedBlockingQueue#offer</code> 的封装，并在队列已满时抛出 IllegalStateException 异常。</p>
+<p>下面主要展开分析 <code>LinkedBlockingQueue#offer</code> 和 <code>LinkedBlockingQueue#put</code> 方法的实现。首先来看一下 <code>LinkedBlockingQueue#offer</code> 方法，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">offer</span><span class="params">(E e)</span> </span>{</span><br><span class="line">    <span class="comment">// 不允许添加 null 元素</span></span><br><span class="line">    <span class="keyword">if</span> (e == <span class="keyword">null</span>) {</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> NullPointerException();</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">final</span> AtomicInteger count = <span class="keyword">this</span>.count;</span><br><span class="line">    <span class="comment">// 当前队列已满，直接返回 false</span></span><br><span class="line">    <span class="keyword">if</span> (count.get() == capacity) {</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">int</span> c = -<span class="number">1</span>;</span><br><span class="line">    <span class="comment">// 创建待添加元素对应的结点对象</span></span><br><span class="line">    Node&lt;E&gt; node = <span class="keyword">new</span> Node&lt;&gt;(e);</span><br><span class="line">    <span class="keyword">final</span> ReentrantLock putLock = <span class="keyword">this</span>.putLock;</span><br><span class="line">    <span class="comment">// 加锁</span></span><br><span class="line">    putLock.lock();</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="comment">// 再次校验队列是否已满</span></span><br><span class="line">        <span class="keyword">if</span> (count.get() &lt; capacity) {</span><br><span class="line">            <span class="comment">// 往队列末端追加结点</span></span><br><span class="line">            <span class="keyword">this</span>.enqueue(node);</span><br><span class="line">            <span class="comment">// 队列元素个数计数加 1，并返回添加之前队列的大小</span></span><br><span class="line">            c = count.getAndIncrement();</span><br><span class="line">            <span class="comment">// 当前队列在执行添加操作之后仍然存在空闲位置，尝试唤醒一个之前因为队列已满而等待的线程</span></span><br><span class="line">            <span class="keyword">if</span> (c + <span class="number">1</span> &lt; capacity) {</span><br><span class="line">                notFull.signal();</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">    } <span class="keyword">finally</span> {</span><br><span class="line">        <span class="comment">// 释放锁</span></span><br><span class="line">        putLock.unlock();</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">// c == 0 说明队列中至少存在一个元素（当前添加的），尝试唤醒一个之前因为队列为空而等待的线程</span></span><br><span class="line">    <span class="keyword">if</span> (c == <span class="number">0</span>) {</span><br><span class="line">        <span class="keyword">this</span>.signalNotEmpty();</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">return</span> c &gt;= <span class="number">0</span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>与 ConcurrentLinkedQueue 一样，LinkedBlockingQueue 同样不允许往其中添加 null 元素。如果队列已满，则上述方法会直接返回 false，表示添加失败，否则创建待添加元素对应的结点对象，并继续执行：</p>
+<ol>
+<li>加锁，保证同一时间只有一个线程在执行添加操作；</li>
+<li>再次校验队列是否已满，如果已满则跳转至步骤 5，否则执行 <code>LinkedBlockingQueue#enqueue</code> 方法往队列末端插入结点；</li>
+<li>结点个数计数加 1；</li>
+<li>如果在完成本次添加操作之后，队列仍然未满，则尝试唤醒一个之前因为队列已满而等待的线程；</li>
+<li>释放锁；</li>
+<li>如果本次成功添加了一个元素，则调用 <code>LinkedBlockingQueue#signalNotEmpty</code> 方法尝试唤醒一个之前因为队列为空而等待的线程；</li>
+<li>返回。</li>
+</ol>
+<p>其中 <code>LinkedBlockingQueue#signalNotEmpty</code> 方法的实现比较简单，读者可以参考源码实现。这里简单提一下 <code>LinkedBlockingQueue#enqueue</code> 方法，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">enqueue</span><span class="params">(Node&lt;E&gt; node)</span> </span>{</span><br><span class="line">    last = last.next = node;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>在 LinkedBlockingQueue 对象被构造出来时，head 和 last 指针均指向一个元素值为 null 的标记结点。由上述方法的实现可以看出当执行入队列操作时，是将结点赋值给 last 结点的 next 指针，并没有移除队列头部的 null 结点，下文在介绍出队列操作时返回的都是 <code>head.next</code> 结点元素值，理解了上述插入操作的执行过程也就不会疑惑为什么出队列时不是直接返回 head 结点的元素值。</p>
+<p>LinkedBlockingQueue 还定义了超时版本的 <code>LinkedBlockingQueue#offer(E, long, TimeUnit)</code> 方法，当队列已满时，该方法会阻塞等待指定的时间。</p>
+<p>下面再来看一下 <code>LinkedBlockingQueue#put</code> 方法，相对于上面介绍的 <code>LinkedBlockingQueue#offer</code> 方法，对于有界队列而言，如果队列已满则该方法将无限期阻塞，方法实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">put</span><span class="params">(E e)</span> <span class="keyword">throws</span> InterruptedException </span>{</span><br><span class="line">    <span class="comment">// 不允许添加 null 元素</span></span><br><span class="line">    <span class="keyword">if</span> (e == <span class="keyword">null</span>) {</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> NullPointerException();</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">// Note: convention in all put/take/etc is to preset local var</span></span><br><span class="line">    <span class="comment">// holding count negative to indicate failure unless set.</span></span><br><span class="line">    <span class="keyword">int</span> c = -<span class="number">1</span>;</span><br><span class="line">    Node&lt;E&gt; node = <span class="keyword">new</span> Node&lt;&gt;(e);</span><br><span class="line">    <span class="keyword">final</span> ReentrantLock putLock = <span class="keyword">this</span>.putLock;</span><br><span class="line">    <span class="keyword">final</span> AtomicInteger count = <span class="keyword">this</span>.count;</span><br><span class="line">    <span class="comment">// 加锁，期间支持响应中断</span></span><br><span class="line">    putLock.lockInterruptibly();</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">         * Note that count is used in wait guard even though it is not protected by lock.</span></span><br><span class="line"><span class="comment">         * This works because count can only decrease at this point (all other puts are shut out by lock),</span></span><br><span class="line"><span class="comment">         * and we (or some other waiting put) are signalled if it ever changes from capacity.</span></span><br><span class="line"><span class="comment">         * Similarly for all other uses of count in other wait guards.</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line"></span><br><span class="line">        <span class="comment">// 队列已满，则等待</span></span><br><span class="line">        <span class="keyword">while</span> (count.get() == capacity) {</span><br><span class="line">            notFull.await();</span><br><span class="line">        }</span><br><span class="line">        <span class="comment">// 执行入队列操作</span></span><br><span class="line">        <span class="keyword">this</span>.enqueue(node);</span><br><span class="line">        <span class="comment">// 队列元素个数计数加 1，并返回添加之前队列的大小</span></span><br><span class="line">        c = count.getAndIncrement();</span><br><span class="line">        <span class="comment">// 当前队列在执行添加操作之后仍然存在空闲位置，尝试唤醒一个之前因为队列已满而等待的线程</span></span><br><span class="line">        <span class="keyword">if</span> (c + <span class="number">1</span> &lt; capacity) {</span><br><span class="line">            notFull.signal();</span><br><span class="line">        }</span><br><span class="line">    } <span class="keyword">finally</span> {</span><br><span class="line">        <span class="comment">// 释放锁</span></span><br><span class="line">        putLock.unlock();</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">// c == 0 说明队列中至少存在一个元素（当前添加的），尝试唤醒一个之前因为队列为空而等待的线程</span></span><br><span class="line">    <span class="keyword">if</span> (c == <span class="number">0</span>) {</span><br><span class="line">        <span class="keyword">this</span>.signalNotEmpty();</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>由上述实现可以看出，相对于 <code>LinkedBlockingQueue#offer</code> 方法在队列已满时的直接返回，方法 <code>LinkedBlockingQueue#put</code> 会将当前线程添加到条件队列中等待其它线程释放队列空间。</p>
+
+        <h4 id="获取元素：poll-amp-peek-amp-take">
+          <a href="#获取元素：poll-amp-peek-amp-take" class="heading-link"><i class="fas fa-link"></i></a>获取元素：poll &amp; peek &amp; take</h4>
+      <p>针对获取元素的操作，LinkedBlockingQueue 实现了 <code>LinkedBlockingQueue#poll</code>、<code>LinkedBlockingQueue#peek</code> 和 <code>LinkedBlockingQueue#take</code> 方法，其中 <code>LinkedBlockingQueue#peek</code> 方法仅获取队列头结点元素值，而不移除头结点，实现上比较简单。下面展开分析 <code>LinkedBlockingQueue#poll</code> 和 <code>LinkedBlockingQueue#take</code> 方法的实现机制。</p>
+<p>首先来看一下 <code>LinkedBlockingQueue#poll</code> 方法，LinkedBlockingQueue 针对该方法定义了两个版本，区别在于当队列为空时是立即返回还是阻塞等待一段时间，而在实现思路上是一致的。这里以不带超时参数的版本为例展开分析，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> E <span class="title">poll</span><span class="params">()</span> </span>{</span><br><span class="line">    <span class="keyword">final</span> AtomicInteger count = <span class="keyword">this</span>.count;</span><br><span class="line">    <span class="comment">// 当前队列为空，直接返回 null</span></span><br><span class="line">    <span class="keyword">if</span> (count.get() == <span class="number">0</span>) {</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">    }</span><br><span class="line">    E x = <span class="keyword">null</span>;</span><br><span class="line">    <span class="keyword">int</span> c = -<span class="number">1</span>;</span><br><span class="line">    <span class="keyword">final</span> ReentrantLock takeLock = <span class="keyword">this</span>.takeLock;</span><br><span class="line">    <span class="comment">// 加锁</span></span><br><span class="line">    takeLock.lock();</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="comment">// 如果当前队列不为空</span></span><br><span class="line">        <span class="keyword">if</span> (count.get() &gt; <span class="number">0</span>) {</span><br><span class="line">            <span class="comment">// 获取队列头结点元素，并移除头结点</span></span><br><span class="line">            x = <span class="keyword">this</span>.dequeue();</span><br><span class="line">            <span class="comment">// 队列元素计数值减 1，这里返回的是减 1 之前的值</span></span><br><span class="line">            c = count.getAndDecrement();</span><br><span class="line">            <span class="comment">// 队列在执行移除操作后至少还存在一个元素，尝试唤醒一个之前因为队列为空而阻塞的线程</span></span><br><span class="line">            <span class="keyword">if</span> (c &gt; <span class="number">1</span>) {</span><br><span class="line">                notEmpty.signal();</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">    } <span class="keyword">finally</span> {</span><br><span class="line">        <span class="comment">// 释放锁</span></span><br><span class="line">        takeLock.unlock();</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">     * 之前队列已满，但是经过本次 poll 操作之后，至少有一个空闲位置，</span></span><br><span class="line"><span class="comment">     * 尝试唤醒一个之前因为队列已满而阻塞的线程</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">if</span> (c == capacity) {</span><br><span class="line">        <span class="keyword">this</span>.signalNotFull();</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">return</span> x;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>如果队列为空则上述方法会直接返回 null，否则继续执行：</p>
+<ol>
+<li>加锁，保证同一时间只有一个线程在执行获取操作；</li>
+<li>再次校验队列是否为空，如果为空则跳转至步骤 5，否则执行 <code>LinkedBlockingQueue#dequeue</code> 方法移除队列头结点，并返回结点元素值；</li>
+<li>结点个数计数减 1；</li>
+<li>如果在完成本次移除操作之后，队列仍然非空，则尝试唤醒一个之前因为队列为空而等待的线程；</li>
+<li>释放锁；</li>
+<li>如果本次成功移除了一个元素，则调用 <code>LinkedBlockingQueue#signalNotFull</code> 方法尝试唤醒一个之前因为队列已满而等待的线程；</li>
+<li>返回。</li>
+</ol>
+<p>其中 <code>LinkedBlockingQueue#signalNotFull</code> 方法的实现比较简单，读者可以参考源码实现。前面我们分析了入队列 <code>LinkedBlockingQueue#enqueue</code> 方法，下面来看一下出队列方法，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> E <span class="title">dequeue</span><span class="params">()</span> </span>{</span><br><span class="line">    Node&lt;E&gt; h = head;</span><br><span class="line">    Node&lt;E&gt; first = h.next;</span><br><span class="line">    <span class="comment">// 自引用，等待 GC 回收</span></span><br><span class="line">    h.next = h; <span class="comment">// help GC</span></span><br><span class="line">    head = first;</span><br><span class="line">    <span class="comment">// 获取真正队列头结点的元素值</span></span><br><span class="line">    E x = first.item;</span><br><span class="line">    <span class="comment">// 将队列头结点元素值置为 null</span></span><br><span class="line">    first.item = <span class="keyword">null</span>;</span><br><span class="line">    <span class="keyword">return</span> x;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>理解了前面入队列的过程，则上述出队列的实现也就一目了然，只要清楚队列的头结点一直是一个值为 null 的结点，而真正有效的队列头结点是该结点的 next 结点。</p>
+<p>LinkedBlockingQueue 还定义了超时版本的 <code>LinkedBlockingQueue#poll(long, TimeUnit)</code> 方法，当队列为空时，该方法会阻塞等待指定的时间。</p>
+<p>下面再来看一下 <code>LinkedBlockingQueue#take</code> 方法，相对于上面介绍的 <code>LinkedBlockingQueue#poll</code> 方法，对于有界队列而言，如果队列为空则该方法将无限期阻塞，方法实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> E <span class="title">take</span><span class="params">()</span> <span class="keyword">throws</span> InterruptedException </span>{</span><br><span class="line">    E x;</span><br><span class="line">    <span class="keyword">int</span> c = -<span class="number">1</span>;</span><br><span class="line">    <span class="keyword">final</span> AtomicInteger count = <span class="keyword">this</span>.count;</span><br><span class="line">    <span class="keyword">final</span> ReentrantLock takeLock = <span class="keyword">this</span>.takeLock;</span><br><span class="line">    <span class="comment">// 加锁</span></span><br><span class="line">    takeLock.lockInterruptibly();</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="comment">// 如果队列为空，则等待</span></span><br><span class="line">        <span class="keyword">while</span> (count.get() == <span class="number">0</span>) {</span><br><span class="line">            notEmpty.await();</span><br><span class="line">        }</span><br><span class="line">        <span class="comment">// 获取队列头结点元素，并移除头结点</span></span><br><span class="line">        x = <span class="keyword">this</span>.dequeue();</span><br><span class="line">        <span class="comment">// 队列元素计数值减 1，这里返回的是减 1 之前的值</span></span><br><span class="line">        c = count.getAndDecrement();</span><br><span class="line">        <span class="comment">// 队列在执行移除操作后至少还存在一个元素，尝试唤醒一个之前因为队列为空而阻塞的线程</span></span><br><span class="line">        <span class="keyword">if</span> (c &gt; <span class="number">1</span>) {</span><br><span class="line">            notEmpty.signal();</span><br><span class="line">        }</span><br><span class="line">    } <span class="keyword">finally</span> {</span><br><span class="line">        <span class="comment">// 释放锁</span></span><br><span class="line">        takeLock.unlock();</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">     * 之前队列已满，但是经过本次 poll 操作之后，至少有一个空闲位置，</span></span><br><span class="line"><span class="comment">     * 尝试唤醒一个之前因为队列已满而阻塞的线程</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">if</span> (c == capacity) {</span><br><span class="line">        <span class="keyword">this</span>.signalNotFull();</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">return</span> x;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>由上述实现可以看出，相对于 <code>LinkedBlockingQueue#poll</code> 方法在队列为空时的直接返回，方法 <code>LinkedBlockingQueue#take</code> 会将当前线程添加到条件队列中等待其它线程添加新的队列元素。</p>
+
+        <h4 id="移除元素：remove">
+          <a href="#移除元素：remove" class="heading-link"><i class="fas fa-link"></i></a>移除元素：remove</h4>
+      <p>针对移除元素的操作，LinkedBlockingQueue 实现了 <code>LinkedBlockingQueue#remove</code> 方法，并提供了有参和无参的版本，其中无参版本实际上是委托给 <code>LinkedBlockingQueue#poll</code> 方法执行的。下面来分析一下有参版本的实现，如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">remove</span><span class="params">(Object o)</span> </span>{</span><br><span class="line">    <span class="keyword">if</span> (o == <span class="keyword">null</span>) {</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">// 锁定出队列、入队列操作</span></span><br><span class="line">    <span class="keyword">this</span>.fullyLock();</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="comment">// 从头开始遍历队列</span></span><br><span class="line">        <span class="keyword">for</span> (Node&lt;E&gt; trail = head, p = trail.next;</span><br><span class="line">             p != <span class="keyword">null</span>;</span><br><span class="line">             trail = p, p = p.next) {</span><br><span class="line">            <span class="comment">// 如果找到第一个目标元素，则移除</span></span><br><span class="line">            <span class="keyword">if</span> (o.equals(p.item)) {</span><br><span class="line">                <span class="comment">// 移除 p 结点，如果执行移除之后队列有空闲位置，</span></span><br><span class="line">                <span class="comment">// 则尝试唤醒一个之前因为队列已满而阻塞的线程</span></span><br><span class="line">                <span class="keyword">this</span>.unlink(p, trail);</span><br><span class="line">                <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">    } <span class="keyword">finally</span> {</span><br><span class="line">        <span class="comment">// 释放出队列、入队列操作</span></span><br><span class="line">        <span class="keyword">this</span>.fullyUnlock();</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述方法接收一个参数，并执行删除元素值等于该参数的结点，如果存在多个满足条件的结点，则删除第一个。在执行删除操作之前会获取 putLock 和 takeLock 两把锁，以防止删除期间有其它线程执行出队列或入队列操作。</p>
+
+        <h4 id="其它操作：size-amp-contains">
+          <a href="#其它操作：size-amp-contains" class="heading-link"><i class="fas fa-link"></i></a>其它操作：size &amp; contains</h4>
+      <p>最后来看一下 <code>LinkedBlockingQueue#contains</code> 和 <code>LinkedBlockingQueue#size</code> 方法的实现，前者用于检查队列是否包含值等于参数的结点，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">contains</span><span class="params">(Object o)</span> </span>{</span><br><span class="line">    <span class="keyword">if</span> (o == <span class="keyword">null</span>) {</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">// 锁定出队列、入队列操作</span></span><br><span class="line">    <span class="keyword">this</span>.fullyLock();</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="comment">// 从头开始遍历链表，并逐一比对</span></span><br><span class="line">        <span class="keyword">for</span> (Node&lt;E&gt; p = head.next; p != <span class="keyword">null</span>; p = p.next) {</span><br><span class="line">            <span class="keyword">if</span> (o.equals(p.item)) {</span><br><span class="line">                <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">    } <span class="keyword">finally</span> {</span><br><span class="line">        <span class="comment">// 释放出队列、入队列操作</span></span><br><span class="line">        <span class="keyword">this</span>.fullyUnlock();</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>方法 <code>LinkedBlockingQueue#size</code> 用于返回队列的结点个数，前面已经介绍了 LinkedBlockingQueue 定义了一个 AtomicInteger 类型的字段用于计数队列的结点个数，所以 <code>LinkedBlockingQueue#size</code> 方法能够精确的返回，且几乎没有性能开销，同时在实现上非常简单，如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">int</span> <span class="title">size</span><span class="params">()</span> </span>{</span><br><span class="line">    <span class="keyword">return</span> count.get();</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>既然定义一个 AtomicInteger 类型的计数变量有这么多优势，那么不禁要思考为什么上一篇介绍的 ConcurrentLinkedQueue 没有这么做呢？这主要还是因为 ConcurrentLinkedQueue 是非阻塞队列，基于 CAS 机制来保证线程安全，但是 CAS 的缺点在于无法像锁一样同时保证多个操作的原子性，所以无法引入计数原子变量。</p>
+
+        <h3 id="总结">
+          <a href="#总结" class="heading-link"><i class="fas fa-link"></i></a>总结</h3>
+      <p>本文分析了 LinkedBlockingQueue 的设计与实现，LinkedBlockingQueue 底层依赖于单链表作为存储结构，并基于可重入锁 ReentrantLock 保证线程安全，同时为入队列和出队列分别设置了一把锁以提升操作性能，减少阻塞开销。</p>
+<p>相对于上一篇介绍的 ConcurrentLinkedQueue 而言，LinkedBlockingQueue 与其功能相同，但是底层却是两套不同的设计与实现。此外，JUC 还提供了以数组作为底层存储结构的有界阻塞线程安全队列 ArrayBlockingQueue，该组件与本文介绍的 LinkedBlockingQueue 在设计思路上是一致的，同样基于 ReentrantLock 锁保证线程安全，并支持在构造时使用公平锁策略。</p>
+<p>总而言之，在线程安全队列的使用上 JUC 给我们提供了多种选择，具体开发时如何确定使用哪个组件还是要取决于具体的应用场景，甚至有必要进行一些压测，以结果引导决策。</p>
+
+        <h3 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h3>
+      <ol>
+<li>JDK 1.8 源码</li>
+</ol>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2018/09/12/java/juc-linked-blocking-queue/">https://plotor.github.io/2018/09/12/java/juc-linked-blocking-queue/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Java/">Java</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/">并发编程</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2018/09/13/java/juc-priority-blocking-queue/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">深入理解 JUC：PriorityBlockingQueue</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2018/09/10/java/juc-concurrent-linked-queue/"><span class="paginator-prev__text">深入理解 JUC：ConcurrentLinkedQueue</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#BlockingQueue-%E6%8E%A5%E5%8F%A3"><span class="toc-number">1.</span> <span class="toc-text">
+          BlockingQueue 接口</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E6%96%B9%E6%B3%95%E5%AE%9E%E7%8E%B0"><span class="toc-number">2.</span> <span class="toc-text">
+          核心方法实现</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%B7%BB%E5%8A%A0%E5%85%83%E7%B4%A0%EF%BC%9Aoffer-amp-add-amp-put"><span class="toc-number">2.1.</span> <span class="toc-text">
+          添加元素：offer &amp; add &amp; put</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%8E%B7%E5%8F%96%E5%85%83%E7%B4%A0%EF%BC%9Apoll-amp-peek-amp-take"><span class="toc-number">2.2.</span> <span class="toc-text">
+          获取元素：poll &amp; peek &amp; take</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%A7%BB%E9%99%A4%E5%85%83%E7%B4%A0%EF%BC%9Aremove"><span class="toc-number">2.3.</span> <span class="toc-text">
+          移除元素：remove</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%85%B6%E5%AE%83%E6%93%8D%E4%BD%9C%EF%BC%9Asize-amp-contains"><span class="toc-number">2.4.</span> <span class="toc-text">
+          其它操作：size &amp; contains</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">3.</span> <span class="toc-text">
+          总结</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">4.</span> <span class="toc-text">
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

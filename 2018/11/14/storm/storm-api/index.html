@@ -1,0 +1,653 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="Storm Topology 是由 spout 和 bolt 构建的有向无环图，其中 spout 是图的起始节点，用于发送数据，而 bolt 是图的中间节点和末端节点，用于对数据进行处理。下面我们先用一个简单的 wordcount 示例来回忆一下 Storm 的基本使用，然后对示例中涉及到的 Storm 编程接口从源码层面分析其内在实现。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="JStorm 源码解析：编程接口">
+<meta property="og:url" content="https://plotor.github.io/2018/11/14/storm/storm-api/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="Storm Topology 是由 spout 和 bolt 构建的有向无环图，其中 spout 是图的起始节点，用于发送数据，而 bolt 是图的中间节点和末端节点，用于对数据进行处理。下面我们先用一个简单的 wordcount 示例来回忆一下 Storm 的基本使用，然后对示例中涉及到的 Storm 编程接口从源码层面分析其内在实现。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2018-11-14T05:43:18.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.982Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Storm">
+<meta property="article:tag" content="JStorm">
+<meta name="twitter:card" content="summary"><title>JStorm 源码解析：编程接口 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2018/11/14/storm/storm-api/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">JStorm 源码解析：编程接口</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2018-11-14</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">4.2k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">21分</span></span></div></header><div class="post-body"><p>Storm Topology 是由 spout 和 bolt 构建的有向无环图，其中 spout 是图的起始节点，用于发送数据，而 bolt 是图的中间节点和末端节点，用于对数据进行处理。下面我们先用一个简单的 wordcount 示例来回忆一下 Storm 的基本使用，然后对示例中涉及到的 Storm 编程接口从源码层面分析其内在实现。<a id="more"></a></p>
+
+        <h3 id="Word-Count-示例">
+          <a href="#Word-Count-示例" class="heading-link"><i class="fas fa-link"></i></a>Word Count 示例</h3>
+      <p>本节中我们将实现一个 wordcount 程序，其中 spout 用于发送句子，bolt 负责对句子进行切分、单词统计，以及最终打印等工作。</p>
+
+        <h4 id="实现-Spout">
+          <a href="#实现-Spout" class="heading-link"><i class="fas fa-link"></i></a>实现 Spout</h4>
+      <p>实现一个 spout 最常见的方式是继承 <code>BaseRichSpout</code> 抽象类，我们的句子发送 spout 实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">SentenceSpout</span> <span class="keyword">extends</span> <span class="title">BaseRichSpout</span> <span class="keyword">implements</span> <span class="title">FieldName</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">long</span> serialVersionUID = -<span class="number">2075595983328401544L</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> Logger log = LoggerFactory.getLogger(SentenceSpout.class);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String[] SENTENCES = {</span><br><span class="line">            <span class="string">"It was getting dark, and we weren’t there yet."</span>,</span><br><span class="line">            <span class="string">"Don't step on the broken glass."</span>,</span><br><span class="line">            <span class="string">"The book is in front of the table."</span>,</span><br><span class="line">            <span class="string">"Yeah, I think it's a good environment for learning English."</span>,</span><br><span class="line">            <span class="string">"I will never be this young again. Ever. Oh damn… I just got older."</span>,</span><br><span class="line">            <span class="string">"Joe made the sugar cookies; Susan decorated them."</span>,</span><br><span class="line">            <span class="string">"I really want to go to work, but I am too sick to drive."</span>,</span><br><span class="line">            <span class="string">"There was no ice cream in the freezer, nor did they have money to go to the store."</span>,</span><br><span class="line">            <span class="string">"I want to buy a onesie, but know it won’t suit me."</span></span><br><span class="line">    };</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> SpoutOutputCollector collector;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">int</span> index;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">open</span><span class="params">(Map conf, TopologyContext context, SpoutOutputCollector collector)</span> </span>{</span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">         * conf: storm 配置信息</span></span><br><span class="line"><span class="comment">         * context: topology 中组件信息</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        <span class="keyword">this</span>.collector = collector;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">nextTuple</span><span class="params">()</span> </span>{</span><br><span class="line">        String sentence = SENTENCES[index++ % SENTENCES.length];</span><br><span class="line">        collector.emit(<span class="keyword">new</span> Values(sentence));</span><br><span class="line">        log.info(<span class="string">"spout emit sentence[{}]"</span>, sentence);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">declareOutputFields</span><span class="params">(OutputFieldsDeclarer declarer)</span> </span>{</span><br><span class="line">        declarer.declare(<span class="keyword">new</span> Fields(SENTENCE));</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="实现-Bolt">
+          <a href="#实现-Bolt" class="heading-link"><i class="fas fa-link"></i></a>实现 Bolt</h4>
+      <p>实现一个 bolt 最常见的方式是继承 <code>BaseRichBolt</code> 抽象类，我们的句子切分、单词统计、结果打印三个 bolt 的实现分别如下：</p>
+<ul>
+<li><strong>句子切分：SentenceSplitBolt</strong></li>
+</ul>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">SentenceSplitBolt</span> <span class="keyword">extends</span> <span class="title">BaseRichBolt</span> <span class="keyword">implements</span> <span class="title">FieldName</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">long</span> serialVersionUID = -<span class="number">8048664019619422801L</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> Logger log = LoggerFactory.getLogger(SentenceSplitBolt.class);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> OutputCollector collector;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">prepare</span><span class="params">(Map stormConf, TopologyContext context, OutputCollector collector)</span> </span>{</span><br><span class="line">        <span class="keyword">this</span>.collector = collector;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">execute</span><span class="params">(Tuple input)</span> </span>{</span><br><span class="line">        String sentence = input.getStringByField(SENTENCE);</span><br><span class="line">        <span class="keyword">if</span> (StringUtils.isBlank(sentence)) {</span><br><span class="line">            collector.ack(input);</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        }</span><br><span class="line">        String[] words = sentence.split(<span class="string">"\\s*"</span>);</span><br><span class="line">        log.info(<span class="string">"sentence split bolt emit words[{}]"</span>, Arrays.toString(words));</span><br><span class="line">        Arrays.stream(words).forEach(word -&gt; collector.emit(<span class="keyword">new</span> Values(word)));</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">declareOutputFields</span><span class="params">(OutputFieldsDeclarer declarer)</span> </span>{</span><br><span class="line">        declarer.declare(<span class="keyword">new</span> Fields(WORD));</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<ul>
+<li><strong>单词统计：WordCountBolt</strong></li>
+</ul>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">WordCountBolt</span> <span class="keyword">extends</span> <span class="title">BaseRichBolt</span> <span class="keyword">implements</span> <span class="title">FieldName</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">long</span> serialVersionUID = -<span class="number">1872418993716384947L</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> OutputCollector collector;</span><br><span class="line">    <span class="keyword">private</span> Map&lt;String, Integer&gt; countMap = <span class="keyword">new</span> HashMap&lt;&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">prepare</span><span class="params">(Map stormConf, TopologyContext context, OutputCollector collector)</span> </span>{</span><br><span class="line">        <span class="keyword">this</span>.collector = collector;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">execute</span><span class="params">(Tuple input)</span> </span>{</span><br><span class="line">        String world = input.getStringByField(WORD);</span><br><span class="line">        countMap.put(world, countMap.getOrDefault(world, <span class="number">0</span>) + <span class="number">1</span>);</span><br><span class="line">        collector.emit(<span class="keyword">new</span> Values(world, countMap.get(world)));</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">declareOutputFields</span><span class="params">(OutputFieldsDeclarer declarer)</span> </span>{</span><br><span class="line">        declarer.declare(<span class="keyword">new</span> Fields(COUNT));</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<ul>
+<li><strong>结果打印：ReportBolt</strong></li>
+</ul>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ReportBolt</span> <span class="keyword">extends</span> <span class="title">BaseRichBolt</span> <span class="keyword">implements</span> <span class="title">FieldName</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">long</span> serialVersionUID = -<span class="number">4646679841956175658L</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> Logger log = LoggerFactory.getLogger(ReportBolt.class);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> OutputCollector collector;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">prepare</span><span class="params">(Map stormConf, TopologyContext context, OutputCollector collector)</span> </span>{</span><br><span class="line">        <span class="keyword">this</span>.collector = collector;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">execute</span><span class="params">(Tuple input)</span> </span>{</span><br><span class="line">        String word = input.getStringByField(WORD);</span><br><span class="line">        <span class="keyword">int</span> count = input.getIntegerByField(COUNT);</span><br><span class="line">        log.info(<span class="string">"report bolt, word[{}], count[{}]"</span>, word, count);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">declareOutputFields</span><span class="params">(OutputFieldsDeclarer declarer)</span> </span>{</span><br><span class="line">        <span class="comment">// emit nothing</span></span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="构建-Topology">
+          <a href="#构建-Topology" class="heading-link"><i class="fas fa-link"></i></a>构建 Topology</h4>
+      <figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">WordCountTopology</span> <span class="keyword">implements</span> <span class="title">ComponentId</span>, <span class="title">FieldName</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String TOPOLOGY_NAME = <span class="string">"wordcount-topology"</span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception </span>{</span><br><span class="line">        SentenceSpout sentenceSpout = <span class="keyword">new</span> SentenceSpout();</span><br><span class="line">        SentenceSplitBolt sentenceSplitBolt = <span class="keyword">new</span> SentenceSplitBolt();</span><br><span class="line">        WordCountBolt wordCountBolt = <span class="keyword">new</span> WordCountBolt();</span><br><span class="line">        ReportBolt reportBolt = <span class="keyword">new</span> ReportBolt();</span><br><span class="line"></span><br><span class="line">        TopologyBuilder builder = <span class="keyword">new</span> TopologyBuilder();</span><br><span class="line">        builder.setSpout(SENTENCE_SPOUT_ID, sentenceSpout);</span><br><span class="line">        builder.setBolt(SENTENCE_SPLIT_BOLT_ID, sentenceSplitBolt).shuffleGrouping(SENTENCE_SPOUT_ID);</span><br><span class="line">        builder.setBolt(WORD_COUNT_BOLT_ID, wordCountBolt).fieldsGrouping(SENTENCE_SPLIT_BOLT_ID, <span class="keyword">new</span> Fields(WORD));</span><br><span class="line">        builder.setBolt(REPORT_BOLT_ID, reportBolt).globalGrouping(WORD_COUNT_BOLT_ID);</span><br><span class="line"></span><br><span class="line">        Config config = <span class="keyword">new</span> Config();</span><br><span class="line">        LocalCluster localCluster = <span class="keyword">new</span> LocalCluster();</span><br><span class="line">        localCluster.submitTopology(TOPOLOGY_NAME, config, builder.createTopology());</span><br><span class="line"></span><br><span class="line">        TimeUnit.MINUTES.sleep(<span class="number">10</span>);</span><br><span class="line"></span><br><span class="line">        localCluster.killTopology(TOPOLOGY_NAME);</span><br><span class="line">        localCluster.shutdown();</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="编程接口实现分析">
+          <a href="#编程接口实现分析" class="heading-link"><i class="fas fa-link"></i></a>编程接口实现分析</h3>
+      
+        <h4 id="基础实现类">
+          <a href="#基础实现类" class="heading-link"><i class="fas fa-link"></i></a>基础实现类</h4>
+      <ul>
+<li><strong>Fields</strong></li>
+</ul>
+<p>Fields 类用于指定消息的输出字段名称，它本质上是对 List 的包装，同时定义了一个 <code>Map&lt;String, Integer&gt;</code> 类型的 <code>_index</code> 属性用于记录字段及其索引之间的映射关系，同时提供了一些方法方便查询、获取指定字段下标，以及判断字段是否存在等操作。</p>
+<ul>
+<li><strong>Values</strong></li>
+</ul>
+<p>Values 类与 Fields 相对应，后者用于指定输出字段的名称列表，而字段对应的值则由 Values 进行存储，它继承自 ArrayList。</p>
+<ul>
+<li><strong>Tuple</strong></li>
+</ul>
+<p>Tuple 是对 topology 中传输数据的封装，提供了对于 Fields 和 Values 中数据获取（包括按类型获取）的接口。除此之外还提供了以下接口用于获取当前 tuple 的关联信息：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">Tuple</span> <span class="keyword">extends</span> <span class="title">ITuple</span> </span>{</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 获取与该 tuple 对应的 GlobalStreamId 对象</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function">GlobalStreamId <span class="title">getSourceGlobalStreamId</span><span class="params">()</span></span>;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 获取创建当前 tuple 的组件 ID</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function">String <span class="title">getSourceComponent</span><span class="params">()</span></span>;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 获取创建当前 tuple 的 taskId</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">int</span> <span class="title">getSourceTask</span><span class="params">()</span></span>;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 获取当前 tuple 被 emit 的目标 streamId</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function">String <span class="title">getSourceStreamId</span><span class="params">()</span></span>;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 获取当前 tuple 的消息序号，用来追踪消息是否被成功处理</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function">MessageId <span class="title">getMessageId</span><span class="params">()</span></span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>相对于原生 Storm，在 JStorm 中还定义了 ITupleExt 接口，补充了一些额外的方法用于获取当前 tuple 的目标 taskId、创建时间、是否是 batch 类型，以及设置 batchId 等操作。</p>
+
+        <h4 id="Thrift-数据结构">
+          <a href="#Thrift-数据结构" class="heading-link"><i class="fas fa-link"></i></a>Thrift 数据结构</h4>
+      <ul>
+<li><strong>GlobalStreamId</strong></li>
+</ul>
+<figure class="highlight thrift"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">GlobalStreamId</span> </span>{</span><br><span class="line">  <span class="number">1</span>: <span class="keyword">required</span> <span class="built_in">string</span> componentId; <span class="comment">// 标识当前流所属组件</span></span><br><span class="line">  <span class="number">2</span>: <span class="keyword">required</span> <span class="built_in">string</span> streamId; <span class="comment">// 流的标识</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>流（stream）是 Storm 中十分重要的一个概念，是消息传输的渠道，一个组件可以向多个流发送消息，也可以接收来自多个流的消息。</p>
+<ul>
+<li><strong>StreamInfo</strong></li>
+</ul>
+<figure class="highlight thrift"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">StreamInfo</span> </span>{</span><br><span class="line">  <span class="number">1</span>: <span class="keyword">required</span> list&lt;<span class="keyword">string</span>&gt; output_fields; <span class="comment">// 输出的字段名称列表</span></span><br><span class="line">  <span class="number">2</span>: <span class="keyword">required</span> <span class="built_in">bool</span> direct; <span class="comment">// 标识是否是直接流</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<ul>
+<li><strong>Grouping</strong></li>
+</ul>
+<figure class="highlight thrift"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">union Grouping {</span><br><span class="line">  <span class="number">1</span>: list&lt;<span class="keyword">string</span>&gt; fields; <span class="comment">// empty list means global grouping</span></span><br><span class="line">  <span class="number">2</span>: NullStruct shuffle; <span class="comment">// tuple is sent to random task</span></span><br><span class="line">  <span class="number">3</span>: NullStruct all; <span class="comment">// tuple is sent to every task</span></span><br><span class="line">  <span class="number">4</span>: NullStruct none; <span class="comment">// tuple is sent to a single task (storm's choice) -&gt; allows storm to optimize the topology by bundling tasks into a single process</span></span><br><span class="line">  <span class="number">5</span>: NullStruct direct; <span class="comment">// this bolt expects the source bolt to send tuples directly to it</span></span><br><span class="line">  <span class="number">6</span>: JavaObject custom_object;</span><br><span class="line">  <span class="number">7</span>: <span class="built_in">binary</span> custom_serialized;</span><br><span class="line">  <span class="number">8</span>: NullStruct local_or_shuffle; <span class="comment">// prefer sending to tasks in the same worker process, otherwise shuffle</span></span><br><span class="line">  <span class="number">9</span>: NullStruct localFirst; <span class="comment">//  local worker shuffle &gt; local node shuffle &gt; other node shuffle</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>Grouping 表示消息的分组方式，被定义为 union 类型，意味着每个组件只能选择一种消息分组方式。各分组类型示意如下：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>序号</th>
+<th>分组方式</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>global</td>
+<td>将所有的 tuple 发送给目标组件的第一个 task</td>
+</tr>
+<tr>
+<td>2</td>
+<td>fields</td>
+<td>依据指定字段的值进行分组， 保证指定字段具有相同的值时会发送给同一个 task， 原理是对某个或几个字段值做哈希，然后对哈希值求模得出目标 task</td>
+</tr>
+<tr>
+<td>3</td>
+<td>shuffle</td>
+<td>轮询方式，随机平均发送 tuple 给下游组件</td>
+</tr>
+<tr>
+<td>4</td>
+<td>all</td>
+<td>将 tuple 复制后发送给所有目标组件的所有 task</td>
+</tr>
+<tr>
+<td>5</td>
+<td>none</td>
+<td>随机发送 tuple 到目标组件，相对于 shuffle 而言无法保证平均</td>
+</tr>
+<tr>
+<td>6</td>
+<td>direct</td>
+<td>调用 emitDirect 方法将 tuple 发送给指定的下游 task</td>
+</tr>
+<tr>
+<td>7</td>
+<td>custom</td>
+<td>使用用户接口 CustomStreamGrouping 选择目标 task</td>
+</tr>
+<tr>
+<td>8</td>
+<td>localOrShuffle</td>
+<td>本地 worker 优先，如果本地有目标组件的 task，则随机从本地内部的目标组件 task 列表中进行选择，否则就和 shuffle 分组方式一样，用于减少网络传输</td>
+</tr>
+<tr>
+<td>9</td>
+<td>localFirst</td>
+<td>本地 worker 优先级最高，如果本地有目标组件的 task，则随机从本地内部的目标组件的 task 列表中进行选择；本节点优先级其次，当本地 worker 不能满足条件时，如果本地 supervisor 节点下其他 worker 有目标组件的 task，则随机从中选择一个 task 进行发送；当这两种情况都不满足时，则从其他 supervisor 节点的目标 task 中随机选择一个 task 进行发送</td>
+</tr>
+</tbody></table></div>
+<ul>
+<li><strong>ComponentCommon</strong></li>
+</ul>
+<figure class="highlight thrift"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">ComponentCommon</span> </span>{</span><br><span class="line">  <span class="comment">// 组件将从哪些 GlobalStreamId 以何种分组方式接收数据</span></span><br><span class="line">  <span class="number">1</span>: <span class="keyword">required</span> map&lt;GlobalStreamId, Grouping&gt; inputs;</span><br><span class="line">  <span class="comment">// 组件要输出的所有流，key 是 streamId</span></span><br><span class="line">  <span class="number">2</span>: <span class="keyword">required</span> map&lt;<span class="keyword">string</span>, StreamInfo&gt; streams;</span><br><span class="line">  <span class="comment">// 组件并行度（即多少个线程），这些线程可能分布在不同的机器或进程空间中</span></span><br><span class="line">  <span class="number">3</span>: <span class="keyword">optional</span> <span class="built_in">i32</span> parallelism_hint;</span><br><span class="line">  <span class="comment">// 组件相关配置项</span></span><br><span class="line">  <span class="number">4</span>: <span class="keyword">optional</span> <span class="built_in">string</span> json_conf;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>ComponentCommon 是 topology 的基础对象，用于描述一个组件。在 Storm 中将 spout 和 bolt 统称为组件，TopologyBuilder 在构建 topology 时会将我们定义的 spout 和 bolt 封装成 ComponentCommon 对象进行存储。</p>
+<ul>
+<li><strong>SpoutSpec</strong></li>
+</ul>
+<figure class="highlight thrift"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">SpoutSpec</span> </span>{</span><br><span class="line">  <span class="comment">// 存储 spout 的序列化对象</span></span><br><span class="line">  <span class="number">1</span>: <span class="keyword">required</span> ComponentObject spout_object;</span><br><span class="line">  <span class="comment">// 描述 spout 输入输出的 ComponentCommon 对象</span></span><br><span class="line">  <span class="number">2</span>: <span class="keyword">required</span> ComponentCommon common;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<ul>
+<li><strong>Bolt</strong></li>
+</ul>
+<figure class="highlight thrift"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">Bolt</span> </span>{</span><br><span class="line">  <span class="comment">// 存储 bolt 的序列化对象</span></span><br><span class="line">  <span class="number">1</span>: <span class="keyword">required</span> ComponentObject bolt_object;</span><br><span class="line">  <span class="comment">// 描述 bolt 输入输出的 ComponentCommon 对象</span></span><br><span class="line">  <span class="number">2</span>: <span class="keyword">required</span> ComponentCommon common;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<ul>
+<li><strong>StormTopology</strong></li>
+</ul>
+<figure class="highlight thrift"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">StormTopology</span> </span>{</span><br><span class="line">  <span class="number">1</span>: <span class="keyword">required</span> map&lt;<span class="keyword">string</span>, SpoutSpec&gt; spouts; <span class="comment">// topology 中的 spout 集合</span></span><br><span class="line">  <span class="number">2</span>: <span class="keyword">required</span> map&lt;<span class="keyword">string</span>, Bolt&gt; bolts; <span class="comment">// topology 中的 bolt 集合</span></span><br><span class="line">  <span class="number">3</span>: <span class="keyword">required</span> map&lt;<span class="keyword">string</span>, StateSpoutSpec&gt; state_spouts; <span class="comment">// topology 中的 state spout 集合</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>StormTopology 用于描述 topology 的组成，包含 spout 和 bolt 组件，我们在使用 TopologyBuilder 类编程构建 topology 时，最终都是为了创建 StormTopology 对象。</p>
+<ul>
+<li><strong>TopologySummary</strong></li>
+</ul>
+<figure class="highlight thrift"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">TopologySummary</span> </span>{</span><br><span class="line">  <span class="number">1</span>: <span class="keyword">required</span> <span class="built_in">string</span> id;</span><br><span class="line">  <span class="number">2</span>: <span class="keyword">required</span> <span class="built_in">string</span> name;</span><br><span class="line">  <span class="number">3</span>: <span class="keyword">required</span> <span class="built_in">string</span> status; <span class="comment">// 状态信息</span></span><br><span class="line">  <span class="number">4</span>: <span class="keyword">required</span> <span class="built_in">i32</span> uptimeSecs; <span class="comment">// 运行时长</span></span><br><span class="line">  <span class="number">5</span>: <span class="keyword">required</span> <span class="built_in">i32</span> numTasks; <span class="comment">// task 数目</span></span><br><span class="line">  <span class="number">6</span>: <span class="keyword">required</span> <span class="built_in">i32</span> numWorkers; <span class="comment">// worker 数目</span></span><br><span class="line">  <span class="number">7</span>: <span class="keyword">optional</span> <span class="built_in">string</span> errorInfo;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>当我们提交一个任务给 Storm 集群时，nimbus 节点会生成当前任务对应 topology 的状态信息（TopologySummary），用于在 UI 上进行显示。</p>
+<ul>
+<li><strong>NimbusSummary</strong></li>
+</ul>
+<figure class="highlight thrift"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">NimbusStat</span> </span>{</span><br><span class="line">  <span class="number">1</span>: <span class="keyword">required</span> <span class="built_in">string</span> host;</span><br><span class="line">  <span class="number">2</span>: <span class="keyword">required</span> <span class="built_in">string</span> uptimeSecs; <span class="comment">// 运行时间</span></span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">NimbusSummary</span> </span>{</span><br><span class="line">  <span class="number">1</span>: <span class="keyword">required</span> NimbusStat nimbusMaster; <span class="comment">// master 节点信息</span></span><br><span class="line">  <span class="number">2</span>: <span class="keyword">required</span> list&lt;NimbusStat&gt; nimbusSlaves; <span class="comment">// slave 节点信息</span></span><br><span class="line">  <span class="number">3</span>: <span class="keyword">required</span> <span class="built_in">i32</span> supervisorNum;</span><br><span class="line">  <span class="number">4</span>: <span class="keyword">required</span> <span class="built_in">i32</span> totalPortNum;</span><br><span class="line">  <span class="number">5</span>: <span class="keyword">required</span> <span class="built_in">i32</span> usedPortNum;</span><br><span class="line">  <span class="number">6</span>: <span class="keyword">required</span> <span class="built_in">i32</span> freePortNum;</span><br><span class="line">  <span class="number">7</span>: <span class="keyword">required</span> <span class="built_in">string</span> version;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>NimbusSummary 用于描述一个 nimbus 节点的基本信息。</p>
+<ul>
+<li><strong>SupervisorSummary</strong></li>
+</ul>
+<figure class="highlight thrift"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">SupervisorSummary</span> </span>{</span><br><span class="line">  <span class="number">1</span>: <span class="keyword">required</span> <span class="built_in">string</span> host; <span class="comment">// 所属主机名</span></span><br><span class="line">  <span class="number">2</span>: <span class="keyword">required</span> <span class="built_in">string</span> supervisorId;</span><br><span class="line">  <span class="number">3</span>: <span class="keyword">required</span> <span class="built_in">i32</span> uptimeSecs; <span class="comment">// 运行时间</span></span><br><span class="line">  <span class="number">4</span>: <span class="keyword">required</span> <span class="built_in">i32</span> numWorkers; <span class="comment">// 可以使用的 worker 数目</span></span><br><span class="line">  <span class="number">5</span>: <span class="keyword">required</span> <span class="built_in">i32</span> numUsedWorkers; <span class="comment">// 已经使用的 worker 数目</span></span><br><span class="line">  <span class="number">6</span>: <span class="keyword">optional</span> <span class="built_in">string</span> version;</span><br><span class="line">  <span class="number">7</span>: <span class="keyword">optional</span> <span class="built_in">string</span> buildTs;</span><br><span class="line">  <span class="number">8</span>: <span class="keyword">optional</span> <span class="built_in">i32</span> port;</span><br><span class="line">  <span class="number">9</span>: <span class="keyword">optional</span> <span class="built_in">string</span> errorMessage;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>SupervisorSummary 用于描述一个 supervisor 节点的基本信息。</p>
+<ul>
+<li><strong>ClusterSummary</strong></li>
+</ul>
+<figure class="highlight thrift"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">ClusterSummary</span> </span>{</span><br><span class="line">  <span class="number">1</span>: <span class="keyword">required</span> NimbusSummary nimbus;</span><br><span class="line">  <span class="number">2</span>: <span class="keyword">required</span> list&lt;SupervisorSummary&gt; supervisors;</span><br><span class="line">  <span class="number">3</span>: <span class="keyword">required</span> list&lt;TopologySummary&gt; topologies;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>ClusterSummary 用于描述整个集群的运行信息，包含 nimbus 节点、supervisor 节点，以及在整个集群上运行着的 topology 的摘要信息。</p>
+
+        <h4 id="组件接口">
+          <a href="#组件接口" class="heading-link"><i class="fas fa-link"></i></a>组件接口</h4>
+      
+        <h5 id="IComponent-接口">
+          <a href="#IComponent-接口" class="heading-link"><i class="fas fa-link"></i></a>IComponent 接口</h5>
+      <p>Spout 和 bolt 在 Storm 中统称为组件，IComponent 接口是对组件的顶层抽象，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">IComponent</span> <span class="keyword">extends</span> <span class="title">Serializable</span> </span>{</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 定义组件输出的 Schema，包括输出的 streamId、输出的字段名称列表，以及标识是否是直接流</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">declareOutputFields</span><span class="params">(OutputFieldsDeclarer declarer)</span></span>;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 获取与组件相关的配置</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function">Map&lt;String, Object&gt; <span class="title">getComponentConfiguration</span><span class="params">()</span></span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h5 id="ISpout-接口">
+          <a href="#ISpout-接口" class="heading-link"><i class="fas fa-link"></i></a>ISpout 接口</h5>
+      <p>ISpout 是对 spout 组件的顶层抽象，声明了一个 spout 应该具备的基本操作，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">ISpout</span> <span class="keyword">extends</span> <span class="title">Serializable</span> </span>{</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">open</span><span class="params">(Map conf, TopologyContext context, SpoutOutputCollector collector)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">close</span><span class="params">()</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">activate</span><span class="params">()</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">deactivate</span><span class="params">()</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">nextTuple</span><span class="params">()</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">ack</span><span class="params">(Object msgId)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">fail</span><span class="params">(Object msgId)</span></span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>open 方法会在 spout 组件所属 task 被所在 worker 初始化时进行调用。我们一般在该方法中实现一些初始化逻辑，而不是在 spout 类的构造方法中进行，因为相应节点通过反序列化的方式获取 spout 对象，其构造方法不一定会被调用。</p>
+<p>close 方法会在 spout 被销毁时调用，但是 Storm 并不保证该方法一定会被执行。</p>
+<p>activate 方法和 deactivate 方法会在 spout 被置为活跃和非活跃状态时分别被调用，用户可以在其中实现相应的感知逻辑。</p>
+<p>ack 和 fail 方法用于实现计算的可靠性，保证消息至少被消费一次（at least once）。</p>
+<p>nextTuple 是 spout 的核心方法，用户可以实现该方法来向下游 bolt 发送消息，Storm 会循环调用该方法从数据源拉取数据，并传递给业务执行。在原生 Storm 中 ack、fail，以及 nextTuple 三个方法在同一个线程中被循环调用，所以三个方法都不应该是阻塞的，而 JStorm 则做了针对性的优化，将 nextTuple 和 ack/fail 逻辑分离开。</p>
+
+        <h5 id="IBolt-接口">
+          <a href="#IBolt-接口" class="heading-link"><i class="fas fa-link"></i></a>IBolt 接口</h5>
+      <p>IBolt 是常见的对 bolt 组件的顶层抽象，声明了 bolt 应该具备的基本功能，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">IBolt</span> <span class="keyword">extends</span> <span class="title">Serializable</span> </span>{</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">prepare</span><span class="params">(Map stormConf, TopologyContext context, OutputCollector collector)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">execute</span><span class="params">(Tuple input)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">cleanup</span><span class="params">()</span></span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>prepare 方法类似于 ISpout 的 open 方法，会在 bolt 组件被反序列化时被调用，用于实现一些初始化逻辑，同样我们不应该将初始化逻辑实现在构造方法中。</p>
+<p>cleanup 方法类似于 ISpout 的 close 方法，会在 bolt 对象被销毁时调用，Storm 同样不保证该方法一定会被执行。</p>
+<p>execute 方法是 bolt 的核心方法，用户可以在该方法中实现对数据的处理和发送给下游 bolt，如果开启了 ack 机制，那么对消息的 ack 和 fail 也同样在该方法中进行，以保证消息被正确不丢失的处理。</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">IRichBolt</span> <span class="keyword">extends</span> <span class="title">IBolt</span>, <span class="title">IComponent</span> </span>{ }</span><br></pre></td></tr></tbody></table></div></figure>
+<p>IRichBolt 接口继承自 IBolt 和 IComponent，组合了这两个接口所定义的功能，所以它并不是一种新的 bolt 接口。</p>
+
+        <h5 id="IBasicBolt-接口">
+          <a href="#IBasicBolt-接口" class="heading-link"><i class="fas fa-link"></i></a>IBasicBolt 接口</h5>
+      <p>IBasicBolt 也是一个顶层的 bolt 组件抽象，区别 IBolt 的地方在于使用了 BasicOutputCollector 作为输出收集器，并且是在 execute 方法中传入的，接口定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">IBasicBolt</span> <span class="keyword">extends</span> <span class="title">IComponent</span> </span>{</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">prepare</span><span class="params">(Map stormConf, TopologyContext context)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">execute</span><span class="params">(Tuple input, BasicOutputCollector collector)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">cleanup</span><span class="params">()</span></span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>IBasicBolt 接口存在的意义在于为用户提供一种更加简单的方式实现 bolt，用户不需要考虑消息的 ack 和 fail 等操作，而是由 Storm 自动完成。在利用 TopologyBuilder 构建 topology 时，如果输入的是 IBasicBolt 类型，那么 TopologyBuilder 会自动用 BasicBoltExecutor 对用户自定义的 bolt 进行包装：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> BoltDeclarer <span class="title">setBolt</span><span class="params">(String id, IBasicBolt bolt, Number parallelism_hint)</span> <span class="keyword">throws</span> IllegalArgumentException </span>{</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">this</span>.setBolt(id, <span class="keyword">new</span> BasicBoltExecutor(bolt), parallelism_hint);</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>而 <code>BasicBoltExecutor#execute</code> 方法在执行的时候自动处理了 ack 和 fail 逻辑，用到的输出收集器就是 BasicOutputCollector，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">execute</span><span class="params">(Tuple input)</span> </span>{</span><br><span class="line">    _collector.setContext(input);</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        _bolt.execute(input, _collector);</span><br><span class="line">        _collector.getOutputter().ack(input);</span><br><span class="line">    } <span class="keyword">catch</span> (FailedException e) {</span><br><span class="line">        <span class="keyword">if</span> (e <span class="keyword">instanceof</span> ReportedFailedException) {</span><br><span class="line">            _collector.reportError(e);</span><br><span class="line">        }</span><br><span class="line">        _collector.getOutputter().fail(input);</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h5 id="IBatchBolt-接口">
+          <a href="#IBatchBolt-接口" class="heading-link"><i class="fas fa-link"></i></a>IBatchBolt 接口</h5>
+      <p>IBatchBolt 接口主要用于定义支持批处理的 bolt，例如 trident、事务处理等。接口定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">IBatchBolt</span>&lt;<span class="title">T</span>&gt; <span class="keyword">extends</span> <span class="title">Serializable</span>, <span class="title">IComponent</span> </span>{</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">prepare</span><span class="params">(Map conf, TopologyContext context, BatchOutputCollector collector, T id)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">execute</span><span class="params">(Tuple tuple)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">finishBatch</span><span class="params">()</span></span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>相对于 IBolt 和 IBasicBolt 而言，IBatchBolt 去掉了 cleanup 方法，取而代之的是 finishBatch，该方法会在当前 batch 之前的所有 batch 都被处理成功时被调用。有一点与 IBasicBolt 相同，IBatchBolt 的用户也无需关心 ack 和 fail 逻辑，Storm 会自动进行处理，相关实现位于 <code>BatchBoltExecutor#execute</code> 方法中：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">execute</span><span class="params">(Tuple input)</span> </span>{</span><br><span class="line">    Object id = input.getValue(<span class="number">0</span>);</span><br><span class="line">    IBatchBolt bolt = <span class="keyword">this</span>.getBatchBolt(id);</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        bolt.execute(input);</span><br><span class="line">        _collector.ack(input);</span><br><span class="line">    } <span class="keyword">catch</span> (FailedException e) {</span><br><span class="line">        LOG.error(<span class="string">"Failed to process tuple in batch"</span>, e);</span><br><span class="line">        _collector.fail(input);</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>这里的输出收集器是 BatchOutputCollector 的实现。</p>
+
+        <h4 id="输出收集器">
+          <a href="#输出收集器" class="heading-link"><i class="fas fa-link"></i></a>输出收集器</h4>
+      <p>在 spout 和 bolt 的初始化方法中都有一个输出收集器参数 OutputCollector，输出收集器主要用于对当前组件收到的消息进行进一步的处理，包括 emit、ack，以及 fail 等操作。</p>
+
+        <h5 id="Spout-输出收集器">
+          <a href="#Spout-输出收集器" class="heading-link"><i class="fas fa-link"></i></a>Spout 输出收集器</h5>
+      <p>ISpoutOutputCollector 接口定义了 spout 的输出收集器，用于 spout 对于消息的进一步控制。该接口定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">ISpoutOutputCollector</span> </span>{</span><br><span class="line">    <span class="function">List&lt;Integer&gt; <span class="title">emit</span><span class="params">(String streamId, List&lt;Object&gt; tuple, Object messageId)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">emitDirect</span><span class="params">(<span class="keyword">int</span> taskId, String streamId, List&lt;Object&gt; tuple, Object messageId)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">reportError</span><span class="params">(Throwable error)</span></span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>emit 和 emitDirect 都用于向下游发送数据，区别在于 emitDirect 发出的消息只会被 taskId 参数所指定的 Task 接收到，同时方法要求 streamId 对应的流必须被定义为直接流，接收端的 task 也必须以直接分组（Direct Grouping）的方式来接收消息。</p>
+<p>后面在分析 worker 的启动与运行机制的时候将会看到 worker 在启动 task 时会调用 <code>SpoutExecutors#init</code> 方法，其中会调用 <code>ISpout#open</code> 方法将 SpoutOutputCollector 对象传递给对应的 spout。</p>
+
+        <h5 id="Bolt-输出收集器">
+          <a href="#Bolt-输出收集器" class="heading-link"><i class="fas fa-link"></i></a>Bolt 输出收集器</h5>
+      <p>在介绍 Bolt 接口时我们知道围绕 bolt 定义了三种类型的接口：IBolt(or IRichBolt)、IBasicBolt，以及 IBatchBolt。针对每一种 bolt 接口类型也有对应的输出收集器，分别是 OutputCollector、BasicOutputCollector 和 BatchOutputCollector。</p>
+<ul>
+<li><strong>OutputCollector</strong></li>
+</ul>
+<p>OutputCollector 实现了 IOutputCollector 接口，JStorm 又在此接口的基础上提供了抽象类 OutputCollectorCb，所以 OutputCollector 最终是继承自 OutputCollectorCb。IOutputCollector 接口定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">IOutputCollector</span> <span class="keyword">extends</span> <span class="title">IErrorReporter</span> </span>{</span><br><span class="line">    <span class="function">List&lt;Integer&gt; <span class="title">emit</span><span class="params">(String streamId, Collection&lt;Tuple&gt; anchors, List&lt;Object&gt; tuple)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">emitDirect</span><span class="params">(<span class="keyword">int</span> taskId, String streamId, Collection&lt;Tuple&gt; anchors, List&lt;Object&gt; tuple)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">ack</span><span class="params">(Tuple input)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">fail</span><span class="params">(Tuple input)</span></span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<ul>
+<li><strong>BasicOutputCollector</strong></li>
+</ul>
+<p>BasicOutputCollector 实现了 IBasicOutputCollector 接口，由于不需要手动去调用 ack 和 fail，所以略去了相关方法。IBasicOutputCollector 接口定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">IBasicOutputCollector</span> </span>{</span><br><span class="line">    <span class="function">List&lt;Integer&gt; <span class="title">emit</span><span class="params">(String streamId, List&lt;Object&gt; tuple)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">emitDirect</span><span class="params">(<span class="keyword">int</span> taskId, String streamId, List&lt;Object&gt; tuple)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">reportError</span><span class="params">(Throwable t)</span></span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<ul>
+<li><strong>BatchOutputCollector</strong></li>
+</ul>
+<p>BatchOutputCollector 是一个抽象类，并提供了 BatchOutputCollectorImpl 实现，BatchOutputCollectorImpl 本质上包装了 OutputCollector。BatchOutputCollector 抽象类定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="class"><span class="keyword">class</span> <span class="title">BatchOutputCollector</span> </span>{</span><br><span class="line">    <span class="function"><span class="keyword">public</span> List&lt;Integer&gt; <span class="title">emit</span><span class="params">(List&lt;Object&gt; tuple)</span> </span>{</span><br><span class="line">        <span class="keyword">return</span> emit(Utils.DEFAULT_STREAM_ID, tuple);</span><br><span class="line">    }</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">abstract</span> List&lt;Integer&gt; <span class="title">emit</span><span class="params">(String streamId, List&lt;Object&gt; tuple)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">emitDirect</span><span class="params">(<span class="keyword">int</span> taskId, List&lt;Object&gt; tuple)</span> </span>{</span><br><span class="line">        emitDirect(taskId, Utils.DEFAULT_STREAM_ID, tuple);</span><br><span class="line">    }</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">void</span> <span class="title">emitDirect</span><span class="params">(<span class="keyword">int</span> taskId, String streamId, List&lt;Object&gt; tuple)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">void</span> <span class="title">reportError</span><span class="params">(Throwable error)</span></span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>本篇主要是对我们编程中直接接触到的 Storm api 实现进行了简单的分析，从下一篇开始，我们将深入到 Storm 的内部，一探这个流式计算引擎的运行机制。</p>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2018/11/14/storm/storm-api/">https://plotor.github.io/2018/11/14/storm/storm-api/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Storm/">Storm</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/JStorm/">JStorm</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2018/11/15/storm/storm-topology-build/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">JStorm 源码解析：拓扑的构建和提交过程</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2018/11/13/storm/storm-architecture/"><span class="paginator-prev__text">JStorm 源码解析：整体架构</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#Word-Count-%E7%A4%BA%E4%BE%8B"><span class="toc-number">1.</span> <span class="toc-text">
+          Word Count 示例</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%AE%9E%E7%8E%B0-Spout"><span class="toc-number">1.1.</span> <span class="toc-text">
+          实现 Spout</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%AE%9E%E7%8E%B0-Bolt"><span class="toc-number">1.2.</span> <span class="toc-text">
+          实现 Bolt</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%9E%84%E5%BB%BA-Topology"><span class="toc-number">1.3.</span> <span class="toc-text">
+          构建 Topology</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BC%96%E7%A8%8B%E6%8E%A5%E5%8F%A3%E5%AE%9E%E7%8E%B0%E5%88%86%E6%9E%90"><span class="toc-number">2.</span> <span class="toc-text">
+          编程接口实现分析</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%9F%BA%E7%A1%80%E5%AE%9E%E7%8E%B0%E7%B1%BB"><span class="toc-number">2.1.</span> <span class="toc-text">
+          基础实现类</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#Thrift-%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84"><span class="toc-number">2.2.</span> <span class="toc-text">
+          Thrift 数据结构</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%BB%84%E4%BB%B6%E6%8E%A5%E5%8F%A3"><span class="toc-number">2.3.</span> <span class="toc-text">
+          组件接口</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#IComponent-%E6%8E%A5%E5%8F%A3"><span class="toc-number">2.3.1.</span> <span class="toc-text">
+          IComponent 接口</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#ISpout-%E6%8E%A5%E5%8F%A3"><span class="toc-number">2.3.2.</span> <span class="toc-text">
+          ISpout 接口</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#IBolt-%E6%8E%A5%E5%8F%A3"><span class="toc-number">2.3.3.</span> <span class="toc-text">
+          IBolt 接口</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#IBasicBolt-%E6%8E%A5%E5%8F%A3"><span class="toc-number">2.3.4.</span> <span class="toc-text">
+          IBasicBolt 接口</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#IBatchBolt-%E6%8E%A5%E5%8F%A3"><span class="toc-number">2.3.5.</span> <span class="toc-text">
+          IBatchBolt 接口</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%BE%93%E5%87%BA%E6%94%B6%E9%9B%86%E5%99%A8"><span class="toc-number">2.4.</span> <span class="toc-text">
+          输出收集器</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#Spout-%E8%BE%93%E5%87%BA%E6%94%B6%E9%9B%86%E5%99%A8"><span class="toc-number">2.4.1.</span> <span class="toc-text">
+          Spout 输出收集器</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#Bolt-%E8%BE%93%E5%87%BA%E6%94%B6%E9%9B%86%E5%99%A8"><span class="toc-number">2.4.2.</span> <span class="toc-text">
+          Bolt 输出收集器</span></a></li></ol></li></ol></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

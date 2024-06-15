@@ -1,0 +1,589 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="本文将主要对定义在 XML 文件中的 bean 从静态配置到加载成为可使用对象的过程，即 IoC 容器的初始化过程进行一个整体的分析。在讲解上不主张对各个组件进行深究，只求对简单容器的实现有一个整体的认识，具体实现细节留到后面专门用针对性的篇章进行讲解。 首先我们引入一个 Spring 入门示例，假设我们现在定义了一个类 MyBean，我们希望利用 Spring 管理类对象。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Spring IoC 源码解析：简单容器的初始化过程">
+<meta property="og:url" content="https://plotor.github.io/2017/05/10/spring/spring-ioc-bean-factory/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="本文将主要对定义在 XML 文件中的 bean 从静态配置到加载成为可使用对象的过程，即 IoC 容器的初始化过程进行一个整体的分析。在讲解上不主张对各个组件进行深究，只求对简单容器的实现有一个整体的认识，具体实现细节留到后面专门用针对性的篇章进行讲解。 首先我们引入一个 Spring 入门示例，假设我们现在定义了一个类 MyBean，我们希望利用 Spring 管理类对象。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://plotor.github.io/images/2017/spring-ioc-resource.png">
+<meta property="og:image" content="https://plotor.github.io/images/2017/spring-ioc-resource-loader.png">
+<meta property="og:image" content="https://plotor.github.io/images/2017/spring-ioc-bean-initialization.png">
+<meta property="article:published_time" content="2017-05-10T12:49:36.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.987Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Spring">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://plotor.github.io/images/2017/spring-ioc-resource.png"><title>Spring IoC 源码解析：简单容器的初始化过程 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2017/05/10/spring/spring-ioc-bean-factory/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">Spring IoC 源码解析：简单容器的初始化过程</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2017-05-10</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">6.7k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">31分</span></span></div></header><div class="post-body"><p>本文将主要对定义在 XML 文件中的 bean 从静态配置到加载成为可使用对象的过程，即 IoC 容器的初始化过程进行一个整体的分析。在讲解上不主张对各个组件进行深究，只求对简单容器的实现有一个整体的认识，具体实现细节留到后面专门用针对性的篇章进行讲解。</p>
+<p>首先我们引入一个 Spring 入门示例，假设我们现在定义了一个类 MyBean，我们希望利用 Spring 管理类对象。<a id="more"></a>这里我们采用 Spring 经典的 XML 配置文件形式进行配置：</p>
+<figure class="highlight xml"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">bean</span> <span class="attr">id</span>=<span class="string">"myBean"</span> <span class="attr">class</span>=<span class="string">"org.zhenchao.spring.ioc.MyBean"</span>/&gt;</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>我们将配置文件命名为 <code>spring-core.xml</code>，获取 bean 实例最原始的方式如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 1. 定义资源描述</span></span><br><span class="line">Resource resource = <span class="keyword">new</span> ClassPathResource(<span class="string">"spring-core.xml"</span>);</span><br><span class="line"><span class="comment">// 2. 基于 XmlBeanFactory 初始化 IoC 容器</span></span><br><span class="line">XmlBeanFactory beanFactory = <span class="keyword">new</span> XmlBeanFactory(resource);</span><br><span class="line"><span class="comment">// 3. 从 IoC 容器中加载获取 bean 实例</span></span><br><span class="line">MyBean myBean = (MyBean) beanFactory.getBean(<span class="string">"myBean"</span>);</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述示例虽然简单，但麻雀虽小，五脏俱全，完整的让 Spring 执行了一遍加载配置文件，创建并初始化 bean 实例的过程。虽然从 Spring 3.1 版本开始，XmlBeanFactory 已经被置为 <code>deprecated</code>，但是 Spring 并没有定义出更加高级的基于 XML 加载 bean 实例的 BeanFactory，而是推荐采用更加原生的方式，即组合使用 DefaultListableBeanFactory 和 XmlBeanDefinitionReader 来完成上述过程：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">Resource resource = <span class="keyword">new</span> ClassPathResource(<span class="string">"spring-core.xml"</span>);</span><br><span class="line">DefaultListableBeanFactory beanFactory = <span class="keyword">new</span> DefaultListableBeanFactory();</span><br><span class="line">XmlBeanDefinitionReader reader = <span class="keyword">new</span> XmlBeanDefinitionReader(beanFactory);</span><br><span class="line">reader.loadBeanDefinitions(resource);</span><br><span class="line">MyBean myBean = (MyBean) beanFactory.getBean(<span class="string">"myBean"</span>);</span><br></pre></td></tr></tbody></table></div></figure>
+<p>XmlBeanFactory 实际上是对 DefaultListableBeanFactory 和 XmlBeanDefinitionReader 组合使用方式的封装，并没有增加新的处理逻辑。考虑到使用习惯，我们仍将继续基于 XmlBeanFactory 分析 bean 的加载过程。</p>
+<p>Bean 的加载过程整体上可以分成两步：</p>
+<ol>
+<li>完成由静态配置到内存表示 BeanDefinition 的转换；</li>
+<li>基于 BeanDefinition 实例创建并初始化 bean 实例。</li>
+</ol>
+<p>我们将第一步称为 bean 的解析与注册的过程，解析配置并注册到容器；将第二步看作是 bean 的创建和初始化的过程。</p>
+
+        <h3 id="资源的描述与加载">
+          <a href="#资源的描述与加载" class="heading-link"><i class="fas fa-link"></i></a>资源的描述与加载</h3>
+      <p>如上面的例子所示，在加载配置文件之前，Spring 都会将配置文件封装成 Resource 对象。Resource 本身是一个接口，是对资源描述符的一种抽象。资源（File、URL、Classpath 等等）是众多框架使用和运行的基础，Spring 当然也不例外，框架诞生之初就是基于 XML 文件对 bean 进行配置。在开始分析容器的初始化过程之前，我们先来对支撑容器运行的 Resource 接口及其实现类做一个简单的了解。</p>
+
+        <h4 id="资源的抽象声明">
+          <a href="#资源的抽象声明" class="heading-link"><i class="fas fa-link"></i></a>资源的抽象声明</h4>
+      <p>资源在 java 中被抽象成 URL，通过注册相应的 handler 来处理不同资源的操作逻辑，而 Spring 则采用 Resource 接口对各种资源进行统一抽象。Resource 接口声明了针对资源的基本操作，包括是否存在、是否可读，以及是否已经打开等等。Resource 接口实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">InputStreamSource</span> </span>{</span><br><span class="line">    <span class="comment">/** 返回一个新的输入流 */</span></span><br><span class="line">    <span class="function">InputStream <span class="title">getInputStream</span><span class="params">()</span> <span class="keyword">throws</span> IOException</span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">Resource</span> <span class="keyword">extends</span> <span class="title">InputStreamSource</span> </span>{</span><br><span class="line">    <span class="comment">/** 资源是否存在 */</span></span><br><span class="line">    <span class="function"><span class="keyword">boolean</span> <span class="title">exists</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 资源是否可读 */</span></span><br><span class="line">    <span class="function"><span class="keyword">default</span> <span class="keyword">boolean</span> <span class="title">isReadable</span><span class="params">()</span> </span>{</span><br><span class="line">        <span class="keyword">return</span> exists();</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 资源流是否已经打开 */</span></span><br><span class="line">    <span class="function"><span class="keyword">default</span> <span class="keyword">boolean</span> <span class="title">isOpen</span><span class="params">()</span> </span>{</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 是否是 File 对象 */</span></span><br><span class="line">    <span class="function"><span class="keyword">default</span> <span class="keyword">boolean</span> <span class="title">isFile</span><span class="params">()</span> </span>{</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 返回资源对应的 URL 对象 */</span></span><br><span class="line">    <span class="function">URL <span class="title">getURL</span><span class="params">()</span> <span class="keyword">throws</span> IOException</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 返回资源对应的 URI 对象 */</span></span><br><span class="line">    <span class="function">URI <span class="title">getURI</span><span class="params">()</span> <span class="keyword">throws</span> IOException</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 返回资源对应的 File 对象 */</span></span><br><span class="line">    <span class="function">File <span class="title">getFile</span><span class="params">()</span> <span class="keyword">throws</span> IOException</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 返回资源对应的 ReadableByteChannel 对象 */</span></span><br><span class="line">    <span class="function"><span class="keyword">default</span> ReadableByteChannel <span class="title">readableChannel</span><span class="params">()</span> <span class="keyword">throws</span> IOException </span>{</span><br><span class="line">        <span class="keyword">return</span> Channels.newChannel(getInputStream());</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 返回文件的长度 */</span></span><br><span class="line">    <span class="function"><span class="keyword">long</span> <span class="title">contentLength</span><span class="params">()</span> <span class="keyword">throws</span> IOException</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 返回文件上次被修改的时间戳 */</span></span><br><span class="line">    <span class="function"><span class="keyword">long</span> <span class="title">lastModified</span><span class="params">()</span> <span class="keyword">throws</span> IOException</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 依据当前资源创建一个相对的资源，并返回资源对象 */</span></span><br><span class="line">    <span class="function">Resource <span class="title">createRelative</span><span class="params">(String relativePath)</span> <span class="keyword">throws</span> IOException</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 返回资源的文件名 */</span></span><br><span class="line">    <span class="function">String <span class="title">getFilename</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 返回资源的描述信息 */</span></span><br><span class="line">    <span class="function">String <span class="title">getDescription</span><span class="params">()</span></span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>由继承关系可以看到 Resource 继承了 InputStreamSource 接口，该接口描述任何可以返回 InputStream 的类，通过 <code>InputStreamSource#getInputStream</code> 方法获取对应的 InputStream 对象。</p>
+<p>Resource 本身则声明了针对资源的基本操作，Spring 也针对不同类型的资源定义了相应的类实现，比如：文件（FileSystemResource）、字节数组资源（ByteArrayResource）、ClassPath 路径资源（ClassPathResource），以及 URL 资源（UrlResource）等，如下图所示（仅包含 IoC 层面的 Resource 定义）：</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2017/spring-ioc-resource.png" alt="image">
+      </p>
+
+        <h4 id="资源的具体定义">
+          <a href="#资源的具体定义" class="heading-link"><i class="fas fa-link"></i></a>资源的具体定义</h4>
+      <p>参考上述 UML 图，可以将 Resource 的定义分为三层，其中第 1 层是 Resource 接口定义；第 2 层是对 Resource 接口的扩展，包括 AbstractResource 抽象类、WritableResource 接口，以及 ContextResource 接口；第 3 层是具体的针对不同类型资源的 Resource 实现类。</p>
+<p>关于第 1 层 Resource 接口的定义已经在上一小节进行了说明，下面来简单介绍一下第 2 层和第 3 层中的 Resource 的定义。首先来看一下 <strong>第 2 层</strong> ，包括：</p>
+<ul>
+<li><strong>WritableResource</strong></li>
+</ul>
+<p>WritableResource 接口用于描述一个资源是否支持可写的特性。在 Resource 接口定义中仅描述了一个资源是否可读，因为可读相对于可写是更加基本的特性，而对于可读又可写的文件来说，可以使用 WritableResource 接口予以描述。该接口声明了 3 个方法，其中 <code>WritableResource#isWritable</code> 方法用于判断文件是否可写；方法 <code>WritableResource#getOutputStream</code> 用于获取可写文件的 OutputStream 对象；方法 <code>WritableResource#writableChannel</code> 用于获取可写文件的 WritableByteChannel 对象。</p>
+<ul>
+<li><strong>ContextResource</strong></li>
+</ul>
+<p>ContextResource 是在 2.5 版本引入的一个扩展接口，用于描述从上下文环境中加载的资源，该接口仅声明了一个方法 <code>ContextResource#getPathWithinContext</code>，用于获取上下文环境的相对路径。</p>
+<ul>
+<li><strong>AbstractResource</strong></li>
+</ul>
+<p>AbstractResource 抽象类不是对某一具体资源的描述，而是一种编程技巧。Resource 接口中声明了资源的多种操作方法，如果我们直接去实现 Resource 接口，势必要提供针对每一个方法的实现，而这些方法可能并不需要全部提供支持。AbstractResource 抽象类对所有方法提供了默认实现，通过继承 AbstractResource 抽象类可以针对性的选择实现相应的方法。</p>
+<p>下面来看一下 <strong>第 3 层</strong> Resource 定义，这一层针对不同的资源类型定义了相应的 Resource 实现，这些实现类均派生自 AbstractResource 抽象类，其中一部分实现了 WritableResource 接口或 ContextResource 接口。</p>
+<ul>
+<li><strong>AbstractFileResolvingResource</strong></li>
+</ul>
+<p>AbstractFileResolvingResource 抽象了解析 URL 所指代的文件为 File 对象的过程，具体的实现典型的有 UrlResource 和 ClassPathResource。AbstractFileResolvingResource 抽象类定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="class"><span class="keyword">class</span> <span class="title">AbstractFileResolvingResource</span> <span class="keyword">extends</span> <span class="title">AbstractResource</span> </span>{</span><br><span class="line">    <span class="comment">/** 解析 URL 所指向的 File 对象 */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> File <span class="title">getFile</span><span class="params">()</span> <span class="keyword">throws</span> IOException</span>;</span><br><span class="line">    <span class="comment">/** 解析 URI 所指向的 File 对象 */</span></span><br><span class="line">    <span class="function"><span class="keyword">protected</span> File <span class="title">getFile</span><span class="params">(URI uri)</span> <span class="keyword">throws</span> IOException</span>;</span><br><span class="line">    <span class="comment">/** 解析 URL 所指向的底层文件为 File 对象，比如压缩包中的文件 */</span></span><br><span class="line">    <span class="function"><span class="keyword">protected</span> File <span class="title">getFileForLastModifiedCheck</span><span class="params">()</span> <span class="keyword">throws</span> IOException</span>;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">exists</span><span class="params">()</span></span></span><br><span class="line"><span class="function">    <span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">isReadable</span><span class="params">()</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">isFile</span><span class="params">()</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">long</span> <span class="title">contentLength</span><span class="params">()</span> <span class="keyword">throws</span> IOException</span>;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">long</span> <span class="title">lastModified</span><span class="params">()</span> <span class="keyword">throws</span> IOException</span>;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> ReadableByteChannel <span class="title">readableChannel</span><span class="params">()</span> <span class="keyword">throws</span> IOException</span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>我们来看一下 <code>AbstractFileResolvingResource#getFile</code> 和 <code>AbstractFileResolvingResource#getFileForLastModifiedCheck</code> 方法的实现：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> File <span class="title">getFile</span><span class="params">()</span> <span class="keyword">throws</span> IOException </span>{</span><br><span class="line">    <span class="comment">// 获取 URL 对象</span></span><br><span class="line">    URL url = getURL();</span><br><span class="line">    <span class="comment">// 如果是 JBoss VFS 文件</span></span><br><span class="line">    <span class="keyword">if</span> (url.getProtocol().startsWith(ResourceUtils.URL_PROTOCOL_VFS)) {</span><br><span class="line">        <span class="keyword">return</span> VfsResourceDelegate.getResource(url).getFile();</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">return</span> ResourceUtils.getFile(url, getDescription());</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述方法用于解析 URL 所指向的文件为 File 对象，首先调用 <code>AbstractResource#getURL</code> 方法获取 URL 对象，然后检查当前 URL 是不是 JBoss VFS 文件，如果是则走 VFS 文件解析策略，否则调用工具类方法 <code>ResourceUtils#getFile</code> 进行解析，过程如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> File <span class="title">getFile</span><span class="params">(URL resourceUrl, String description)</span> <span class="keyword">throws</span> FileNotFoundException </span>{</span><br><span class="line">    Assert.notNull(resourceUrl, <span class="string">"Resource URL must not be null"</span>);</span><br><span class="line">    <span class="comment">// URL 不是 file 协议，说明不是指代文件</span></span><br><span class="line">    <span class="keyword">if</span> (!URL_PROTOCOL_FILE.equals(resourceUrl.getProtocol())) {</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> FileNotFoundException(</span><br><span class="line">                description + <span class="string">" cannot be resolved to absolute file path "</span> +</span><br><span class="line">                        <span class="string">"because it does not reside in the file system: "</span> + resourceUrl);</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="comment">// 由 URL 对象构造 File 对象</span></span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> File(toURI(resourceUrl).getSchemeSpecificPart());</span><br><span class="line">    } <span class="keyword">catch</span> (URISyntaxException ex) {</span><br><span class="line">        <span class="comment">// Fallback for URLs that are not valid URIs (should hardly ever happen).</span></span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> File(resourceUrl.getFile());</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>方法 <code>AbstractFileResolvingResource#getFileForLastModifiedCheck</code> 相对于上述方法提供了对压缩文件 URL 路径的解析，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">protected</span> File <span class="title">getFileForLastModifiedCheck</span><span class="params">()</span> <span class="keyword">throws</span> IOException </span>{</span><br><span class="line">    <span class="comment">// 获取 URL 对象</span></span><br><span class="line">    URL url = getURL();</span><br><span class="line">    <span class="comment">// 如果 URL 的协议是 jar、war、zip、vfszip 或 wsjar 之一，则执行解析</span></span><br><span class="line">    <span class="keyword">if</span> (ResourceUtils.isJarURL(url)) {</span><br><span class="line">        URL actualUrl = ResourceUtils.extractArchiveURL(url);</span><br><span class="line">        <span class="comment">// 如果是 JBoss VFS 文件</span></span><br><span class="line">        <span class="keyword">if</span> (actualUrl.getProtocol().startsWith(ResourceUtils.URL_PROTOCOL_VFS)) {</span><br><span class="line">            <span class="keyword">return</span> VfsResourceDelegate.getResource(actualUrl).getFile();</span><br><span class="line">        }</span><br><span class="line">        <span class="keyword">return</span> ResourceUtils.getFile(actualUrl, <span class="string">"Jar URL"</span>);</span><br><span class="line">    } <span class="keyword">else</span> {</span><br><span class="line">        <span class="comment">// 走普通的解析逻辑</span></span><br><span class="line">        <span class="keyword">return</span> getFile();</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>方法首先获取 URL 对象，然后判断是不是压缩文件 URL，如果不是就走前面的 <code>AbstractFileResolvingResource#getFile</code> 进行常规解析；否则，即当前 URL 的协议是 jar、war、zip、vfszip 或 wsjar 中的一个，则首先解析 URL 得到常规 URL 对象，然后执行与 <code>AbstractFileResolvingResource#getFile</code> 方法相同的逻辑。</p>
+<p>针对 AbstractFileResolvingResource 主要由两个直接实现类，即 UrlResource 和 ClassPathResource。其中 <strong>UrlResource</strong> 主要是解析 <code>file:</code> 协议；而 <strong>ClassPathResource</strong> 主要是对类上下文环境中资源的描述，基于 ClassLoader 或 Class 来定位加载资源。</p>
+<ul>
+<li><strong>FileSystemResource</strong></li>
+</ul>
+<p>FileSystemResource 是对文件系统类型资源的描述，这也是 Spring 中典型的资源类型。该类继承自 AbstractResource，并实现了 WritableResource 接口。</p>
+<p>FileSystemResource 提供了两个构造方法分别由 File 对象和文件路径来构造资源对象，对于传入的路径，考虑输入的不确定性会执行 <code>StringUtils#cleanPath</code> 方法对其进行格式化。FileSystemResource 中的方法实现几乎都依赖于 File 类的 API。这里提一下 <code>FileSystemResource#createRelative</code> 方法，该方法会基于相对路径创建 FileSystemResource 对象，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> Resource <span class="title">createRelative</span><span class="params">(String relativePath)</span> </span>{</span><br><span class="line">    String pathToUse = StringUtils.applyRelativePath(<span class="keyword">this</span>.path, relativePath);</span><br><span class="line">    <span class="keyword">return</span> (<span class="keyword">this</span>.file != <span class="keyword">null</span> ? <span class="keyword">new</span> FileSystemResource(pathToUse) :</span><br><span class="line">            <span class="keyword">new</span> FileSystemResource(<span class="keyword">this</span>.filePath.getFileSystem(), pathToUse));</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>首先利用 <code>StringUtils#applyRelativePath</code> 方法创建资源绝对路径，主要操作是截取 path 的最后一个文件分隔符 <code>/</code> 前面的内容与 relativePath 进行拼接，然后基于新的路径构造 FileSystemResource 对象。</p>
+<ul>
+<li><strong>PathResource</strong></li>
+</ul>
+<p>PathResource 在 4.0 版本引入的基于 JDK 7 NIO 2.0 中的 Path 类所实现的资源类型。NIO 2.0 针对本地 I/O 引入了许多新的类，用来改变 java 语言在 I/O 方面一直被人诟病的慢特性，所以 PathResource 也表示 Spring 由 BIO 向 NIO 的迈进。</p>
+<ul>
+<li><strong>DescriptiveResource</strong></li>
+</ul>
+<p>DescriptiveResource 资源并非表示一个真实可读的资源，而是对文件的一种描述，所以这类资源的 <code>DescriptiveResource#exists</code> 方法始终返回 false。这类资源的作用在于必要的时候用来占坑，例如文档所说的，当一个方法需要你传递一个资源对象，但又不会在方法中真正读取该对象的时候，如果没有合适的资源对象作为参数，就创建一个 DescriptiveResource 资源做参数吧。</p>
+<ul>
+<li><strong>BeanDefinitionResource</strong></li>
+</ul>
+<p>BeanDefinitionResource 是对 BeanDefinition 对象的一个包装。上一篇我们曾介绍过 BeanDefinition 对象是 Spring 核心类之一，是对 bean 定义在 IoC 容器内部进行表示的数据结构，我们在配置文件中定义的 bean，经过加载之后都会以 BeanDefinition 对象的形式存储在 IoC 容器中。BeanDefinitionResource 在实现上仅仅是持有 BeanDefinition 对象，并提供 getter 方法，而一般资源操作方法几乎都不支持。</p>
+<ul>
+<li><strong>ByteArrayResource</strong></li>
+</ul>
+<p>ByteArrayResource 利用字节数组作为资源存储的标的，JDK 原生也提供了字节数组式的 I/O 流，所以二者在设计思想是相通的。</p>
+<ul>
+<li><strong>VfsResource</strong></li>
+</ul>
+<p>VfsResource 对 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://developer.jboss.org/wiki/VFS3UserGuide">JBoss Virtual File System (VFS)</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 提供了支持，针对 JBoss VFS 的说明，官网简介如下：</p>
+<blockquote>
+<p>The Virtual File System (VFS) framework is an abstraction layer designed to simplify the programmatic access to file system resources.  One of the key benefits of VFS is to hide certain file system details and allow for file system layouts that are not required to reflect a real file system.  This allows for great flexibility and makes it possible to navigate arbitrary structures (ex. archives) as though they are part of a single file system.</p>
+</blockquote>
+<p>具体没用过，不多做解释。</p>
+<ul>
+<li><strong>InputStreamResource</strong></li>
+</ul>
+<p>InputStreamResource 基于给定的 InputStream 来创建资源，流是一般文件的更低一层，程序设计的共性就是越往底层走需要考虑的问题就越多，所以 Spring 明确表示，如果有相应的上层实现则不推荐直接使用 InputStreamResource。</p>
+
+        <h4 id="资源加载">
+          <a href="#资源加载" class="heading-link"><i class="fas fa-link"></i></a>资源加载</h4>
+      <p>Spring 定义了 ResourceLoader 接口用于抽象对于资源的加载操作，该接口的定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">ResourceLoader</span> </span>{</span><br><span class="line">    <span class="function">Resource <span class="title">getResource</span><span class="params">(String location)</span></span>;</span><br><span class="line">    <span class="function">ClassLoader <span class="title">getClassLoader</span><span class="params">()</span></span>;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>其中 <code>ResourceLoader#getResource</code> 方法用于获取指定路径的 Resource 对象；方法 <code>ResourceLoader#getClassLoader</code> 则返回当前 ResourceLoader 所使用的类加载器，一些情况下我们可能需要基于该类加载器执行一些相对定位操作。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2017/spring-ioc-resource-loader.png" alt="image">
+      </p>
+<p>上述 UML 图展示了 ResourceLoader 的继承关系，我们可以将所有的接口分为加载器和解析器两类。加载器的作用不言而喻，对于解析器而言，由前面的分析我们知道 Spring 针对不同资源类型分别定义响应的 Resource 实现类，Spring 通过解析器解析具体资源类型，并加载返回对应的 Resource 对象。</p>
+<p>在日常使用过程中，我们通常都是以 Ant 风格来配置资源路径。Ant 风格的支持给我们的配置带来了极大的灵活性，这也是 PathMatchingResourcePatternResolver 的功劳。路径的解析本质上依赖于各种规则，Ant 风格也不例外，有兴趣的同学可以自己阅读一下 PathMatchingResourcePatternResolver 解析路径的过程。</p>
+
+        <h3 id="Bean-的解析与注册">
+          <a href="#Bean-的解析与注册" class="heading-link"><i class="fas fa-link"></i></a>Bean 的解析与注册</h3>
+      <p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2017/spring-ioc-bean-initialization.png" alt="image">
+      </p>
+<p>当启动 IoC 容器时，Spring 需要读取 bean 相关的配置，并将各个 bean 的配置封装成 BeanDefinition 对象注册到容器中，上图展示了这一解析并注册过程的交互时序。当我们执行 <code>new XmlBeanFactory(resource)</code> 的时候已经完成了将配置文件包装成 Spring 定义的 Resource 对象，并开始执行解析和注册过程。XmlBeanFactory 的构造方法定义如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">XmlBeanFactory</span><span class="params">(Resource resource)</span> <span class="keyword">throws</span> BeansException </span>{</span><br><span class="line">    <span class="keyword">this</span>(resource, <span class="keyword">null</span>);</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">XmlBeanFactory</span><span class="params">(Resource resource, BeanFactory parentBeanFactory)</span> <span class="keyword">throws</span> BeansException </span>{</span><br><span class="line">    <span class="keyword">super</span>(parentBeanFactory);</span><br><span class="line">    <span class="comment">// 加载 XML 资源</span></span><br><span class="line">    <span class="keyword">this</span>.reader.loadBeanDefinitions(resource);</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>构造方法首先是调用了父类 DefaultListableBeanFactory 构造方法，这是一个非常核心的类，它包含了简单 IoC 容器所具备的重要功能，是一个 IoC 容器的基本实现。然后调用了 <code>XmlBeanDefinitionReader#loadBeanDefinitions</code> 方法开始加载配置。</p>
+<p>Spring 在设计上采用了许多程序设计的基本原则，比如迪米特法则、开闭原则，以及接口隔离原则等等，这样的设计为后续的扩展提供了极大的灵活性，也增强了模块的复用性。</p>
+<p>Spring 使用了专门的 BeanDefinition 加载器对资源进行加载，这里使用的是 XmlBeanDefinitionReader 类，用来加载基于 XML 文件配置的 bean。整个加载过程可以概括如下：</p>
+<ol>
+<li>利用 EncodedResource 二次包装 Resource 对象；</li>
+<li>获取资源对应的输入流，并构造 InputSource 对象；</li>
+<li>获取 XML 文件的实体解析器和验证模式，并加载 XML 文件返回 Document 对象；</li>
+<li>由 Document 对象解析并注册 BeanDefinition。</li>
+</ol>
+<p>上述过程执行期间，Spring 会暂存正在加载的 Resource 对象，避免在配置中出现配置文件之间的循环 import。</p>
+<p>下面针对上述步骤展开说明。首先来看 <strong>步骤一</strong> ，这一步会采用 EncodedResource 对 Resource 对象进行二次封装。EncodedResource 从命名来看是对于 Resource 的一种修饰，而不是用来描述某一类具体的资源，所以 EncodedResource 并没有实现 Resource 接口，而是采用了类似装饰者模式的方式对 Resource 对象进行包装，以实现对 Resource 输入流按照指定的字符集进行编码。</p>
+<p>完成了对 Resource 对象进行编码封装之后， <strong>步骤二</strong>  会依据编码将 Resource 对应的输入流封装成 InputSource 对象，从而为加载 XML 做准备。InputSource 并非是 Spring 中定义的类，这个类是 JDK 提供的对 XML 实体的原生支持</p>
+<p>接下来，Spring 会调用 <code>XmlBeanDefinitionReader#doLoadBeanDefinitions</code> 方法正式开始针对 BeanDefinition 的加载和注册过程，对应 <strong>步骤三</strong> 和 <strong>步骤四</strong> ，该方法实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">protected</span> <span class="keyword">int</span> <span class="title">doLoadBeanDefinitions</span><span class="params">(InputSource inputSource, Resource resource)</span> <span class="keyword">throws</span> BeanDefinitionStoreException </span>{</span><br><span class="line">      <span class="keyword">try</span> {</span><br><span class="line">          <span class="comment">// 获取 XML 文件的实体解析器和验证模式，并加载 XML 文件返回 Document 对象</span></span><br><span class="line">          Document doc = <span class="keyword">this</span>.doLoadDocument(inputSource, resource);</span><br><span class="line">          <span class="comment">// 由 Document 对象解析并注册 BeanDefinition</span></span><br><span class="line">          <span class="keyword">int</span> count = <span class="keyword">this</span>.registerBeanDefinitions(doc, resource);</span><br><span class="line">          <span class="keyword">return</span> count;</span><br><span class="line">      }</span><br><span class="line">      <span class="comment">// ... 省略异常处理</span></span><br><span class="line">  }</span><br></pre></td></tr></tbody></table></div></figure>
+<p>方法逻辑还是很清晰的，第一步加载 XML 获取 Document 对象，第二步由 Document 对象解析得到 BeanDefinition 对象并注册到 IoC 容器中。</p>
+<p>加载 XML 文件首先会获取对应的实体解析器和验证模式，方法 <code>XmlBeanDefinitionReader#doLoadDocument</code> 实现了获取实体解析器、验证模式，以及构造 Document 对象的逻辑：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">protected</span> Document <span class="title">doLoadDocument</span><span class="params">(InputSource inputSource, Resource resource)</span> <span class="keyword">throws</span> Exception </span>{</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">this</span>.documentLoader.loadDocument(</span><br><span class="line">            inputSource,</span><br><span class="line">            <span class="keyword">this</span>.getEntityResolver(),  <span class="comment">// 获取实体解析器</span></span><br><span class="line">            <span class="keyword">this</span>.errorHandler,</span><br><span class="line">            <span class="keyword">this</span>.getValidationModeForResource(resource),  <span class="comment">// 获取验证模式</span></span><br><span class="line">            <span class="keyword">this</span>.isNamespaceAware());</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>XML 是半结构化数据，其验证模式用于保证结构的正确性，常见的验证模式有 DTD 和 XSD 两种。获取验证模式的过程实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">protected</span> <span class="keyword">int</span> <span class="title">getValidationModeForResource</span><span class="params">(Resource resource)</span> </span>{</span><br><span class="line">    <span class="keyword">int</span> validationModeToUse = <span class="keyword">this</span>.getValidationMode();</span><br><span class="line">    <span class="keyword">if</span> (validationModeToUse != VALIDATION_AUTO) {</span><br><span class="line">        <span class="comment">// 手动指定了验证模式</span></span><br><span class="line">        <span class="keyword">return</span> validationModeToUse;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 没有指定验证模式，自动检测</span></span><br><span class="line">    <span class="keyword">int</span> detectedMode = <span class="keyword">this</span>.detectValidationMode(resource);</span><br><span class="line">    <span class="keyword">if</span> (detectedMode != VALIDATION_AUTO) {</span><br><span class="line">        <span class="keyword">return</span> detectedMode;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 检测验证模式失败，默认采用 XSD 模式</span></span><br><span class="line">    <span class="keyword">return</span> VALIDATION_XSD;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述实现描述了获取验证模式的执行流程，如果没有手动指定那么 Spring 会去自动检测。对于 XML 文件的解析，SAX 首先会读取 XML 文件头声明，以获取相应验证文件地址，并下载验证文件。网络异常会影响下载过程，这个时候可以通过注册一个实体解析器实现寻找验证文件的逻辑。</p>
+<p>完成了对于验证模式和解析器的获取，就可以开始加载 Document 对象了，这里本质上调用的是 <code>DefaultDocumentLoader#loadDocument</code> 方法，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> Document <span class="title">loadDocument</span><span class="params">(InputSource inputSource,</span></span></span><br><span class="line"><span class="function"><span class="params">                             EntityResolver entityResolver,</span></span></span><br><span class="line"><span class="function"><span class="params">                             ErrorHandler errorHandler,</span></span></span><br><span class="line"><span class="function"><span class="params">                             <span class="keyword">int</span> validationMode,</span></span></span><br><span class="line"><span class="function"><span class="params">                             <span class="keyword">boolean</span> namespaceAware)</span> <span class="keyword">throws</span> Exception </span>{</span><br><span class="line"></span><br><span class="line">    DocumentBuilderFactory factory = <span class="keyword">this</span>.createDocumentBuilderFactory(validationMode, namespaceAware);</span><br><span class="line">    <span class="keyword">if</span> (logger.isTraceEnabled()) {</span><br><span class="line">        logger.trace(<span class="string">"Using JAXP provider ["</span> + factory.getClass().getName() + <span class="string">"]"</span>);</span><br><span class="line">    }</span><br><span class="line">    DocumentBuilder builder = <span class="keyword">this</span>.createDocumentBuilder(factory, entityResolver, errorHandler);</span><br><span class="line">    <span class="keyword">return</span> builder.parse(inputSource);</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>整个过程与我们平常解析 XML 文件的流程大致相同。</p>
+<p>完成了对 XML 文件到 Document 对象的构造，我们终于可以解析 Document 对象并注册 BeanDefinition 了，这一过程由 <code>XmlBeanDefinitionReader#registerBeanDefinitions</code> 方法实现：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">int</span> <span class="title">registerBeanDefinitions</span><span class="params">(Document doc, Resource resource)</span> <span class="keyword">throws</span> BeanDefinitionStoreException </span>{</span><br><span class="line">    <span class="comment">// 使用 DefaultBeanDefinitionDocumentReader 构造</span></span><br><span class="line">    BeanDefinitionDocumentReader documentReader = <span class="keyword">this</span>.createBeanDefinitionDocumentReader();</span><br><span class="line">    <span class="comment">// 记录之前已经注册的 BeanDefinition 数目</span></span><br><span class="line">    <span class="keyword">int</span> countBefore = <span class="keyword">this</span>.getRegistry().getBeanDefinitionCount();</span><br><span class="line">    <span class="comment">// 加载并注册 BeanDefinition</span></span><br><span class="line">    documentReader.registerBeanDefinitions(doc, <span class="keyword">this</span>.createReaderContext(resource));</span><br><span class="line">    <span class="comment">// 返回本次加载的 BeanDefinition 数目</span></span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">this</span>.getRegistry().getBeanDefinitionCount() - countBefore;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述方法所做的工作就是创建对应的 BeanDefinitionDocumentReader 对象，基于该对象加载并注册 BeanDefinition，并最终返回本次新注册的 BeanDefinition 的数量。加载并注册 BeanDefinition 的过程具体由 DefaultBeanDefinitionDocumentReader 实现：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">registerBeanDefinitions</span><span class="params">(Document doc, XmlReaderContext readerContext)</span> </span>{</span><br><span class="line">    <span class="keyword">this</span>.readerContext = readerContext;</span><br><span class="line">    <span class="comment">// 从文档的 ROOT 结点开始解析</span></span><br><span class="line">    <span class="keyword">this</span>.doRegisterBeanDefinitions(doc.getDocumentElement());</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">doRegisterBeanDefinitions</span><span class="params">(Element root)</span> </span>{</span><br><span class="line">    <span class="comment">// Any nested &lt;beans&gt; elements will cause recursion in this method. In</span></span><br><span class="line">    <span class="comment">// order to propagate and preserve &lt;beans&gt; default-* attributes correctly,</span></span><br><span class="line">    <span class="comment">// keep track of the current (parent) delegate, which may be null. Create</span></span><br><span class="line">    <span class="comment">// the new (child) delegate with a reference to the parent for fallback purposes,</span></span><br><span class="line">    <span class="comment">// then ultimately reset this.delegate back to its original (parent) reference.</span></span><br><span class="line">    <span class="comment">// this behavior emulates a stack of delegates without actually necessitating one.</span></span><br><span class="line">    BeanDefinitionParserDelegate parent = <span class="keyword">this</span>.delegate;</span><br><span class="line">    <span class="keyword">this</span>.delegate = <span class="keyword">this</span>.createDelegate(<span class="keyword">this</span>.getReaderContext(), root, parent);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 处理 profile 标签（其作用类比 pom.xml 中的 profile）</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">this</span>.delegate.isDefaultNamespace(root)) {</span><br><span class="line">        String profileSpec = root.getAttribute(PROFILE_ATTRIBUTE);</span><br><span class="line">        <span class="keyword">if</span> (StringUtils.hasText(profileSpec)) {</span><br><span class="line">            String[] specifiedProfiles = StringUtils.tokenizeToStringArray(</span><br><span class="line">                    profileSpec, BeanDefinitionParserDelegate.MULTI_VALUE_ATTRIBUTE_DELIMITERS);</span><br><span class="line">            <span class="comment">// We cannot use Profiles.of(...) since profile expressions are not supported in XML config. See SPR-12458 for details.</span></span><br><span class="line">            <span class="keyword">if</span> (!<span class="keyword">this</span>.getReaderContext().getEnvironment().acceptsProfiles(specifiedProfiles)) {</span><br><span class="line">                <span class="keyword">return</span>;</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 模板方法，预处理</span></span><br><span class="line">    <span class="keyword">this</span>.preProcessXml(root);</span><br><span class="line">    <span class="comment">// 解析并注册 BeanDefinition</span></span><br><span class="line">    <span class="keyword">this</span>.parseBeanDefinitions(root, <span class="keyword">this</span>.delegate);</span><br><span class="line">    <span class="comment">// 模板方法，后处理</span></span><br><span class="line">    <span class="keyword">this</span>.postProcessXml(root);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">this</span>.delegate = parent;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>解析的过程首先处理 <code>&lt;profile/&gt;</code> 标签，这个属性在 Spring 中不是很常用，不过在 maven 中倒是挺常见，可以类比进行理解，即在配置多套环境时可以根据部署的具体环境来选择使用哪一套配置。上述方法会先检测是否配置了 profile 标签，如果是就需要从上下文环境中确认当前激活了哪一套配置。</p>
+<p>具体解析并注册 BeanDefinition 的过程交由 <code>DefaultBeanDefinitionDocumentReader#parseBeanDefinitions</code> 方法完成，实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">parseBeanDefinitions</span><span class="params">(Element root, BeanDefinitionParserDelegate delegate)</span> </span>{</span><br><span class="line">    <span class="comment">// 解析默认标签</span></span><br><span class="line">    <span class="keyword">if</span> (delegate.isDefaultNamespace(root)) {</span><br><span class="line">        NodeList nl = root.getChildNodes();</span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; nl.getLength(); i++) {</span><br><span class="line">            Node node = nl.item(i);</span><br><span class="line">            <span class="keyword">if</span> (node <span class="keyword">instanceof</span> Element) {</span><br><span class="line">                Element ele = (Element) node;</span><br><span class="line">                <span class="comment">// 解析默认标签</span></span><br><span class="line">                <span class="keyword">if</span> (delegate.isDefaultNamespace(ele)) {</span><br><span class="line">                    <span class="keyword">this</span>.parseDefaultElement(ele, delegate);</span><br><span class="line">                }</span><br><span class="line">                <span class="comment">// 解析自定义标签</span></span><br><span class="line">                <span class="keyword">else</span> {</span><br><span class="line">                    delegate.parseCustomElement(ele);</span><br><span class="line">                }</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">// 解析自定义标签</span></span><br><span class="line">    <span class="keyword">else</span> {</span><br><span class="line">        delegate.parseCustomElement(root);</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>解析期间会判断当前标签是默认标签还是自定义标签，并按照不同的策略进行解析，这是一个复杂的过程，后面会用文章进行针对性讲解，这里暂不深究。</p>
+<p>到这里我们已经完成了由静态配置到 BeanDefinition 的解析，并注册到 IoC 容器中的过程，下一节将继续探究如何创建并初始化 bean 实例。</p>
+
+        <h3 id="Bean-实例的创建和初始化">
+          <a href="#Bean-实例的创建和初始化" class="heading-link"><i class="fas fa-link"></i></a>Bean 实例的创建和初始化</h3>
+      <p>完成了对 bean 配置的加载和解析之后，相应的配置就全部转换成 BeanDefinition 对象的形式存在于 IoC 容器中。接下来我们可以调用 <code>AbstractBeanFactory#getBean</code> 方法获取 bean 实例，该方法实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> Object <span class="title">getBean</span><span class="params">(String name)</span> <span class="keyword">throws</span> BeansException </span>{</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">this</span>.doGetBean(name, <span class="keyword">null</span>, <span class="keyword">null</span>, <span class="keyword">false</span>);</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述方法只是简单的将请求委托给  <code>AbstractBeanFactory#doGetBean</code> 方法进行处理，这也符合我们的预期。方法   <code>AbstractBeanFactory#doGetBean</code>  可以看作是是获取 bean 实例的整体框架代码，通过调度各个模块完成对 bean 实例及其依赖的 bean 实例的初始化操作，并最终返回我们期望的 bean 实例。方法实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">protected</span> &lt;T&gt; <span class="function">T <span class="title">doGetBean</span><span class="params">(<span class="keyword">final</span> String name,</span></span></span><br><span class="line"><span class="function"><span class="params">                          <span class="meta">@Nullable</span> <span class="keyword">final</span> Class&lt;T&gt; requiredType,</span></span></span><br><span class="line"><span class="function"><span class="params">                          <span class="meta">@Nullable</span> <span class="keyword">final</span> Object[] args,</span></span></span><br><span class="line"><span class="function"><span class="params">                          <span class="keyword">boolean</span> typeCheckOnly)</span> <span class="keyword">throws</span> BeansException </span>{</span><br><span class="line"></span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">     * 获取 name 对应的真正 beanName</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * 因为传入的参数可以是 alias，也可能是 FactoryBean 的 name，所以需要进行解析，包含以下内容：</span></span><br><span class="line"><span class="comment">     * 1. 如果是 FactoryBean，则去掉 “&amp;” 前缀</span></span><br><span class="line"><span class="comment">     * 2. 沿着引用链获取 alias 对应的最终 name</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">final</span> String beanName = <span class="keyword">this</span>.transformedBeanName(name);</span><br><span class="line">    Object bean;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">     * 尝试从单例集合中获取对应的单实例，</span></span><br><span class="line"><span class="comment">     * 在实例化 bean 的时候可能需要实例化依赖的 bean 对象，Spring 为了避免循环依赖会采用早期引用机制</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    Object sharedInstance = <span class="keyword">this</span>.getSingleton(beanName);</span><br><span class="line">    <span class="comment">// 目标实例已经实例化过</span></span><br><span class="line">    <span class="keyword">if</span> (sharedInstance != <span class="keyword">null</span> &amp;&amp; args == <span class="keyword">null</span>) {</span><br><span class="line">        <span class="keyword">if</span> (logger.isTraceEnabled()) {</span><br><span class="line">            <span class="keyword">if</span> (<span class="keyword">this</span>.isSingletonCurrentlyInCreation(beanName)) {</span><br><span class="line">                logger.trace(<span class="string">"Returning eagerly cached instance of singleton bean '"</span> + beanName +</span><br><span class="line">                        <span class="string">"' that is not fully initialized yet - a consequence of a circular reference"</span>);</span><br><span class="line">            } <span class="keyword">else</span> {</span><br><span class="line">                logger.trace(<span class="string">"Returning cached instance of singleton bean '"</span> + beanName + <span class="string">"'"</span>);</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">        <span class="comment">// 处理 FactoryBean</span></span><br><span class="line">        bean = <span class="keyword">this</span>.getObjectForBeanInstance(sharedInstance, name, beanName, <span class="keyword">null</span>);</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">// 目标实例不存在</span></span><br><span class="line">    <span class="keyword">else</span> {</span><br><span class="line">        <span class="comment">// Fail if we're already creating this bean instance: We're assumably within a circular reference.</span></span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">this</span>.isPrototypeCurrentlyInCreation(beanName)) {</span><br><span class="line">            <span class="comment">/*</span></span><br><span class="line"><span class="comment">             * 只有在单例模式下才会尝试解决循环依赖问题，</span></span><br><span class="line"><span class="comment">             * 对于原型模式，如果存在循环依赖，直接抛出异常</span></span><br><span class="line"><span class="comment">             */</span></span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> BeanCurrentlyInCreationException(beanName);</span><br><span class="line">        }</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 获取父 BeanFactory 实例</span></span><br><span class="line">        BeanFactory parentBeanFactory = <span class="keyword">this</span>.getParentBeanFactory();</span><br><span class="line">        <span class="comment">// 如果已经加载的 bean 定义中不包含目标 bean，则尝试从父 BeanFactory 中获取</span></span><br><span class="line">        <span class="keyword">if</span> (parentBeanFactory != <span class="keyword">null</span> &amp;&amp; !<span class="keyword">this</span>.containsBeanDefinition(beanName)) {</span><br><span class="line">            <span class="comment">// 递归到父 BeanFactory 中进行检索</span></span><br><span class="line">            String nameToLookup = <span class="keyword">this</span>.originalBeanName(name);</span><br><span class="line">            <span class="keyword">if</span> (parentBeanFactory <span class="keyword">instanceof</span> AbstractBeanFactory) {</span><br><span class="line">                <span class="keyword">return</span> ((AbstractBeanFactory) parentBeanFactory)</span><br><span class="line">                        .doGetBean(nameToLookup, requiredType, args, typeCheckOnly);</span><br><span class="line">            } <span class="keyword">else</span> <span class="keyword">if</span> (args != <span class="keyword">null</span>) {</span><br><span class="line">                <span class="comment">// Delegation to parent with explicit args.</span></span><br><span class="line">                <span class="keyword">return</span> (T) parentBeanFactory.getBean(nameToLookup, args);</span><br><span class="line">            } <span class="keyword">else</span> <span class="keyword">if</span> (requiredType != <span class="keyword">null</span>) {</span><br><span class="line">                <span class="comment">// No args -&gt; delegate to standard getBean method.</span></span><br><span class="line">                <span class="keyword">return</span> parentBeanFactory.getBean(nameToLookup, requiredType);</span><br><span class="line">            } <span class="keyword">else</span> {</span><br><span class="line">                <span class="keyword">return</span> (T) parentBeanFactory.getBean(nameToLookup);</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 如果不仅仅是做类型检查，则标记该 bean 即将被创建</span></span><br><span class="line">        <span class="keyword">if</span> (!typeCheckOnly) {</span><br><span class="line">            <span class="keyword">this</span>.markBeanAsCreated(beanName);</span><br><span class="line">        }</span><br><span class="line"></span><br><span class="line">        <span class="keyword">try</span> {</span><br><span class="line">            <span class="comment">// 如果存在父 bean，则继承父 bean 定义</span></span><br><span class="line">            <span class="keyword">final</span> RootBeanDefinition mbd = <span class="keyword">this</span>.getMergedLocalBeanDefinition(beanName);</span><br><span class="line">            <span class="comment">// 检查 bean 是否是抽象的，如果是则抛出异常</span></span><br><span class="line">            <span class="keyword">this</span>.checkMergedBeanDefinition(mbd, beanName, args);</span><br><span class="line"></span><br><span class="line">            <span class="comment">// 加载当前 bean 依赖的 bean 实例</span></span><br><span class="line">            String[] dependsOn = mbd.getDependsOn();</span><br><span class="line">            <span class="comment">// 存在依赖，递归实例化依赖的 bean 实例</span></span><br><span class="line">            <span class="keyword">if</span> (dependsOn != <span class="keyword">null</span>) {</span><br><span class="line">                <span class="keyword">for</span> (String dep : dependsOn) {</span><br><span class="line">                    <span class="comment">// 检查是否存在循环依赖</span></span><br><span class="line">                    <span class="keyword">if</span> (<span class="keyword">this</span>.isDependent(beanName, dep)) {</span><br><span class="line">                        <span class="keyword">throw</span> <span class="keyword">new</span> BeanCreationException(mbd.getResourceDescription(), beanName,</span><br><span class="line">                                <span class="string">"Circular depends-on relationship between '"</span> + beanName + <span class="string">"' and '"</span> + dep + <span class="string">"'"</span>);</span><br><span class="line">                    }</span><br><span class="line">                    <span class="comment">// 缓存依赖调用</span></span><br><span class="line">                    <span class="keyword">this</span>.registerDependentBean(dep, beanName);</span><br><span class="line">                    <span class="keyword">try</span> {</span><br><span class="line">                        <span class="comment">// 初始化依赖的 bean 实例</span></span><br><span class="line">                        <span class="keyword">this</span>.getBean(dep);</span><br><span class="line">                    } <span class="keyword">catch</span> (NoSuchBeanDefinitionException ex) {</span><br><span class="line">                        <span class="keyword">throw</span> <span class="keyword">new</span> BeanCreationException(mbd.getResourceDescription(), beanName,</span><br><span class="line">                                <span class="string">"'"</span> + beanName + <span class="string">"' depends on missing bean '"</span> + dep + <span class="string">"'"</span>, ex);</span><br><span class="line">                    }</span><br><span class="line">                }</span><br><span class="line">            }</span><br><span class="line"></span><br><span class="line">            <span class="comment">/* 创建 bean 实例 */</span></span><br><span class="line"></span><br><span class="line">            <span class="comment">// scope == singleton</span></span><br><span class="line">            <span class="keyword">if</span> (mbd.isSingleton()) {</span><br><span class="line">                sharedInstance = <span class="keyword">this</span>.getSingleton(beanName, () -&gt; {</span><br><span class="line">                    <span class="keyword">try</span> {</span><br><span class="line">                        <span class="comment">// 实例化 bean 对象</span></span><br><span class="line">                        <span class="keyword">return</span> <span class="keyword">this</span>.createBean(beanName, mbd, args);</span><br><span class="line">                    } <span class="keyword">catch</span> (BeansException ex) {</span><br><span class="line">                        <span class="comment">// Explicitly remove instance from singleton cache: It might have been put there</span></span><br><span class="line">                        <span class="comment">// eagerly by the creation process, to allow for circular reference resolution.</span></span><br><span class="line">                        <span class="comment">// Also remove any beans that received a temporary reference to the bean.</span></span><br><span class="line">                        <span class="keyword">this</span>.destroySingleton(beanName); <span class="comment">// 清理工作，从单例缓存中移除</span></span><br><span class="line">                        <span class="keyword">throw</span> ex;</span><br><span class="line">                    }</span><br><span class="line">                });</span><br><span class="line">                <span class="comment">// 处理 FactoryBean</span></span><br><span class="line">                bean = <span class="keyword">this</span>.getObjectForBeanInstance(sharedInstance, name, beanName, mbd);</span><br><span class="line">            }</span><br><span class="line">            <span class="comment">// scope == prototype</span></span><br><span class="line">            <span class="keyword">else</span> <span class="keyword">if</span> (mbd.isPrototype()) {</span><br><span class="line">                <span class="comment">// It's a prototype -&gt; create a new instance.</span></span><br><span class="line">                Object prototypeInstance = <span class="keyword">null</span>;</span><br><span class="line">                <span class="keyword">try</span> {</span><br><span class="line">                    <span class="comment">// 设置正在创建的状态</span></span><br><span class="line">                    <span class="keyword">this</span>.beforePrototypeCreation(beanName);</span><br><span class="line">                    <span class="comment">// 创建 bean 实例</span></span><br><span class="line">                    prototypeInstance = <span class="keyword">this</span>.createBean(beanName, mbd, args);</span><br><span class="line">                } <span class="keyword">finally</span> {</span><br><span class="line">                    <span class="keyword">this</span>.afterPrototypeCreation(beanName);</span><br><span class="line">                }</span><br><span class="line">                <span class="comment">// 处理 FactoryBean</span></span><br><span class="line">                bean = <span class="keyword">this</span>.getObjectForBeanInstance(prototypeInstance, name, beanName, mbd);</span><br><span class="line">            }</span><br><span class="line">            <span class="comment">// other scope</span></span><br><span class="line">            <span class="keyword">else</span> {</span><br><span class="line">                String scopeName = mbd.getScope();</span><br><span class="line">                <span class="keyword">final</span> Scope scope = <span class="keyword">this</span>.scopes.get(scopeName);</span><br><span class="line">                <span class="keyword">if</span> (scope == <span class="keyword">null</span>) {</span><br><span class="line">                    <span class="keyword">throw</span> <span class="keyword">new</span> IllegalStateException(<span class="string">"No Scope registered for scope name '"</span> + scopeName + <span class="string">"'"</span>);</span><br><span class="line">                }</span><br><span class="line">                <span class="keyword">try</span> {</span><br><span class="line">                    Object scopedInstance = scope.get(beanName, () -&gt; {</span><br><span class="line">                        <span class="keyword">this</span>.beforePrototypeCreation(beanName);</span><br><span class="line">                        <span class="keyword">try</span> {</span><br><span class="line">                            <span class="keyword">return</span> <span class="keyword">this</span>.createBean(beanName, mbd, args);</span><br><span class="line">                        } <span class="keyword">finally</span> {</span><br><span class="line">                            <span class="keyword">this</span>.afterPrototypeCreation(beanName);</span><br><span class="line">                        }</span><br><span class="line">                    });</span><br><span class="line">                    <span class="comment">// 处理 FactoryBean</span></span><br><span class="line">                    bean = <span class="keyword">this</span>.getObjectForBeanInstance(scopedInstance, name, beanName, mbd);</span><br><span class="line">                } <span class="keyword">catch</span> (IllegalStateException ex) {</span><br><span class="line">                    <span class="keyword">throw</span> <span class="keyword">new</span> BeanCreationException(beanName, <span class="string">"Scope '"</span> + scopeName + <span class="string">"' is not active for the current thread; consider "</span> +</span><br><span class="line">                            <span class="string">"defining a scoped proxy for this bean if you intend to refer to it from a singleton"</span>, ex);</span><br><span class="line">                }</span><br><span class="line">            }</span><br><span class="line">        } <span class="keyword">catch</span> (BeansException ex) {</span><br><span class="line">            <span class="keyword">this</span>.cleanupAfterBeanCreationFailure(beanName);</span><br><span class="line">            <span class="keyword">throw</span> ex;</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 如果要求做类型检查，则检查 bean 的实际类型是否是期望的类型，对应 getBean 时指定的 requireType</span></span><br><span class="line">    <span class="keyword">if</span> (requiredType != <span class="keyword">null</span> &amp;&amp; !requiredType.isInstance(bean)) {</span><br><span class="line">        <span class="keyword">try</span> {</span><br><span class="line">            <span class="comment">// 执行类型转换，转换成期望的类型</span></span><br><span class="line">            T convertedBean = <span class="keyword">this</span>.getTypeConverter().convertIfNecessary(bean, requiredType);</span><br><span class="line">            <span class="keyword">if</span> (convertedBean == <span class="keyword">null</span>) {</span><br><span class="line">                <span class="keyword">throw</span> <span class="keyword">new</span> BeanNotOfRequiredTypeException(name, requiredType, bean.getClass());</span><br><span class="line">            }</span><br><span class="line">            <span class="keyword">return</span> convertedBean;</span><br><span class="line">        } <span class="keyword">catch</span> (TypeMismatchException ex) {</span><br><span class="line">            <span class="keyword">if</span> (logger.isTraceEnabled()) {</span><br><span class="line">                logger.trace(<span class="string">"Failed to convert bean '"</span> + name + <span class="string">"' to required type '"</span> +</span><br><span class="line">                        ClassUtils.getQualifiedName(requiredType) + <span class="string">"'"</span>, ex);</span><br><span class="line">            }</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> BeanNotOfRequiredTypeException(name, requiredType, bean.getClass());</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">    <span class="keyword">return</span> (T) bean;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>整个方法的执行流程可以概括为：</p>
+<ol>
+<li>获取参数 name 对应的真正的 beanName；</li>
+<li>检查缓存或者实例工厂中是否有对应的单例，若存在则进行实例化并返回对象，否则继续往下执行；</li>
+<li>执行 prototype 类型依赖检查，防止循环依赖；</li>
+<li>如果当前 BeanFactory 中不存在需要的 bean 实例，则尝试从父 BeanFactory 中获取；</li>
+<li>将之前解析过程返得到的 GenericBeanDefinition 对象合并为 RootBeanDefinition 对象，便于后续处理；</li>
+<li>如果存在依赖的 bean，则递归初始化依赖的 bean 实例；</li>
+<li>依据当前 bean 的作用域对 bean 进行实例化；</li>
+<li>如果对返回 bean 类型有要求则进行检查，按需做类型转换；</li>
+<li>返回 bean 实例。</li>
+</ol>
+<p>上述方法从整体来看就是一个框架代码，总结了从接收一个 beanName 到返回对应 bean 实例的完整流程。</p>
+
+        <h3 id="总结">
+          <a href="#总结" class="heading-link"><i class="fas fa-link"></i></a>总结</h3>
+      <p>本文从整体的角度分析了一个 bean 从 XML 配置，到载入 IoC 容器中封装成 BeanDefinition 对象，最后依据请求初始化并返回 bean 实例的完整流程，目的在于从整体建立对 IoC 容器运行机制的认识。从下一篇开始，我们将回到起点，沿着本文梳理的 IoC 容器运行主线，对中间执行的具体细节进行深入分析。</p>
+
+        <h3 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h3>
+      <ol>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/25866350/">Spring 源码深度解析</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+</ol>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2017/05/10/spring/spring-ioc-bean-factory/">https://plotor.github.io/2017/05/10/spring/spring-ioc-bean-factory/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Spring/">Spring</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2017/05/18/spring/spring-ioc-default-element/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">Spring IoC 源码解析：默认标签的解析过程</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2017/04/30/spring/spring-ioc-container/"><span class="paginator-prev__text">Spring IoC 源码解析：容器的基本层次结构</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%B5%84%E6%BA%90%E7%9A%84%E6%8F%8F%E8%BF%B0%E4%B8%8E%E5%8A%A0%E8%BD%BD"><span class="toc-number">1.</span> <span class="toc-text">
+          资源的描述与加载</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%B5%84%E6%BA%90%E7%9A%84%E6%8A%BD%E8%B1%A1%E5%A3%B0%E6%98%8E"><span class="toc-number">1.1.</span> <span class="toc-text">
+          资源的抽象声明</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%B5%84%E6%BA%90%E7%9A%84%E5%85%B7%E4%BD%93%E5%AE%9A%E4%B9%89"><span class="toc-number">1.2.</span> <span class="toc-text">
+          资源的具体定义</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%B5%84%E6%BA%90%E5%8A%A0%E8%BD%BD"><span class="toc-number">1.3.</span> <span class="toc-text">
+          资源加载</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Bean-%E7%9A%84%E8%A7%A3%E6%9E%90%E4%B8%8E%E6%B3%A8%E5%86%8C"><span class="toc-number">2.</span> <span class="toc-text">
+          Bean 的解析与注册</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Bean-%E5%AE%9E%E4%BE%8B%E7%9A%84%E5%88%9B%E5%BB%BA%E5%92%8C%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="toc-number">3.</span> <span class="toc-text">
+          Bean 实例的创建和初始化</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">4.</span> <span class="toc-text">
+          总结</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">5.</span> <span class="toc-text">
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

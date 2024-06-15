@@ -1,0 +1,519 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="这周小组内的学习是探讨 java 异常处理的最佳实践，今天周末，外面太闷，宅在家里对 java 的异常处理的个人立即做一个总结，如有不对的地方欢迎指正~                     一. 谈谈个人对 java 异常处理的看法       维基百科对于异常处理的定义是：  异常处理，是编程语言或计算机硬件里的一种机制，用于处理软件或信息系统中出现的异常状况（即超出程序正常执行流程的某些特">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Java 异常处理机制与最佳实践">
+<meta property="og:url" content="https://plotor.github.io/2016/08/13/java/java-exception/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="这周小组内的学习是探讨 java 异常处理的最佳实践，今天周末，外面太闷，宅在家里对 java 的异常处理的个人立即做一个总结，如有不对的地方欢迎指正~                     一. 谈谈个人对 java 异常处理的看法       维基百科对于异常处理的定义是：  异常处理，是编程语言或计算机硬件里的一种机制，用于处理软件或信息系统中出现的异常状况（即超出程序正常执行流程的某些特">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://plotor.github.io/images/2016/java-exception.png">
+<meta property="article:published_time" content="2016-08-13T09:55:52.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.962Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Java">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://plotor.github.io/images/2016/java-exception.png"><title>Java 异常处理机制与最佳实践 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2016/08/13/java/java-exception/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">Java 异常处理机制与最佳实践</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2016-08-13</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">5k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">19分</span></span></div></header><div class="post-body"><p>这周小组内的学习是探讨 java 异常处理的最佳实践，今天周末，外面太闷，宅在家里对 java 的异常处理的个人立即做一个总结，如有不对的地方欢迎指正~</p>
+
+        <h3 id="一-谈谈个人对-java-异常处理的看法">
+          <a href="#一-谈谈个人对-java-异常处理的看法" class="heading-link"><i class="fas fa-link"></i></a>一. 谈谈个人对 java 异常处理的看法</h3>
+      <p>维基百科对于异常处理的定义是：</p>
+<blockquote>
+<p>异常处理，是编程语言或计算机硬件里的一种机制，用于处理软件或信息系统中出现的异常状况（即超出程序正常执行流程的某些特殊条件）。</p>
+</blockquote>
+<a id="more"></a>
+
+<p>Java 语言从设计之初就提供了对异常处理的支持，并且不同于其它语言，java 对于异常采取了强校验机制，即对于编译期异常需要 API 调用方显式地对异常进行处理，这种强校验机制被一部分人所钟爱，也有一部分人狂吐槽它。持支持观点的人认为这种机制可以极大的提升系统的稳定性，当存在潜在异常的时候强制开发人员去处理异常，而反对的人则认为强制异常处理降低了代码的可读性，一串串的 <code>try-catch</code> 让代码看起来不够简洁，并且不正确的使用不仅达不到提升系统稳定性的目的，反而成为了 bug 的良好栖息之地。</p>
+<p>java 的异常处理是一把双刃剑，这是我一向持有的观点。个人认为我们不能对 java 的异常处理片面的下一个好或者不好的定义，黑格尔说“存在即合理”，既然 java 的设计者强制要求我们去处理 java 的异常，那么与其在那里吐槽，还不如去学习如何用好 java 的异常处理，让其为提升程序的稳定性所服务。不过从笔者的亲身感受来看，用好 java 的异常处理门槛并不低！</p>
+
+        <h3 id="二-java-的异常继承体系">
+          <a href="#二-java-的异常继承体系" class="heading-link"><i class="fas fa-link"></i></a>二. java 的异常继承体系</h3>
+      <p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2016/java-exception.png" alt="image">
+      </p>
+<p>上图展示了 java 的异常继承体系，Throwable 是整个 java 异常处理的最高抽象（但它不是抽象类哦），它实现了 <code>Serializable</code> 接口，然后 java 将异常分为了 Error 和 Exception 两大类。Error 定义了资源不足、约束失败、其它使程序无法继续执行的条件，一般我们在程序中不需要自己去定义额外的 Error，java 设计者提供的 Error 场景几乎覆盖了所有可预见的情况。当程序中存在 Error 时，我们也无须去处理它，因为这种错误一般都是致命的，让程序挂掉是最好的处理方法。</p>
+<p>我们一般经常接触到的是 Exception，Error 被翻译为错误，而 Exception 则被翻译成异常，异常可以理解为是轻微的错误，很多时候是不致命的，我们可以 catch 之后，经过处理让程序继续执行。但有时候一些错误虽然是轻微的，但依靠程序本身也无力挽救，即错误和异常之间没有明显的边界，为了解决这个问题，Exception 被设计成了 CheckedException 和 UnCheckedException 两大类，我们可以把 UnCheckedException 看做是介于 Exception 和 Error 的中间产物，有时候它可以被 catch，有时候我们也希望它可以让程序立即挂掉。</p>
+<ul>
+<li><strong>CheckedException</strong> ：也称作编译期异常，这类异常强制软件研发人员进行 catch 处理，如果不处理则无法编译通过，这类异常很多时候都是可以恢复的。</li>
+<li><strong>UnCheckedException</strong> ：也称作运行时异常，这类异常不强制要求软件研发人员进行 catch 处理，如果不处理则出现该异常的时候程序会挂掉，这个时候有点接近于 Error，虽然不强制，我们也可以主动去 catch 这些异常，处理之后让程序继续执行，这个时候有点接近于一般的 Exception。</li>
+</ul>
+
+        <h3 id="三-最佳实践">
+          <a href="#三-最佳实践" class="heading-link"><i class="fas fa-link"></i></a>三. 最佳实践</h3>
+      <blockquote>
+<p><strong>建议 1：异常应该使用在程序会发生异常的地方</strong></p>
+</blockquote>
+<p>java 异常处理体系的缺点不光在于降低了程序的可读性，JVM 在对待有 try-catch 代码块的时候的时候往往不能更好的优化，甚至不优化，并且对于一个异常的处理在时间开销上相对是比较昂贵的，所以对于正常的情况，我们不应该使用异常机制去达到自己所揣测的 JVM 对于代码的优化，因为 JVM 在不断的发展和进步中，任何一种优化的教条都不能保证在未来的某个时刻不会被 JVM 用更好的方式替换掉，所以我们在编码的时候更多的应该是去专注代码的逻辑正确和简洁，而不是去琢磨如何编码才能让 JVM 更好地优化，此外我们也不应该用异常去做流程控制，因为前面说过，异常的处理过程开销是昂贵的。总的说来就是我们应该针对潜在异常的程序才使用 java 的异常处理机制，而对于正常的程序流程则不应该试图利用异常去达到某种目的，这样往往会弄巧成拙。</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Benchmark</span></span><br><span class="line"><span class="meta">@BenchmarkMode(Mode.SampleTime)</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">badTry</span><span class="params">()</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">int</span> result = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">int</span> i = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="keyword">while</span> (<span class="keyword">true</span>) {</span><br><span class="line">            result += <span class="keyword">this</span>.a[i++];</span><br><span class="line">        }</span><br><span class="line">    } <span class="keyword">catch</span> (ArrayIndexOutOfBoundsException e) {</span><br><span class="line">        <span class="comment">// do nothing</span></span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="meta">@Benchmark</span></span><br><span class="line"><span class="meta">@BenchmarkMode(Mode.SampleTime)</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">goodTry</span><span class="params">()</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">int</span> result = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; ARRAY_SIZE; i++) {</span><br><span class="line">        result += <span class="keyword">this</span>.a[i];</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上面两个函数都实现了对数组的遍历求和过程，但是两种方法使用不同的方式来结束这个过程，<code>badTry</code> 利用异常机制来终止遍历的过程，而 <code>goodTry</code> 则是我们常用的 <code>foreach</code> 迭代。咋看一眼，你可能会对 <code>badTry</code> 的用法感到不屑，谁特么会去这样写程序，但是如果对JVM的内部优化过程有一定了解的话，那么 <code>badTry</code> 的写法也似乎有那么点意思，首先我们来看一下利用 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="http://openjdk.java.net/projects/code-tools/jmh/">JMH</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 对这两个方法进行测试的时间开销：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># Run complete. Total time: 00:07:41</span><br><span class="line"></span><br><span class="line">Benchmark                     Mode      Cnt    Score    Error  Units</span><br><span class="line">EffectiveException.badTry   sample     1819  117.413 ±  3.423  ms/op</span><br><span class="line">EffectiveException.goodTry  sample  5290340   ≈ 10⁻⁴           ms/op</span><br><span class="line"></span><br></pre></td></tr></tbody></table></div></figure>
+<p><em>我一般推荐大家在统计程序运行时间的时候用 JMH 工具，而不是利用 <code>System.currentTimeMillis()</code> 这种方式去做时间打点。JMH 是 java 的微基准测试框架，相对于时间打点的方式来说，JMH 统计的是程序预热之后 CPU 真正的执行时间，剔除了解释、等待 CPU 分配时间片等时间，所以统计结果更加具备真实性</em></p>
+<p>回到正题，从上面 JMH 经过 200 次迭代的统计结果来看，<code>goodTry</code> 执行的时间约为 10⁻⁴ms，而 <code>badTry</code> 则耗费了117.413ms（正负偏差3.423ms），所以可以看异常处理开销还是比较昂贵的，对于这种正常的流程，我们利用异常的机制去控制程序的执行往往会适得其反。</p>
+<p>对于数组的遍历，java 在每次访问元素的时候都会去检查一下数组下标是否越界，如果越界则会抛出 <code>IndexOutOfBoundsException</code> ，这样给 java 程序猿在编码上带来了便利，但是如果对于一个数组的频繁访问，那么这种边界检查将会是一笔不小的开销，但却是不能省去的步骤，为了提升执行效率，JVM 一般会采取如下优化措施：</p>
+<ol>
+<li>如果下标是常量的情况，那么可以在编译器通过数据流分析就可以判定运行的时候是否需要检查</li>
+<li>如果是在循环中利用变量去访问一个数组，那么JVM也可以在编译器分析循环的范围是否在数组边界之内，从而可以消除边界检查</li>
+</ol>
+<p>上面例子中的 <code>badTry</code> 写法，编码者应该是希望利用 java 的 <strong>隐式异常处理机制</strong> 来提升程序的运行效率。</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * 用户调用</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">obj.toString();</span><br><span class="line"></span><br></pre></td></tr></tbody></table></div></figure>
+<p>上面的代码为用户的一次普通调用 <code>obj.toString()</code>，对于该调用，java 会去判断是否存在空指针异常，所以JVM会将这部分代码编译成下面这个样子：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * JVM编译</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">if</span>(<span class="keyword">null</span> != obj) {</span><br><span class="line">    obj.toString();</span><br><span class="line">} <span class="keyword">else</span> {</span><br><span class="line">    <span class="keyword">throw</span> <span class="keyword">new</span> NullPointerException();</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>如果对于 <code>obj.toString()</code> 进行频繁的调用，那么这样的优化势必会造成每一次调用都要去判空，这可是一笔不小的开销，所以 JVM 会利用隐式异常处理机制对上面这部分代码进行再次优化：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * JVM隐式异常优化</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">try</span> {</span><br><span class="line">    obj.toString();</span><br><span class="line">} <span class="keyword">catch</span> (segment_fault) {  <span class="comment">// Segment Fault信号异常处理器</span></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 传入异常处理器中进行恢复并抛出NullPointerException</span></span><br><span class="line"><span class="comment">     * 用户态-&gt;内核态-&gt;用户态</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    exception_handler();</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>隐式异常处理通过异常机制来减免对于空指针的判定，也就是先执行代码主体，只要不抛异常就继续正常执行，一旦跑了异常说明 <code>obj</code> 为空指针，就转去处理异常，然后抛出 <code>NullPointerException</code> 来告知用户，这样就不用每次调用之前都去判空了。但是隐式异常也存在一个缺陷，如果上面的代码频繁的抛异常，那么每次 JVM 都要转去处理异常，然后再返回，这个过程是需要由用户态转到内核态处理，处理完成之后再返回用户态，最后向用户抛出 <code>NullPointerException</code> 的过程，这可比一次判空的代价要昂贵多了，所以对于频繁异常的情况，我们试图利用异常去控制流程是不合适的，就像我们在最开始的例子给出，当利用 <code>ArrayIndexOutOfBoundsException</code> 来结束数组遍历过程的开销是很大的，所以不要用异常去处理正常的执行流程，或者不要用异常去做流程控制。</p>
+<blockquote>
+<p><strong>建议 2：如果 API 的调用方能够很好的处理异常，就抛 checked exception，否则 unchecked exception 更加合适</strong></p>
+</blockquote>
+<p>对于 java 的 <code>CheckedException</code>，<code>UnCheckedException</code>，以及 <code>Error</code>，我们在使用的时候可能经常会去疑惑到底使用哪一种，我始终觉得这没有具体的教条可寻，比如哪种情况一定用哪一种异常，但是我们还是可以总结出一些基本的使用原则。</p>
+<ol>
+<li>什么时候使用 Error？</li>
+</ol>
+<p>Error一般被用于定义资源不足、约束失败、其它使程序无法继续执行的条件的场景，我们经常会在JVM中看到Error的情况，比如OOM，所以对于Error而言，一般不推荐在程序中去主动使用，也不推荐去实现自己的Error，对于有这种需求的情况我们完全可以利用UncheckedException代替。</p>
+<ol start="2">
+<li>什么时候使用 CheckedException？</li>
+</ol>
+<p>对于 CheckedException 的使用，如果同时满足如下两条原则，则推荐使用，如果不能满足则使用 UnCheckedException 让程序早点挂掉应该是一种更好的选择：</p>
+<ul>
+<li>API 的调用方正确的使用 API 不能阻止异常的发生</li>
+<li>一旦异常发生，调用方可以采取有效的应对措施</li>
+</ul>
+<p>在设计 API 的时候，抛出 CheckedException 能够暗示调用者对异常手动处理，提升系统稳定性，但是如果调用方也不知道如果更好的处理，那么把异常抛给调用方也没有任何意义，而且 API 每抛出一个 CheckedException，也就意味着 API 调用方需要多一个 catch，则将让程序变的不够简洁。</p>
+<p>有些情况下，我们在设计 API 时，可以通过一些技巧来避免抛出 CheckException。比如下面这段代码中，代码的意图在于设计了一个 <code>File</code> 类，而整个 <code>File</code> 类需要对外提供提供一个 <code>exec</code> 方法，但是在执行的时候需要验证该文件的 MD5 值是否正确。</p>
+<p>方法 <code>execShell</code> 里面给出了两种方案：</p>
+<ol>
+<li>只对外提供一个方法，在该方法中先验证 MD5 值，然后执行文件。在验证 MD5 值的时候会抛出 CheckedException，于是 <code>exec</code> 方法向外抛出了一个 CodeException，调用该函数的程序不得不去处理该异常。</li>
+<li>对外提供了两个函数：<code>isCheckSumRight</code> 和 <code>exec2</code>，前者执行 MD5 值验证逻辑，当验证通过则返回 true，否则返回 false，方法 <code>exec2</code> 则是执行主体。这样设计 API，调用时先调用 <code>isCheckSumRight</code> 方法，然后再调用 <code>exec2</code> 方法。</li>
+</ol>
+<p>方案二可以免去 CheckedException，让程序更加美观，同时 API 也可以更加灵活。但是这样去重构有两个不太适用的场景，一个是当并发调用时，如果没有做线程安全控制会存在线程安全问题，因为在方法 <code>isCheckSumRight</code> 和 <code>exec2</code> 之间的瞬间可能会发生状态的改变；另外一个就是如果拆分成两个函数之后，这两个函数之间有重复的逻辑，那么为了性能考虑，这样的拆分也不值得。</p>
+<p>比如状态检查函数里面是检查一个文件是否可以被打开，如果可以被打开就在主体函数里面去执行读取文件操作，但是在主体文件中读取文件时我们仍然需要将文件打开一次，于是这个时候就存在了重复，降低了性能，为了代码的美观，去做这样的设计不是好的设计。</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">execShell</span><span class="params">(File file)</span> </span>{</span><br><span class="line"></span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">     * 方案一</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        file.exec();</span><br><span class="line">    } <span class="keyword">catch</span> (CodecException e) {</span><br><span class="line">        <span class="comment">// <span class="doctag">TODO:</span> handle this exception</span></span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">     * 方案二</span></span><br><span class="line"><span class="comment">     * 不适用的情景：</span></span><br><span class="line"><span class="comment">     * 1.没有同步措施的并发访问</span></span><br><span class="line"><span class="comment">     * 2.状态检查的执行逻辑与正文函数重复</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">if</span> (file.isCheckSumRight()) {</span><br><span class="line">        file.exec2();</span><br><span class="line">    } <span class="keyword">else</span> {</span><br><span class="line">        <span class="comment">// <span class="doctag">TODO:</span> do something</span></span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">File</span>&lt;<span class="title">T</span>&gt; </span>{</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> T content;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> String md5Checksum;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">File</span><span class="params">(T content, String md5Checksum, <span class="keyword">boolean</span> isCheckSum)</span> </span>{</span><br><span class="line">        <span class="keyword">this</span>.content = content;</span><br><span class="line">        <span class="keyword">this</span>.md5Checksum = md5Checksum;</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 执行文件</span></span><br><span class="line"><span class="comment">     * v1.0</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@throws</span> CodecException</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">exec</span><span class="params">()</span> <span class="keyword">throws</span> CodecException </span>{</span><br><span class="line"></span><br><span class="line">        String md5Value;</span><br><span class="line">        <span class="keyword">try</span> {</span><br><span class="line">            md5Value = CodecUtil.MD5(String.valueOf(<span class="keyword">this</span>.content));</span><br><span class="line">        } <span class="keyword">catch</span> (NoSuchAlgorithmException e) {</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> CodecException(<span class="string">"no such no such algorithm"</span>, e);</span><br><span class="line">        } <span class="keyword">catch</span> (UnsupportedEncodingException e) {</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> CodecException(<span class="string">"unsupported encoding"</span>, e);</span><br><span class="line">        }</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (StringUtils.isNotEmpty(md5Value) &amp;&amp; StringUtils.equals(<span class="keyword">this</span>.md5Checksum, md5Value)) {</span><br><span class="line">            <span class="comment">// <span class="doctag">TODO:</span> do something</span></span><br><span class="line">        } <span class="keyword">else</span> {</span><br><span class="line">            <span class="comment">// <span class="doctag">TODO:</span> do something</span></span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 文件内容校验</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">isCheckSumRight</span><span class="params">()</span> </span>{</span><br><span class="line"></span><br><span class="line">        <span class="keyword">boolean</span> checkResult = <span class="keyword">false</span>;</span><br><span class="line">        String md5Value;</span><br><span class="line">        <span class="keyword">try</span> {</span><br><span class="line">            md5Value = CodecUtil.MD5(String.valueOf(<span class="keyword">this</span>.content));</span><br><span class="line">        } <span class="keyword">catch</span> (NoSuchAlgorithmException e) {</span><br><span class="line">            <span class="keyword">return</span> checkResult;</span><br><span class="line">        } <span class="keyword">catch</span> (UnsupportedEncodingException e) {</span><br><span class="line">            <span class="keyword">return</span> checkResult;</span><br><span class="line">        }</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (StringUtils.isNotEmpty(md5Value) &amp;&amp; StringUtils.equals(<span class="keyword">this</span>.md5Checksum, md5Value)) {</span><br><span class="line">            checkResult = <span class="keyword">true</span>;</span><br><span class="line">        }</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> checkResult;</span><br><span class="line"></span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 执行文件</span></span><br><span class="line"><span class="comment">     * v2.0</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">exec2</span><span class="params">()</span> </span>{</span><br><span class="line">        <span class="comment">// <span class="doctag">TODO:</span> do something</span></span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<ol start="3">
+<li>什么时候使用 UnCheckedException？</li>
+</ol>
+<p>Error 和 UnCheckedException 的共同点都是 UnChecked，但是之前有说过一般我们不应该主动使用 Error，所以当需要抛出 Unchecked 异常的时候，UnCheckedException 是我们最好的选择。我们也可以自己去继承 <code>RuntimeException</code> 类来定义自己的 UncheckedException。简单的说，当我们发现 CheckedException 不适用的时候，我们应该去使用 UncheckedException，而不是 Error。</p>
+<ul>
+<li><strong>建议 3：尽量使用 JDK 提供的异常类型</strong></li>
+</ul>
+<p>“不要重复发明车轮”是软件开发中的一句至理名言，在异常的选择上也同样适用，JDK 内置了许多 Exception 类型，当我们需要使用的时候我们应该先去检查 JDK 是否有提供，而不是去实现一个自定义的异常。这样做主要有如下两点好处：</p>
+<ol>
+<li>这样的API设计更加容易让调用方理解，减少了调用方的学习成本</li>
+<li>减少了异常类的数目，可以降低程序编译、加载的时间</li>
+</ol>
+<p>在使用 JDK 提供的 Exception 类的时候，一定要去阅读一下 docs 对于该 Exception 类的说明，不能只是简单的依据类名去揣测类的用途，一旦揣测错误，将会给 API 的调用方造成困惑。</p>
+<ul>
+<li><strong>建议 4：使用“异常转译”让语义更清晰</strong></li>
+</ul>
+<p>在软件设计的时候，我们通常会进行分层处理，典型的就是“三层软件设计架构”，即 web 层、业务逻辑层（service），以及持久化层（orm），三层之间相互隔离，不能跨层调用。虽然很多开发者在开发的时候会去注重分层，但是在异常处理方面还是会出现“跨层传播”的现象。比如我们在 orm 层抛出的 DAOException 异常，因为在 service 里面没有经过处理就直接抛给了 web 层，这样就出现了“跨层传播”。这样没有任何好处，web 开发人员在调用服务的时候，需要去捕获一个 DAOException，除了不知道如何去处理，也会让开发人员对于底层的设计疑惑。所以在这种时候我们可以通过“异常转译”，在 service 层对 orm 层抛出的异常进行处理之后，封装成 service 层的异常再抛给web层，如下面的代码：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> User <span class="title">getUserInfo</span><span class="params">(<span class="keyword">long</span> userId)</span> <span class="keyword">throws</span> ServiceException </span>{</span><br><span class="line"></span><br><span class="line">    User user = <span class="keyword">new</span> User();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        user = userDao.findUserById(userId);</span><br><span class="line">    } <span class="keyword">catch</span> (SQLException e) {</span><br><span class="line">        log.error(<span class="string">"DB operate exception!"</span>, e);</span><br><span class="line">        <span class="comment">// 异常转译</span></span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> ServiceException(<span class="string">"DB operate exception!"</span>, e);</span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> user;</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>异常转译值得提倡，但是不能滥用，我们还是要坚持对 CheckedException 处理的原则，不能仅仅捕获后就转译抛出，这样只是让异常在语义上更加易于理解，但是对API的调用并没有起到实质性的帮助。</p>
+<ul>
+<li><strong>建议 5：推荐为方法的 checken exception 和 unchecken exception 编写文档</strong></li>
+</ul>
+<p>在方法的声明中，我们应该为每个方法编写可能会抛出的所有异常（CheckedException 和 UnCheckedException）利用 <code>@throws</code> 关键字编写文档，包括异常的名称，是 CheckedException 还是 UnCheckedException，异常发生的条件等，从而让 API 的调用方能够正确的使用.</p>
+<ul>
+<li><strong>建议 6：留下罪症，不要偷吃</strong></li>
+</ul>
+<p>当异常发生的时候，我们通常会将其记录到日志文件，事后通过分析日志来查明造成错误的原因，异常在被抛出的时候，我们也可以在栈轨迹中添加一些描述信息，从而让异常更加易于理解，对于描述信息的设置，我们最主要的是要“保留作案现场”，即造成异常的实时条件，比如当造成 <code>ArrayIndexOutOfBoundsException</code> 的数组的上下界，以及当前访问的下标等数组，这样会为我们在后面排错起到极大的帮助作用，因为有些 bug 是很难被重现的。</p>
+<p>与“保留作案现场”这一良好习惯背道而驰的是“吃异常”，如果不是真的需要，千万不要把异常给吃了，哪怕你不去处理，用日志记录一下都比吃掉它要强很多。说一个故事背景，有一次在重构一个“订单审核服务”项目的时候，将服务部署启动之后，启动日志一切正常，一切都是那么的美好，但是订单审核的结果始终不正确，但是日志就是没有错误，无奈只能去看源码，然后在历史代码里面发现了下面这样一串：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">try</span>{</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 具体算法模型文件加载逻辑</span></span><br><span class="line"></span><br><span class="line">}<span class="keyword">catch</span> (FileNotFoundException e) {</span><br><span class="line"></span><br><span class="line">    <span class="keyword">try</span>{</span><br><span class="line"></span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> IOException(e);</span><br><span class="line"></span><br><span class="line">    } <span class="keyword">catch</span> (IOException ee) {</span><br><span class="line">        <span class="comment">// 他把异常给吃了！！！</span></span><br><span class="line">    }</span><br><span class="line"></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>先不去讨论这段代码写的是有多奇葩，造成上面现象的主要原因是当算法模型文件找不到，发生异常的时候，这个异常吃掉了，catch 之后不做任何处理，连用日志记录一下都没有，它就这样无声无息地从这个宇宙中消失了，给我造成了 10000 点伤害。所以如果不是必须，我们在代码里面千万不要去把异常吃掉，这样会让原本提升系统稳定性的 java 异常处理机制成为 bug 的良好栖息之地！</p>
+
+        <h5 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h5>
+      <ol>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="http://www.ebooksbucket.com/uploads/itprogramming/java/Effective_Java_2nd_Edition.pdf">Effective Java 2nd Edition</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="http://icyfenix.iteye.com/blog/857722">透过 JVM 看 Exception 的本质</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+</ol>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2016/08/13/java/java-exception/">https://plotor.github.io/2016/08/13/java/java-exception/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Java/">Java</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2016/08/16/java/segment-based-concurrent-hashmap/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">基于锁分段机制的 ConcurrentHashMap 实现内幕</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2016/08/07/java/slf4j-log4j/"><span class="paginator-prev__text">转载：为什么要使用 slf4j 而不是 log4j</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%80-%E8%B0%88%E8%B0%88%E4%B8%AA%E4%BA%BA%E5%AF%B9-java-%E5%BC%82%E5%B8%B8%E5%A4%84%E7%90%86%E7%9A%84%E7%9C%8B%E6%B3%95"><span class="toc-number">1.</span> <span class="toc-text">
+          一. 谈谈个人对 java 异常处理的看法</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BA%8C-java-%E7%9A%84%E5%BC%82%E5%B8%B8%E7%BB%A7%E6%89%BF%E4%BD%93%E7%B3%BB"><span class="toc-number">2.</span> <span class="toc-text">
+          二. java 的异常继承体系</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%89-%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5"><span class="toc-number">3.</span> <span class="toc-text">
+          三. 最佳实践</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">3.0.1.</span> <span class="toc-text">
+          参考</span></a></li></ol></li></ol></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

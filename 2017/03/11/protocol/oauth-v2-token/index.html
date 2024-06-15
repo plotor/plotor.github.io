@@ -1,0 +1,598 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="OAuth2.0 协议定义了授权详细流程，并最终以 token 的形式作为用户授权的凭证下发给客户端，客户端后续可以带着 token 去请求资源服务器，获取 token 权限范围内的用户资源。 对于 token 的描述，OAuth 2.0 协议只是一笔带过的说它是一个字符串，用于表示特定的权限、生命周期等，但是却没有明确阐述 token 的生成策略，以及如何去验证一个 token。RFC6749">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OAuth 2.0 协议原理与实现：Token 生成策略">
+<meta property="og:url" content="https://plotor.github.io/2017/03/11/protocol/oauth-v2-token/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="OAuth2.0 协议定义了授权详细流程，并最终以 token 的形式作为用户授权的凭证下发给客户端，客户端后续可以带着 token 去请求资源服务器，获取 token 权限范围内的用户资源。 对于 token 的描述，OAuth 2.0 协议只是一笔带过的说它是一个字符串，用于表示特定的权限、生命周期等，但是却没有明确阐述 token 的生成策略，以及如何去验证一个 token。RFC6749">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2017-03-11T05:25:03.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.968Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="OAuth">
+<meta name="twitter:card" content="summary"><title>OAuth 2.0 协议原理与实现：Token 生成策略 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2017/03/11/protocol/oauth-v2-token/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">OAuth 2.0 协议原理与实现：Token 生成策略</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2017-03-11</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">3.2k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">14分</span></span></div></header><div class="post-body"><p>OAuth2.0 协议定义了授权详细流程，并最终以 token 的形式作为用户授权的凭证下发给客户端，客户端后续可以带着 token 去请求资源服务器，获取 token 权限范围内的用户资源。</p>
+<p>对于 token 的描述，OAuth 2.0 协议只是一笔带过的说它是一个字符串，用于表示特定的权限、生命周期等，但是却没有明确阐述 token 的生成策略，以及如何去验证一个 token。<span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://tools.ietf.org/html/rfc6749">RFC6749</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 对于 access token 的描述：</p>
+<blockquote>
+<p>The client obtains an access token – a string denoting a specific scope, lifetime, and other access attributes.</p>
+</blockquote>
+<a id="more"></a>
+
+<p>协议不去详细阐述 token 的生成和验证过程，个人觉得是因为这一块各个业务都有自己的特点，无法完全做到抽象，并且在这一块去做详细的规定，其意义并不大。Token 本质上就是对用户授权这一操作在时间和权限范围两个维度上的一个表征，协议可以对 token 的传递和基本验证做相应规定，但是具体的一个 token 包含哪些元素，采用什么样的生成算法还是需要由自己去把握。</p>
+<p>本文主要讲解自己对于 token 生成的一些思考，以及介绍两种类型：BEARER 和 MAC。</p>
+
+        <h3 id="一-TOKEN-的基本构成">
+          <a href="#一-TOKEN-的基本构成" class="heading-link"><i class="fas fa-link"></i></a>一. TOKEN 的基本构成</h3>
+      <p>Token 表征了用户授权这一操作，授权服务器通过下发 token 来给客户端颁发获取用户受保护资源的资格，且不会因此而泄露用户的登录凭证信息。Token 对于客户端应该是非透明的，客户端只知道这是一个字符串，能够用它来获取用户的受保护资源，对于字符串内部所含的信息应该无从知晓，也不能通过其它方法去解密其中的信息。所以 token 应该是一类对称加密得到的字符串，并且只有授权服务器持有对称密钥，用于对生成的 token 进行加密和验证。</p>
+<p>对于构成token的元素，各个业务都有自己的需求，不过仍然存在一些基本通用的元素，比如：</p>
+<blockquote>
+<ol>
+<li>clientId：客户端 ID，当前 token 隶属的客户端</li>
+<li>userId：用户的 ID，表示当前 token 来自哪个用户授权</li>
+<li>scope: 权限范围，该 token 允许换取的用户受保护资源范围</li>
+<li>issueTime： 下发时间，用于控制 token 的生命周期</li>
+<li>tokenType： token 的类型，不同类型可能会采用不同的验证措施</li>
+</ol>
+</blockquote>
+<p>以上是个人根据经验总结的一些基础的 token 组成元素，具体业务还可以根据具体的需求添加一些其他的元素。</p>
+
+        <h3 id="二-Bearer-Type-Access-Token">
+          <a href="#二-Bearer-Type-Access-Token" class="heading-link"><i class="fas fa-link"></i></a>二. Bearer Type Access Token</h3>
+      <p>BEARER 类型的 token 是在 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://tools.ietf.org/html/rfc6750">RFC6750</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 中定义的一种 token 类型，OAuth 2.0 协议 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://tools.ietf.org/html/rfc6749">RFC6749</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 对其也有所提及，算是对 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://tools.ietf.org/html/rfc6749">RFC6749</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 的一个补充。BEARER 类型 token 是建立在 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://tools.ietf.org/html/rfc2616">HTTP/1.1</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 版本之上的 token 类型，需要 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://tools.ietf.org/html/rfc5246">TLS（Transport Layer Security）</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 提供安全支持，该协议主要规定了BEARER类型token的客户端请求和服务端验证的具体细节。</p>
+
+        <h4 id="2-1-客户端请求">
+          <a href="#2-1-客户端请求" class="heading-link"><i class="fas fa-link"></i></a>2.1 客户端请求</h4>
+      <p>客户端在携带token请求用户的受保护资源时，需要保证token的安全性，以防止token被窃取或篡改，从而损害用户数据安全。BEARER类型token定义了三种token传递策略，客户端在传递token时必须使用其中的一种，且最多一种。</p>
+
+        <h5 id="2-1-1-放在Authorization请求首部">
+          <a href="#2-1-1-放在Authorization请求首部" class="heading-link"><i class="fas fa-link"></i></a>2.1.1 放在Authorization请求首部</h5>
+      <blockquote>
+<p>Authorization首部说明</p>
+<p>Authorization首部是由客户端发送，以向服务器回应自己的身份验证信息，客户端在收到服务器的401 Authentication Required响应之后，需要在请求中包含该首部。</p>
+<p>基本用法：Authorization: <authentication-scheme> <authentication-param></authentication-param></authentication-scheme></p>
+</blockquote>
+<p>在传输时，<code>Authorization</code> 首部的 <code>authentication-scheme</code> 需要设置为 <code>Bearer</code>，请求示例：</p>
+<figure class="highlight http"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">GET</span> <span class="string">/resource</span> <span class="meta">HTTP/1.1</span></span><br><span class="line"><span class="attribute">Host</span><span class="punctuation">: </span>server.example.com</span><br><span class="line"><span class="attribute">Authorization</span><span class="punctuation">: </span>Bearer mF_9.B5f-4.1JqM</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h5 id="2-1-2-放在请求实体中">
+          <a href="#2-1-2-放在请求实体中" class="heading-link"><i class="fas fa-link"></i></a>2.1.2 放在请求实体中</h5>
+      <p>Token需放置在 <code>access_token</code> 参数后面，且 <code>Content-Type</code> 需要设置为 <code>application/x-www-form-urlencoded</code>，请求示例如下：</p>
+<figure class="highlight"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">POST</span> <span class="string">/resource</span> <span class="meta">HTTP/1.1</span></span><br><span class="line"><span class="attribute">Host</span><span class="punctuation">: </span>server.example.com</span><br><span class="line"><span class="attribute">Content-Type</span><span class="punctuation">: </span>application/x-www-form-urlencoded</span><br><span class="line"></span><br><span class="line">access_token=mF_9.B5f-4.1JqM</span><br></pre></td></tr></tbody></table></div></figure>
+<p>协议推荐使用第一种方式，对于该请求方式，必须在满足如下条件时才允许使用：</p>
+<blockquote>
+<ol>
+<li>The HTTP request entity-header includes the “Content-Type” header field set to “application/x-www-form-urlencoded”.</li>
+<li>The entity-body follows the encoding requirements of the “application/x-www-form-urlencoded” content-type as defined by HTML 4.01.</li>
+<li>The HTTP request entity-body is single-part.</li>
+<li>The content to be encoded in the entity-body MUST consist entirely of ASCII characters.</li>
+<li>The HTTP request method is one for which the request-body has defined semantics. In particular, this means that the “GET” method MUST NOT be used.</li>
+</ol>
+</blockquote>
+
+        <h5 id="2-1-3-放在URI请求参数中">
+          <a href="#2-1-3-放在URI请求参数中" class="heading-link"><i class="fas fa-link"></i></a>2.1.3 放在URI请求参数中</h5>
+      <p>该方式通过在请求URl后面添加 <code>access_token</code> 参数来传递token，请求示例如下：</p>
+<figure class="highlight http"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">GET</span> <span class="string">/resource?access_token=mF_9.B5f-4.1JqM</span> <span class="meta">HTTP/1.1</span></span><br><span class="line"><span class="attribute">Host</span><span class="punctuation">: </span>server.example.com</span><br></pre></td></tr></tbody></table></div></figure>
+<p>客户端在请求时需要设置 <code>Cache-Control: no-store</code>，服务端在成功响应时也需要设置 <code>Cache-Control: private</code>。</p>
+<p>由于很多服务都会以日志方式去记录用户的请求，此类方式存在较大的安全隐患，所以一般不推荐使用，除非前两种方案均不可用。</p>
+
+        <h4 id="2-2-服务端验证">
+          <a href="#2-2-服务端验证" class="heading-link"><i class="fas fa-link"></i></a>2.2 服务端验证</h4>
+      <p>如果服务端拒绝客户端的访问请求，则需要在响应中添加 <code>WWW-Authenticate</code> 首部，响应示例如下：</p>
+<figure class="highlight http"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">HTTP/1.1</span> <span class="number">401</span> Unauthorized</span><br><span class="line"><span class="attribute">WWW-Authenticate</span><span class="punctuation">: </span>Bearer realm="example"</span><br></pre></td></tr></tbody></table></div></figure>
+<blockquote>
+<p>WWW-Authenticate首部说明</p>
+<p>WWW-Authenticate首部用于401 Unauthorized响应，用于向客户端发送一个质询认证方案。</p>
+<p>基本用法：WWW-Authenticate：<auth-scheme> <challenge></challenge></auth-scheme></p>
+</blockquote>
+<p>这里的响应，其中 <code>auth-scheme</code> 必须设置为 <code>Bearer</code>，如果客户端携带了无效的token，那么按照上一篇<a href="/2017/03/04/oauth-v2-principle/">《OAuth 2.0 协议原理与实现：协议原理》</a> 讲解的，OAuth 2.0 协议要求错误响应中必须携带 <code>error</code> 字段，并选择性携带 <code>error_description</code>和 <code>error_uri</code>，具体释义请参考上一篇，响应示例如下：</p>
+<figure class="highlight"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">HTTP/1.1</span> <span class="number">401</span> Unauthorized</span><br><span class="line"><span class="attribute">WWW-Authenticate</span><span class="punctuation">: </span>Bearer realm="example",</span><br><span class="line">                  error="invalid_token",</span><br><span class="line">                  error_description="The access token expired"</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="三-MAC-Type-Access-Token">
+          <a href="#三-MAC-Type-Access-Token" class="heading-link"><i class="fas fa-link"></i></a>三. MAC Type Access Token</h3>
+      <p>前面介绍了BEARER类型的token，<span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://tools.ietf.org/html/rfc6750">RFC6750</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>明确说明该类型token需要<span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://tools.ietf.org/html/rfc5246">TLS（Transport Layer Security）</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>提供安全支持。虽然现今大部分站点都已经或正在由HTTP向HTTPS迁移，但是仍然会有站点继续在使用HTTP，在这类站点中BEARER类型的token存在安全隐患，这个时候MAC类型的token正是用武之地，MAC类型的token设计的主要目的就是为了应对不可靠的网络环境。</p>
+<p>MAC类型相对于BEARER类型对于用户资源请求的区别在于，BEARER类型只需要携带授权服务器下发的token即可，而对于MAC类型来说，除了携带授权服务器下发的token，客户端还要携带时间戳，nonce，以及在客户端计算得到的mac值等信息，并通过这些额外的信息来保证传输的可靠性。</p>
+
+        <h4 id="3-1-下发-MAC-类型令牌">
+          <a href="#3-1-下发-MAC-类型令牌" class="heading-link"><i class="fas fa-link"></i></a>3.1 下发 MAC 类型令牌</h4>
+      <p>OAuth2.0协议在规定下发accessToken时，包含 <code>access_token</code>，<code>token_type</code>，<code>expires_in</code>、<code>refresh_token</code>，以及 <code>scope</code> 字段，其中部分字段可选，具体参见上一篇<a href="/2017/03/04/oauth-v2-principle/">《OAuth 2.0 协议原理与实现：协议原理》</a>，示例如下：</p>
+<figure class="highlight"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">HTTP/1.1</span> <span class="number">200</span> OK</span><br><span class="line"><span class="attribute">Content-Type</span><span class="punctuation">: </span>application/json;charset=UTF-8</span><br><span class="line"><span class="attribute">Cache-Control</span><span class="punctuation">: </span>no-store</span><br><span class="line"><span class="attribute">Pragma</span><span class="punctuation">: </span>no-cache</span><br><span class="line"></span><br><span class="line">{</span><br><span class="line">    "access_token":"2YotnFZFEjr1zCsicMWpAA",</span><br><span class="line">    "token_type":"example",</span><br><span class="line">    "expires_in":3600,</span><br><span class="line">    "refresh_token":"tGzv3JOkF0XG5Qx2TlKWIA",</span><br><span class="line">    "example_parameter":"example_value"</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>响应字段是可扩展的，对于MAC类型token则增加了 <code>mac_key</code> 和 <code>mac_algorithm</code> 两个字段，<code>mac_key</code> 是一个客户端和服务端共享的对称密钥，<code>mac_algorithm</code> 则指明了加密算法（比如hmac-sha-1，hmac-sha-256），示例响应如下：</p>
+<figure class="highlight"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">HTTP/1.1</span> <span class="number">200</span> OK</span><br><span class="line"><span class="attribute">Content-Type</span><span class="punctuation">: </span>application/json</span><br><span class="line"><span class="attribute">Cache-Control</span><span class="punctuation">: </span>no-store</span><br><span class="line"><span class="attribute">Pragma</span><span class="punctuation">: </span>no-cache</span><br><span class="line"></span><br><span class="line">{</span><br><span class="line">    "access_token":"SlAV32hkKG",</span><br><span class="line">    "token_type":"mac",</span><br><span class="line">    "expires_in":3600,</span><br><span class="line">    "refresh_token":"8xLOxBtZp8",</span><br><span class="line">    "mac_key":"adijq39jdlaska9asud",</span><br><span class="line">    "mac_algorithm":"hmac-sha-256"</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="3-2-构造-MAC-类型请求">
+          <a href="#3-2-构造-MAC-类型请求" class="heading-link"><i class="fas fa-link"></i></a>3.2 构造 MAC 类型请求</h4>
+      <p>一些开放API接口可能会强制要求以MAC类型令牌来请求，这个时候就需要在客户端构造合法的请求，一个标准的请求示例如下：</p>
+<figure class="highlight http"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">GET</span> <span class="string">/resource/1?b=1&amp;a=2</span> <span class="meta">HTTP/1.1</span></span><br><span class="line"><span class="attribute">Host</span><span class="punctuation">: </span>example.com</span><br><span class="line"><span class="attribute">Authorization</span><span class="punctuation">: </span>MAC id="h480djs93hd8",</span><br><span class="line">                   ts="1336363200",</span><br><span class="line">                   nonce="dj83hs9s",</span><br><span class="line">                   mac="bhCQXTVyfj5cmA9uKkPFx1zeOXM="</span><br><span class="line"></span><br></pre></td></tr></tbody></table></div></figure>
+<p>请求参数说明：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>参数名</th>
+<th>必须</th>
+<th>描述信息</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>id</td>
+<td>必须</td>
+<td>访问令牌</td>
+</tr>
+<tr>
+<td>ts</td>
+<td>必须</td>
+<td>时间戳</td>
+</tr>
+<tr>
+<td>nonce</td>
+<td>必须</td>
+<td>客户端生成的字符串，对于相同token和timespan的请求nonce必须相同</td>
+</tr>
+<tr>
+<td>ext</td>
+<td>可选</td>
+<td>扩展信息</td>
+</tr>
+<tr>
+<td>mac</td>
+<td>必须</td>
+<td>根据MAC key和MAC algorithm计算出来的值</td>
+</tr>
+</tbody></table></div>
+<p>通过添加 <code>id、ts、nonce、mac</code> 字段到 <code>Authorization</code> 请求首部以发起对用户资源的请求，这里的 <code>id</code> 就是授权服务器下发的 accessToken；<code>ts</code> 则是时间戳，由客户端生成，以秒为单位；<code>nonce</code> 是客户端生成的一个字符串形式的签名，是对 ts 和 id 两个维度的唯一、可重复性标识；而 <code>mac</code> 则是整个客户端构造最核心和复杂的部分，可以看做是对本次请求参数的一个签名，1.2.3 小节专门讲解。此外客户端还以用 <code>ext</code> 字段来携带一些扩展数据。</p>
+
+        <h4 id="3-3-mac-值算法">
+          <a href="#3-3-mac-值算法" class="heading-link"><i class="fas fa-link"></i></a>3.3 mac 值算法</h4>
+      <p>mac 值可以看作是对本次请求参数的一个签名，通过对请求数据进行本地加密计算得到，用于防止请求过程中参数被更改。服务器端收到请求之后，会以相同的算法和密钥重新计算一遍 mac值，并与客户端传递过来的作比较，如果不一致则拒绝该请求。因为密钥仅保存在客户端和服务端本地，所以无需担心mac值被更改或伪造，从而确保在没有TLS保证的环境下可靠传输，实际上这里可以看做是 MAC 类型请求自己实现了一遍 TLS。</p>
+<p>mac值对于相同的请求参数必须是一致和可再计算的，对于参与计算元素的选择，协议选取了如下元素：</p>
+<blockquote>
+<ol>
+<li>The timestamp value calculated for the request.</li>
+<li>The nonce value generated for the request.</li>
+<li>The HTTP request method in upper case. For example: HEAD, GET, POST, etc.</li>
+<li>The HTTP request-URI as defined by RFC2616 section 5.1.2.</li>
+<li>The hostname included in the HTTP request using the Host request header field in lower case.</li>
+<li>The port as included in the HTTP request using the Host request header field. If the header field does not include a port, the default value for the scheme MUST be used (e.g. 80 for HTTP and 443 for HTTPS).</li>
+<li>The value of the ext Authorization request header field attribute if one was included in the request, otherwise, an empty string.</li>
+</ol>
+</blockquote>
+<p>通过对这些元素按照顺序组织，并以换行符 <code>\n</code> 作分隔（最后一行也需要包含一个 <code>\n</code>），利用 <code>mac_algorithm</code> 指定的算法和 <code>mac_key</code> 指定的密钥对组织好的数据进行加密计算得到 mac 值。</p>
+<p><strong>计算示例：</strong></p>
+<p>假设有一个请求：</p>
+<figure class="highlight"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">POST</span> <span class="string">/request?b5=%3D%253D&amp;a3=a&amp;c%40=&amp;a2=r%20b&amp;c2&amp;a3=2+q</span> <span class="meta">HTTP/1.1</span></span><br><span class="line"><span class="attribute">Host</span><span class="punctuation">: </span>example.com</span><br><span class="line"></span><br><span class="line">Hello World!</span><br></pre></td></tr></tbody></table></div></figure>
+<p>其中 ts=<code>264095:7d8f3e4a</code>，nonce=<code>7d8f3e4a</code>，ext=<code>a,b,c</code>。</p>
+<p>对该请求按照之前的说明进行组织，以<code>\n</code>分隔得到：</p>
+<figure class="highlight plain"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">264095\n</span><br><span class="line">7d8f3e4a\n</span><br><span class="line">POST\n</span><br><span class="line">/request?b5=%3D%253D&amp;a3=a&amp;c%40=&amp;a2=r%20b&amp;c2&amp;a3=2+q\n</span><br><span class="line">example.com\n</span><br><span class="line">80\n</span><br><span class="line">a,b,c\n</span><br></pre></td></tr></tbody></table></div></figure>
+<p>其中 <code>\n</code> 仅仅是为了展示，实际中以 ASCII 码 <code>%x0A</code> 的意义表示，不要忘了最后一行的 <code>\n</code>。假设授权服务器指定的 <code>mac_algorithm</code> 为 hmac-sha-1，令 <code>text</code> 表示上面的字符串，那么最后的 mac 值得计算方式如下：</p>
+<blockquote>
+<p>mac = hmac-sha-1(mac_key, text)</p>
+</blockquote>
+
+        <h4 id="3-4-服务端验证">
+          <a href="#3-4-服务端验证" class="heading-link"><i class="fas fa-link"></i></a>3.4 服务端验证</h4>
+      <p>服务器端在收到客户端的请求之后，需要做如下验证：</p>
+<blockquote>
+<ol>
+<li>重新计算mac值，并与客户端传递的值进行比较</li>
+<li>确保(timestam, nonce, token)三个维度之前没有被请求过，以防止重放攻击</li>
+<li>验证scope，以及token</li>
+</ol>
+</blockquote>
+<p>如果服务端拒绝客户端的请求，则需要指定 <code>WWW- Authenticate</code> 响应首部，例如客户端携带了无效的授权信息，则服务器响应示例如下：</p>
+<figure class="highlight http"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">HTTP/1.1</span> <span class="number">401</span> Unauthorized</span><br><span class="line"><span class="attribute">WWW-Authenticate</span><span class="punctuation">: </span>MAC error="The MAC credentials expired"</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="四-本篇小结">
+          <a href="#四-本篇小结" class="heading-link"><i class="fas fa-link"></i></a>四. 本篇小结</h3>
+      <p>本篇主要介绍了两种 token 类型，基本可以覆盖实际应用中的各种场景。Token 是对用户授权操作的一类凭证，一旦下发到客户端，其安全性就需要客户端去保证，为了尽量在保护用户数据和提升用户体验上寻找一个平衡点，token 的生命周期不应该设置的太短或太长。</p>
+<p>本篇和上一篇<a href="/2017/03/04/oauth-v2-principle/">《OAuth 2.0 协议原理与实现：协议原理》</a> 介绍了 OAuth 2.0 协议涉及到的理论知识，相关实现可以参考考 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/plotor/oauth4j">oauth4j</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>。</p>
+
+        <h3 id="参考文献">
+          <a href="#参考文献" class="heading-link"><i class="fas fa-link"></i></a>参考文献</h3>
+      <ol>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://tools.ietf.org/html/rfc5849">RFC5849 - The OAuth 1.0 Protocol</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://tools.ietf.org/html/rfc6749">RFC6749 - The OAuth 2.0 Authorization Framework</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://tools.ietf.org/html/rfc6750">RFC6750 - The OAuth 2.0 Authorization Framework: Bearer Token Usage</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://tools.ietf.org/html/draft-hammer-oauth-v2-mac-token-02">HTTP Authentication: MAC Authentication (draft-hammer-oauth-v2-mac-token-02)</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+</ol>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2017/03/11/protocol/oauth-v2-token/">https://plotor.github.io/2017/03/11/protocol/oauth-v2-token/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/OAuth/">OAuth</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2017/04/13/design-pattern/flyweight/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">利用享元模式解决内存大量细粒度对象</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2017/03/04/protocol/oauth-v2-principle/"><span class="paginator-prev__text">OAuth 2.0 协议原理与实现：协议原理</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%80-TOKEN-%E7%9A%84%E5%9F%BA%E6%9C%AC%E6%9E%84%E6%88%90"><span class="toc-number">1.</span> <span class="toc-text">
+          一. TOKEN 的基本构成</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BA%8C-Bearer-Type-Access-Token"><span class="toc-number">2.</span> <span class="toc-text">
+          二. Bearer Type Access Token</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#2-1-%E5%AE%A2%E6%88%B7%E7%AB%AF%E8%AF%B7%E6%B1%82"><span class="toc-number">2.1.</span> <span class="toc-text">
+          2.1 客户端请求</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#2-1-1-%E6%94%BE%E5%9C%A8Authorization%E8%AF%B7%E6%B1%82%E9%A6%96%E9%83%A8"><span class="toc-number">2.1.1.</span> <span class="toc-text">
+          2.1.1 放在Authorization请求首部</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2-1-2-%E6%94%BE%E5%9C%A8%E8%AF%B7%E6%B1%82%E5%AE%9E%E4%BD%93%E4%B8%AD"><span class="toc-number">2.1.2.</span> <span class="toc-text">
+          2.1.2 放在请求实体中</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2-1-3-%E6%94%BE%E5%9C%A8URI%E8%AF%B7%E6%B1%82%E5%8F%82%E6%95%B0%E4%B8%AD"><span class="toc-number">2.1.3.</span> <span class="toc-text">
+          2.1.3 放在URI请求参数中</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-2-%E6%9C%8D%E5%8A%A1%E7%AB%AF%E9%AA%8C%E8%AF%81"><span class="toc-number">2.2.</span> <span class="toc-text">
+          2.2 服务端验证</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%89-MAC-Type-Access-Token"><span class="toc-number">3.</span> <span class="toc-text">
+          三. MAC Type Access Token</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#3-1-%E4%B8%8B%E5%8F%91-MAC-%E7%B1%BB%E5%9E%8B%E4%BB%A4%E7%89%8C"><span class="toc-number">3.1.</span> <span class="toc-text">
+          3.1 下发 MAC 类型令牌</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#3-2-%E6%9E%84%E9%80%A0-MAC-%E7%B1%BB%E5%9E%8B%E8%AF%B7%E6%B1%82"><span class="toc-number">3.2.</span> <span class="toc-text">
+          3.2 构造 MAC 类型请求</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#3-3-mac-%E5%80%BC%E7%AE%97%E6%B3%95"><span class="toc-number">3.3.</span> <span class="toc-text">
+          3.3 mac 值算法</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#3-4-%E6%9C%8D%E5%8A%A1%E7%AB%AF%E9%AA%8C%E8%AF%81"><span class="toc-number">3.4.</span> <span class="toc-text">
+          3.4 服务端验证</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9B%9B-%E6%9C%AC%E7%AF%87%E5%B0%8F%E7%BB%93"><span class="toc-number">4.</span> <span class="toc-text">
+          四. 本篇小结</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="toc-number">5.</span> <span class="toc-text">
+          参考文献</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

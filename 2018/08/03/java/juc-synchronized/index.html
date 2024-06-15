@@ -1,0 +1,505 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="关键字 synchronized 是 java 程序员在进入并发编程世界时的银弹，只要是遇到有并发访问安全的地方，会无脑的加上一个 synchronized 关键字进行修饰。但是随着对 java 并发编程的逐渐深入，我们也开始慢慢意识到 synchronized 是一个重量级的操作，曾经甚至有一段时间人们倡导使用 Lock 来代替 synchronized 关键字。不过 Lock 虽然灵活但也有其">
+<meta property="og:type" content="article">
+<meta property="og:title" content="深入理解 JUC：synchronized 关键字">
+<meta property="og:url" content="https://plotor.github.io/2018/08/03/java/juc-synchronized/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="关键字 synchronized 是 java 程序员在进入并发编程世界时的银弹，只要是遇到有并发访问安全的地方，会无脑的加上一个 synchronized 关键字进行修饰。但是随着对 java 并发编程的逐渐深入，我们也开始慢慢意识到 synchronized 是一个重量级的操作，曾经甚至有一段时间人们倡导使用 Lock 来代替 synchronized 关键字。不过 Lock 虽然灵活但也有其">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://plotor.github.io/images/2018/java-mark-word.png">
+<meta property="article:published_time" content="2018-08-03T04:02:04.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.958Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="并发编程">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://plotor.github.io/images/2018/java-mark-word.png"><title>深入理解 JUC：synchronized 关键字 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2018/08/03/java/juc-synchronized/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">深入理解 JUC：synchronized 关键字</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2018-08-03</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">3.7k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">14分</span></span></div></header><div class="post-body"><p>关键字 synchronized 是 java 程序员在进入并发编程世界时的银弹，只要是遇到有并发访问安全的地方，会无脑的加上一个 synchronized 关键字进行修饰。但是随着对 java 并发编程的逐渐深入，我们也开始慢慢意识到 synchronized 是一个重量级的操作，曾经甚至有一段时间人们倡导使用 Lock 来代替 synchronized 关键字。不过 Lock 虽然灵活但也有其弊端，对开发人员写出线程安全且无死锁的多线程程序要求相对要提高了许多，好在 java 6 对 synchronized 关键字进行了大刀阔斧的优化，并推荐在 Lock 和 synchronized 均满足需求的场景下优先使用 synchronized 关键字。本文我们就一起来深入分析一下 synchronized 关键字的实现内幕。<a id="more"></a></p>
+
+        <h3 id="站在字节码层面看-synchronized-关键字">
+          <a href="#站在字节码层面看-synchronized-关键字" class="heading-link"><i class="fas fa-link"></i></a>站在字节码层面看 synchronized 关键字</h3>
+      <p>关键字 synchronized 可以修饰实例方法、静态方法，以及代码块，对应的锁粒度分别为：</p>
+<ol>
+<li>修饰实例方法：锁对象是方法所属类对象。</li>
+<li>修饰静态方法：锁对象是方法所属类的 Class 对象。</li>
+<li>修饰代码块：锁对象是 synchronized 关键字括号中指定的对象。</li>
+</ol>
+<p>当程序执行 synchronized 关键字修饰的代码之前，需要先获取 synchronized 关键字对应的锁对象，并在执行完成之后释放持有的锁对象。</p>
+
+        <h4 id="修饰代码块">
+          <a href="#修饰代码块" class="heading-link"><i class="fas fa-link"></i></a>修饰代码块</h4>
+      <p>在实现层面上，如果 synchronized 关键字修饰的是代码块，那么编译器在将 synchronized 代码块编译成字节码时，会在代码块的前后分别插入 <code>monitorenter</code> 和 <code>monitorexit</code> 指令，示例：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">int</span> count = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">syncMethodBlock</span><span class="params">()</span> </span>{</span><br><span class="line">    <span class="comment">// ... 省略前置逻辑</span></span><br><span class="line">    <span class="keyword">synchronized</span> (<span class="keyword">this</span>) {</span><br><span class="line">        count++;</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">// ... 省略后置逻辑</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>使用 <code>javap -v</code> 查看上述 java 代码对应的字节码：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">0</span>: aload_0</span><br><span class="line"><span class="number">1</span>: dup</span><br><span class="line"><span class="number">2</span>: astore_1</span><br><span class="line"><span class="number">3</span>: monitorenter <span class="comment">// 插入 monitorenter 指令</span></span><br><span class="line"><span class="number">4</span>: aload_0</span><br><span class="line"><span class="number">5</span>: dup</span><br><span class="line">6: getfield      #2                  // Field count:I</span><br><span class="line"><span class="number">9</span>: iconst_1</span><br><span class="line"><span class="number">10</span>: iadd</span><br><span class="line">11: putfield      #2                  // Field count:I</span><br><span class="line"><span class="number">14</span>: aload_1</span><br><span class="line"><span class="number">15</span>: monitorexit <span class="comment">// 插入 monitorexit 指令</span></span><br><span class="line"><span class="number">16</span>: goto          <span class="number">24</span></span><br><span class="line"><span class="number">19</span>: astore_2</span><br><span class="line"><span class="number">20</span>: aload_1</span><br><span class="line"><span class="number">21</span>: monitorexit <span class="comment">// 插入 monitorexit 指令</span></span><br><span class="line"><span class="number">22</span>: aload_2</span><br><span class="line"><span class="number">23</span>: athrow</span><br><span class="line"><span class="number">24</span>: <span class="keyword">return</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>为什么会有 2 个 monitorexit 指令？</strong></p>
+<p>这主要是因为在上述实现中，关键字 synchronized 释放锁对象存在两种场景：一种是正常执行完成后释放；另外一种是发生异常后由 JVM 释放。如上述字节码所示，当正常执行时，指令 <code>monitorexit</code> 后面紧跟 goto 指令，跳转到第 24 行执行 return 返回；如果发生异常则会进入 goto 语句后面的逻辑，即执行第 2 个 <code>monitorexit</code> 指令，以确保异常的情况下锁也能够被释放，防止死锁。</p>
+
+        <h4 id="修饰方法">
+          <a href="#修饰方法" class="heading-link"><i class="fas fa-link"></i></a>修饰方法</h4>
+      <p>如果 synchronized 关键字修饰的是方法（不管是实例方法，还是静态方法），则编译器在将 java 代码编译成字节码时会给相应的方法添加一个 <code>ACC_SYNCHRONIZED</code> 访问标记（记录在运行时常量池中）。运行时线程在执行方法之前会检查该标记以确认是否需要获取相应的监视器（monitor）锁，如果执行完成退出（不管是正常退出，还是异常退出）则会释放持有的监视器锁。如果在执行 synchronized 方法期间发生了异常，并且方法中未捕获相应异常，则在将异常向上层调用方抛出去之前会释放持有的监视器锁。</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">synchronized</span> <span class="keyword">void</span> <span class="title">syncMethod</span><span class="params">()</span> </span>{ }</span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">synchronized</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">syncStaticMethod</span><span class="params">()</span> </span>{ }</span><br></pre></td></tr></tbody></table></div></figure>
+<p>针对上述 synchronized 方法编译得到的字节码示例：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">synchronized</span> <span class="keyword">void</span> <span class="title">syncMethod</span><span class="params">()</span></span>;</span><br><span class="line">    descriptor: ()V</span><br><span class="line">    flags: ACC_PUBLIC, ACC_SYNCHRONIZED</span><br><span class="line">    Code:</span><br><span class="line">      stack=<span class="number">0</span>, locals=<span class="number">1</span>, args_size=<span class="number">1</span></span><br><span class="line">         <span class="number">0</span>: <span class="keyword">return</span></span><br><span class="line">      LineNumberTable:</span><br><span class="line">        line <span class="number">13</span>: <span class="number">0</span></span><br><span class="line">      LocalVariableTable:</span><br><span class="line">        Start  Length  Slot  Name   Signature</span><br><span class="line">            <span class="number">0</span>       <span class="number">1</span>     <span class="number">0</span>  <span class="keyword">this</span>   Lorg/zhenchao/concurrency/SynchronizedMain;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">synchronized</span> <span class="keyword">void</span> <span class="title">syncStaticMethod</span><span class="params">()</span></span>;</span><br><span class="line">    descriptor: ()V</span><br><span class="line">    flags: ACC_PUBLIC, ACC_STATIC, ACC_SYNCHRONIZED</span><br><span class="line">    Code:</span><br><span class="line">      stack=<span class="number">0</span>, locals=<span class="number">0</span>, args_size=<span class="number">0</span></span><br><span class="line">         <span class="number">0</span>: <span class="keyword">return</span></span><br><span class="line">      LineNumberTable:</span><br><span class="line">        line <span class="number">17</span>: <span class="number">0</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>上面介绍的 <code>monitorenter</code> 和 <code>monitorexit</code> 指令，以及 <code>ACC_SYNCHRONIZED</code> 访问标记，实际上都是基于 monitor 机制实现的，每个对象都有一个 monitor 与之关联。我们通常说的获取一个对象的锁，本质上就是尝试持有该对象的 monitor。实现层面上，monitor 在 HotSpot 虚拟机中对应 <code>objectMonitor.cpp</code> 类，采用 C++ 语言实现。</p>
+
+        <h3 id="Java-对象头与锁优化策略">
+          <a href="#Java-对象头与锁优化策略" class="heading-link"><i class="fas fa-link"></i></a>Java 对象头与锁优化策略</h3>
+      <p>在 JVM 中，每个 java 对象都有一个对象头（object header），一个 java 对象头由标记字段（Mark Word）和类型指针（Klass Word）所构成。其中，标记字段用以存储对象的运行数据，如哈希码、GC 分代年龄，以及锁信息等，而类型指针则指向该对象所属的类。如下所示（引用自 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://gist.github.com/arturmkrtchyan/43d6135e8a15798cc46c">https://gist.github.com/arturmkrtchyan/43d6135e8a15798cc46c</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>）：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">|----------------------------------------------------------------------------------------|--------------------|</span><br><span class="line">|                                    Object Header (64 bits)                             |        State       |</span><br><span class="line">|-------------------------------------------------------|--------------------------------|--------------------|</span><br><span class="line">|                  Mark Word (32 bits)                  |      Klass Word (32 bits)      |                    |</span><br><span class="line">|-------------------------------------------------------|--------------------------------|--------------------|</span><br><span class="line">| identity_hashcode:25 | age:4 | biased_lock:1 | lock:2 |      OOP to metadata object    |       Normal       |</span><br><span class="line">|-------------------------------------------------------|--------------------------------|--------------------|</span><br><span class="line">|  thread:23 | epoch:2 | age:4 | biased_lock:1 | lock:2 |      OOP to metadata object    |       Biased       |</span><br><span class="line">|-------------------------------------------------------|--------------------------------|--------------------|</span><br><span class="line">|               ptr_to_lock_record:30          | lock:2 |      OOP to metadata object    | Lightweight Locked |</span><br><span class="line">|-------------------------------------------------------|--------------------------------|--------------------|</span><br><span class="line">|               ptr_to_heavyweight_monitor:30  | lock:2 |      OOP to metadata object    | Heavyweight Locked |</span><br><span class="line">|-------------------------------------------------------|--------------------------------|--------------------|</span><br><span class="line">|                                              | lock:2 |      OOP to metadata object    |    Marked for GC   |</span><br><span class="line">|-------------------------------------------------------|--------------------------------|--------------------|</span><br></pre></td></tr></tbody></table></div></figure>
+<p>关键字 synchronized 用到的对象锁就存在于 java 对象头的 Mark Word 中。Mark Word 依据对象所处的状态可以分为无锁状态、偏向锁、轻量级锁、重量级锁，以及 GC 5 种状态，如下图所示（以 32 位 JVM 为例）：</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2018/java-mark-word.png" alt="image">
+      </p>
+<p>其中偏向锁的 epoch 字段可以理解为偏向锁的年代信息（或版本信息），具体作用将在下面介绍偏向锁时进行说明。</p>
+<p>在 java 6 之前关键字 synchronized 的性能较差，那时候所依赖的 monitor 实现完全依靠操作系统内部的互斥锁，因需要在用户态和内核态之间进行切换，所以同步操作是一个重量级的操作。Java 6 对锁的实现引入了大量的优化措施，包括自旋锁、适应性自旋锁、锁消除、锁粗化、偏向锁，以及轻量级锁等技术，从而极大提升了 synchronized 关键字的性能，且相对于 Lock 在使用上更加简单，所以在 synchronized 能够满足需求的前提下更加推荐使用 synchronized 关键字。</p>
+<p>关于锁消除和锁粗化的概念比较简单，这里简单说明一下，其它优化技术将在下文展开介绍。</p>
+<ul>
+<li><p><strong>锁消除</strong> 策略简单来说就是将一些实际运行过程中不存在竞争的锁对象予以剔除。基于逃逸分析技术，即时编译器能够明确哪些对象是不会逃逸的，这些非逃逸对象不会在多个线程之间进行共享，也就不存在锁竞争。这种情况下线程自身加锁解锁操作除了影响性能之外，没有任何收益，所以可以将这类锁予以消除，以提升程序性能。</p>
+</li>
+<li><p><strong>锁粗化</strong> 策略可以理解为将多个连续的小范围锁合并为一个大范围锁，以减少频繁加锁解锁的操作次数。Java 并发编程主张在编写并发程序时尽量缩小临界区的范围，以降低锁定的时间和锁竞争的可能性，从而提升并发程序的性能，但是如果一个线程连续遇到多个小范围的锁，频繁的加锁解锁操作也是一种开销，锁粗化技术适用于优化这一类场景。</p>
+</li>
+</ul>
+
+        <h4 id="偏向锁">
+          <a href="#偏向锁" class="heading-link"><i class="fas fa-link"></i></a>偏向锁</h4>
+      <p>偏向锁的设计有这样一个前提，即 <strong>大部分情况下锁不仅不存在多线程竞争，而且总是由同一个线程多次获得</strong> ，此时偏向锁能够降低线程获取锁的开销。</p>
+<p>当线程首次获取一个对象锁时，如果该锁对象支持偏向锁，那么 JVM 会尝试基于 CAS 操作往目标锁对象的 Mark Word 中写入当前线程的线程 ID，同时设置 Mark Word 的偏向锁标记为 1，并将锁标志位设置为 01，标识当前锁类型是一个服务于当前线程的偏向锁。当线程再次尝试获取该对象锁时，只需要做以下检查：</p>
+<ol>
+<li>锁对象是否是偏向锁类型，即偏向锁标记为 1，锁标志位为 01；</li>
+<li>锁对象 Mark Word 中记录的线程 ID 是否等于当前线程的 ID；</li>
+<li>锁对象 Mark Word 中记录的 epoch 值是否与锁对象所属 Class 类中记录的 epoch 值相同。</li>
+</ol>
+<p>如果上述条件均满足，则可以直接获取该对象锁。</p>
+<p>下面继续介绍一下 epoch 字段的含义，我们可以简单将其理解为偏向锁的年代信息（或版本信息）。</p>
+<p>如果线程请求的锁对象是一个偏向锁，但其中记录的线程 ID 与当前线程 ID 不匹配，则 JVM 需要撤销该偏向锁（注意，此时 epoch 字段值必须匹配，否则当前线程可以认为该偏向锁已经失效，可以直接将偏向锁指向自己）。</p>
+<p>如果一个类的某个实例的偏向锁被撤销次数超过指定阈值（默认为 20，可以通过 <code>-XX:BiasedLockingBulkRebiasThreshold</code> 参数指定），则 JVM 会将该偏向锁置为无效，同时将类的 epoch 值加 1，后续遇到小于该 epoch 值的偏向锁均可以视为无效。然而更新 epoch 值可能会导致那些已经获取到该类其它实例偏向锁的线程丢失锁定状态，所以 JVM 会遍历更新这些类实例 Mark Word 中记录的 epoch 值。为了保证线程安全，整个偏向锁撤销过程需要在所有线程处于安全点（SafePoint）时执行。</p>
+<p>如果某个类的偏向锁被置为无效的次数过多（默认为 40，可以通过 <code>-XX:BiasedLockingBulkRevokeThreshold</code> 参数指定），则 JVM 会认为该类不适合采用偏向锁，因此会撤销所有类实例的偏向锁，并直接膨胀为轻量级锁。</p>
+<p>关于偏向锁引入的假设，即“大部分情况下锁不仅不存在多线程竞争，而且总是由同一个线程多次获得”，存在争议，所以一些 JVM 调优建议使用 <code>-XX:-UseBiasedLocking</code> 参数关闭偏向锁。因为一旦有第 2 个线程尝试获取这把锁，JVM 就需要执行锁膨胀转变为轻量级锁，通过开启安全点日志可以看到不少 RevokeBiasd 的纪录，像 GC 一样 Stop The World。虽然只是很短暂的停顿，但取消之后对于多线程并应用反而能够提升性能。</p>
+
+        <h4 id="轻量级锁">
+          <a href="#轻量级锁" class="heading-link"><i class="fas fa-link"></i></a>轻量级锁</h4>
+      <p>上面介绍的偏向锁适用于同一个线程多次获取同一个对象锁的场景，然而在实际并发应用程序中必然存在多个线程竞争同一个对象锁的情况。JVM 在处理时优先采取轻量级锁机制，以避免重量级锁带来的阻塞和唤醒开销。</p>
+<p>当执行 <strong>加锁</strong> 操作时，JVM 首先会判断目标锁对象是否已经是重量级锁，如果不是则线程会在当前栈帧中创建一块区域用于存储锁记录，并将锁对象的 Mark Word 复制到锁记录中，然后线程会基于 CAS 操作尝试将锁对象中的 Mark Word 替换成指向当前栈帧中锁记录的指针，如果操作成功则当前线程成功获取到锁。在执行 CAS 时需要判断锁标志位是否为 01（即偏向锁标志），如果是则在更新锁记录成功之后会将锁标志位修改为 00（即轻量锁标志），如果不是则分为 2 种情况：</p>
+<ol>
+<li>当前线程重复获取该轻量级锁，此时 JVM 会将锁记录清零，以表示该锁被重复获取。</li>
+<li>其它线程持有该锁，此时 JVM 会将该锁膨胀为重量级锁，并阻塞当前线程。</li>
+</ol>
+<p>当执行 <strong>解锁</strong> 操作时，JVM 会从线程的当前栈帧中弹出最顶层的锁记录，如果锁记录值为 0 则表示当前线程重复获取了该轻量锁，此时直接返回即可。如果不为 0，则需要基于 CAS 操作将锁对象 Mark Word 替换成当前锁记录中存储的值。这里比对的是锁对象 Mark Word 中记录的指针是否指向当前锁记录，如果是且替换成功则成功释放锁，否则需要将锁膨胀为重量级锁，并进入重量级锁的释放进程。</p>
+
+        <h4 id="重量级锁">
+          <a href="#重量级锁" class="heading-link"><i class="fas fa-link"></i></a>重量级锁</h4>
+      <p>重量级锁一般依赖于操作系统的互斥锁机制进行实现，当线程尝试对重量级锁执行加锁操作时，如果目标重量级锁已经被占用，则该线程会被阻塞，并一直等到目标重量级锁执行解锁操作时被唤醒。</p>
+<p>因为涉及到在操作系统用户态和内核态之间的切换，所以重量级锁的开销相对要大很多，为此 JVM 引入了自旋机制（ <strong>自旋锁</strong> ）来减少线程阻塞的可能。所谓自旋是指线程在阻塞之前先执行一段空循环（运行的是无用指令），期间轮询尝试获取目标锁，如果恰好能够成功加锁则无需再进入阻塞状态。</p>
+<p>准确来说，自旋锁是在 java 4 中被引入的，不过那时默认是关闭的（可以通过 <code>-XX:+UseSpinning</code> 参数开启），直到 java 6 才默认开启。Java 6 中的自旋锁默认自旋次数为 10（可以通过 <code>-XX:PreBlockSpin</code> 参数调整），但是这种静态的配置无法预测运行时的需求，为此 java 6 还引入了 <strong>适应性自旋锁</strong> ，其自旋次数会根据以往自旋等待时能否获取到锁来动态调整自旋的次数。</p>
+<p>当然，自旋机制也有其自身的缺点，一方面是浪费 CPU 资源，另一方面就是破坏了公平机制。当一个重量级锁被释放时，处于自旋状态的线程相对于处于阻塞状态的线程能够更早的进行感知，也就间接增加了自旋线程成功获取锁的可能性。</p>
+
+        <h3 id="总结">
+          <a href="#总结" class="heading-link"><i class="fas fa-link"></i></a>总结</h3>
+      <p>本文介绍了 synchronized 关键字的应用场景、实现机制，以及优化技术。相对于与之功能等价的 ReentrantLock 而言，因为在使用上更加简单、不易于出错，且有 JVM 各种锁优化策略的加持，在满足需求的前提下相较于 ReentrantLock 则更加推荐使用 synchronized 关键字。当然，ReentrantLock 的灵活性是 synchronized 关键字所欠缺的，我将在后面的文章中深入分析 ReentrantLock 的实现机制。</p>
+
+        <h3 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h3>
+      <ol>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/26418340/">Java 虚拟机规范（Java SE 8 版）</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/26591326/">Java 并发编程的艺术</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://time.geekbang.org/column/intro/108">极客时间：深入拆解 java 虚拟机</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/FHY0MelBfmgdRpT4zWF9dQ">关键系统的 JVM 参数推荐（2018 仲夏版）</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+</ol>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2018/08/03/java/juc-synchronized/">https://plotor.github.io/2018/08/03/java/juc-synchronized/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Java/">Java</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/">并发编程</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2018/08/24/java/juc-aqs/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">深入理解 JUC：AQS 队列同步器</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2018/05/19/scala/scala-collection-map/"><span class="paginator-prev__text">Scala 集合：Map API</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%AB%99%E5%9C%A8%E5%AD%97%E8%8A%82%E7%A0%81%E5%B1%82%E9%9D%A2%E7%9C%8B-synchronized-%E5%85%B3%E9%94%AE%E5%AD%97"><span class="toc-number">1.</span> <span class="toc-text">
+          站在字节码层面看 synchronized 关键字</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%BF%AE%E9%A5%B0%E4%BB%A3%E7%A0%81%E5%9D%97"><span class="toc-number">1.1.</span> <span class="toc-text">
+          修饰代码块</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%BF%AE%E9%A5%B0%E6%96%B9%E6%B3%95"><span class="toc-number">1.2.</span> <span class="toc-text">
+          修饰方法</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Java-%E5%AF%B9%E8%B1%A1%E5%A4%B4%E4%B8%8E%E9%94%81%E4%BC%98%E5%8C%96%E7%AD%96%E7%95%A5"><span class="toc-number">2.</span> <span class="toc-text">
+          Java 对象头与锁优化策略</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%81%8F%E5%90%91%E9%94%81"><span class="toc-number">2.1.</span> <span class="toc-text">
+          偏向锁</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%BD%BB%E9%87%8F%E7%BA%A7%E9%94%81"><span class="toc-number">2.2.</span> <span class="toc-text">
+          轻量级锁</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E9%87%8D%E9%87%8F%E7%BA%A7%E9%94%81"><span class="toc-number">2.3.</span> <span class="toc-text">
+          重量级锁</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">3.</span> <span class="toc-text">
+          总结</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">4.</span> <span class="toc-text">
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

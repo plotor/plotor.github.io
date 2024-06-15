@@ -1,0 +1,456 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="Supervisor 节点可以理解为单机任务调度器，它负责监听 nimbus 节点的任务资源分配，启动相应的 worker 进程执行 nimbus 分配给当前节点的任务，同时监测 worker 的运行状态，一旦发现有 worker 运行异常，就会杀死该 worker 进程，并将原先分配给 worker 的任务交还给 nimbus 节点进行重新分配。 Supervisor 节点的启动过程位于 Sup">
+<meta property="og:type" content="article">
+<meta property="og:title" content="JStorm 源码解析：Supervisor 的启动和运行机制">
+<meta property="og:url" content="https://plotor.github.io/2018/11/19/storm/storm-supervisor/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="Supervisor 节点可以理解为单机任务调度器，它负责监听 nimbus 节点的任务资源分配，启动相应的 worker 进程执行 nimbus 分配给当前节点的任务，同时监测 worker 的运行状态，一旦发现有 worker 运行异常，就会杀死该 worker 进程，并将原先分配给 worker 的任务交还给 nimbus 节点进行重新分配。 Supervisor 节点的启动过程位于 Sup">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2018-11-19T05:32:08.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.981Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Storm">
+<meta property="article:tag" content="JStorm">
+<meta name="twitter:card" content="summary"><title>JStorm 源码解析：Supervisor 的启动和运行机制 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2018/11/19/storm/storm-supervisor/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">JStorm 源码解析：Supervisor 的启动和运行机制</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2018-11-19</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">3.6k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">16分</span></span></div></header><div class="post-body"><p>Supervisor 节点可以理解为单机任务调度器，它负责监听 nimbus 节点的任务资源分配，启动相应的 worker 进程执行 nimbus 分配给当前节点的任务，同时监测 worker 的运行状态，一旦发现有 worker 运行异常，就会杀死该 worker 进程，并将原先分配给 worker 的任务交还给 nimbus 节点进行重新分配。</p>
+<p>Supervisor 节点的启动过程位于 Supervisor 类中，main 方法的实现比较简单，主要就是创建了一个 Supervisor 类对象，并调用实例方法<a id="more"></a> <code>Supervisor#run</code>，该方法的实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>{</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">         * 解析配置文件：</span></span><br><span class="line"><span class="comment">         * 1. 解析 default.yaml</span></span><br><span class="line"><span class="comment">         * 2. 解析 storm.yaml</span></span><br><span class="line"><span class="comment">         * 3. 解析 -Dstorm.options 指定的命令行参数</span></span><br><span class="line"><span class="comment">         * 4. 替换所有配置项中的 JSTORM_HOME 占位符</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        Map&lt;Object, Object&gt; conf = Utils.readStormConfig();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 确保当前为集群运行模式</span></span><br><span class="line">        StormConfig.validate_distributed_mode(conf);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 创建进程文件： ${storm.local.dir}/supervisor/pids/${pid}</span></span><br><span class="line">        <span class="keyword">this</span>.createPid(conf);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 创建并启动 supervisor</span></span><br><span class="line">        SupervisorManger supervisorManager = <span class="keyword">this</span>.mkSupervisor(conf, <span class="keyword">null</span>);</span><br><span class="line"></span><br><span class="line">        JStormUtils.redirectOutput(<span class="string">"/dev/null"</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 注册 SupervisorManger，当 JVM 进程停止时执行 shutdown 逻辑</span></span><br><span class="line">        <span class="keyword">this</span>.initShutdownHook(supervisorManager);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 循环监测 shutdown 方法是否执行完毕</span></span><br><span class="line">        <span class="keyword">while</span> (!supervisorManager.isFinishShutdown()) {</span><br><span class="line">            <span class="keyword">try</span> {</span><br><span class="line">                Thread.sleep(<span class="number">1000</span>);</span><br><span class="line">            } <span class="keyword">catch</span> (InterruptedException ignored) {</span><br><span class="line">            }</span><br><span class="line">        }</span><br><span class="line">    }</span><br><span class="line">    <span class="comment">// 省略 catch 代码块</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>整个方法的逻辑比较清晰（如代码注释），核心实现位于 <code>Supervisor#mkSupervisor</code> 方法中，该方法主要用于创建和启动 supervisor 节点，基本执行流程如下：</p>
+<ol>
+<li>创建并清空本地存放临时文件的目录（这些文件是从 nimbus 节点下载而来）；</li>
+<li>创建 ZK 操作对象和 worker 运行错误数据上报器；</li>
+<li>创建 LocalState 对象，并获取（或创建）当前 supervisor 节点对应的 ID；</li>
+<li>启动心跳机制，同步节点信息到 ZK；</li>
+<li>启动并定期执行 <code>SyncSupervisorEvent#run()</code> 方法（默认间隔 10 秒），从 nimbus 节点领取分配给当前节点的任务并启动执行；</li>
+<li>启动轻量级 HTTP 服务，主要用于查看和下载当前节点的运行日志数据；</li>
+<li>启动 supervisor 运行状况检查机制和 nimbus 节点配置同步策略。</li>
+</ol>
+<p>Supervisor 节点在启动时首先会在本地创建并清空临时目录（路径：<code>supervisor/tmp</code>），Supervisor 从 nimbus 节点下载下来的文件会临时存放在这里，包括 stormcode.cer、stormconf.cer、stormjar.jar，以及 lib 目录下面的文件等，经过简单处理之后会将其复制到 <code>stormdist/${topology_id}</code> 本地目录中，supervisor 本地文件说明如下：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">+ ${supervisor_local_dir}</span><br><span class="line">| ---- + supervisor</span><br><span class="line">| ---- | ---- + stormdist</span><br><span class="line">| ---- | ---- | ---- + ${topology_id}</span><br><span class="line">| ---- | ---- | ---- | ---- + resources: 指定 topology 程序包 resources 目录下面的所有文件</span><br><span class="line">| ---- | ---- | ---- | ---- + stormjar.jar: 包含指定 topology 所有代码的 jar 文件</span><br><span class="line">| ---- | ---- | ---- | ---- + stormcode.ser: 包含指定 topology 对象的序列化文件</span><br><span class="line">| ---- | ---- | ---- | ---- + stormconf.ser: 包含指定 topology 的配置信息文件</span><br><span class="line">| ---- | ---- + localstate: 本地状态信息</span><br><span class="line">| ---- | ---- + tmp: 临时目录，从 nimbus 下载的文件的临时存储目录，简单处理之后复制到 stormdist/${topology_id}</span><br><span class="line">| ---- | ---- | ---- + ${uuid}</span><br><span class="line">| ---- | ---- | ---- | ---- + stormjar.jar: 从 nimbus 节点下载下来的 jar 文件</span><br><span class="line">| ---- | ---- | ---- + ${topology_id}</span><br><span class="line">| ---- | ---- | ---- | ---- + stormjar.jar: 包含指定 topology 所有代码的 jar 文件（从 inbox 目录复制过来）</span><br><span class="line">| ---- | ---- | ---- | ---- + stormcode.ser: 包含指定 topology 对象的序列化文件</span><br><span class="line">| ---- | ---- | ---- | ---- + stormconf.ser: 包含指定 topology 的配置信息文件</span><br><span class="line"></span><br><span class="line">| ---- + workers</span><br><span class="line">| ---- | ---- + ${worker_id}</span><br><span class="line">| ---- | ---- | ---- + pids</span><br><span class="line">| ---- | ---- | ---- | ---- + ${pid}: 指定 worker 进程 ID</span><br><span class="line">| ---- | ---- | ---- + heartbeats</span><br><span class="line">| ---- | ---- | ---- | ---- + ${worker_id}: 指定 worker 心跳信息（心跳时间、worker 的进程 ID）</span><br></pre></td></tr></tbody></table></div></figure>
+<p>接下来 supervisor 会创建 StormClusterState 对象，用于操作 ZK 集群，同时还会创建一个 WorkerReportError 类对象，用于上报 worker 的运行错误数据到 ZK，该类仅包含一个实例方法 report，用于执行上报逻辑。然后 supervisor 节点会创建一个 LocalState 对象用于存储节点的状态信息，这是一个简单、低效的键值存储数据库，每一次操作都会落盘，在这里对应的落盘目录是 <code>supervisor/localstate</code>。Supervisor 的 ID（UUID 字符串） 就存储在该数据库中，supervisor 启动时会先尝试从本地状态信息对象中获取 ID 值，如果不存在的话就会创建一个新的 UUID 字符串作为 ID。</p>
+<p>Supervisor 节点在启动的过程中会初始化心跳机制，间隔指定时间将当前节点的相关信息上报给 ZK（路径：<code>supervisors/${supervisor_id}</code>），包含当前 supervisor 节点的主机名、ID、最近一次上报时间、截止上次上报节点的运行时间，以及 worker 端口列表信息。相关信息的初始化在 Heartbeat 类对象实例化时进行设置，期间会依据当前机器 CPU 核心数和物理内存大小计算允许的 worker 端口数目，并默认从 6800 端口号开始分配 worker 端口。Supervisor 节点会启动一个线程，默认每间隔 60 秒调用 <code>Heartbeat#update</code> 方法同步心跳信息到 ZK，该方法的实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">update</span><span class="params">()</span> </span>{</span><br><span class="line">    <span class="comment">// 更新本次上报时间为当前时间（单位：秒）</span></span><br><span class="line">    supervisorInfo.setTimeSecs(TimeUtils.current_time_secs());</span><br><span class="line">    <span class="comment">// 更新截止目前节点的运行时间（单位：秒）</span></span><br><span class="line">    supervisorInfo.setUptimeSecs(TimeUtils.current_time_secs() - startTime);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 依据具体配置和资源占用，调整端口号列表</span></span><br><span class="line">    <span class="keyword">this</span>.updateSupervisorInfo();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="comment">// 将 supervisor 信息写入 ZK：supervisors/${supervisor_id}</span></span><br><span class="line">        stormClusterState.supervisor_heartbeat(supervisorId, supervisorInfo);</span><br><span class="line">    } <span class="keyword">catch</span> (Exception e) {</span><br><span class="line">        LOG.error(<span class="string">"Failed to update SupervisorInfo to ZK"</span>, e);</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>具体过程如代码注释，下面是一个实际的心跳信息示例：</p>
+<figure class="highlight json"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">{</span><br><span class="line">  <span class="attr">"hostName"</span>: <span class="string">"10.38.164.192"</span>,</span><br><span class="line">  <span class="attr">"supervisorId"</span>: <span class="string">"980bbcfd-5438-4e25-aee9-bf411304a446"</span>,</span><br><span class="line">  <span class="attr">"timeSecs"</span>: <span class="number">1533373753</span>,</span><br><span class="line">  <span class="attr">"uptimeSecs"</span>: <span class="number">2879598</span>,</span><br><span class="line">  <span class="attr">"workerPorts"</span>: [</span><br><span class="line">    <span class="number">6912</span>, <span class="number">6900</span>, <span class="number">6901</span>, <span class="number">6902</span>, <span class="number">6903</span>, <span class="number">6904</span>, <span class="number">6905</span>, <span class="number">6906</span>, <span class="number">6907</span>, <span class="number">6908</span>, <span class="number">6909</span>, <span class="number">6910</span>, <span class="number">6911</span></span><br><span class="line">  ]</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>下面来重点看一下 supervisor 节点领取分配给当前节点的任务并启动执行的过程。该过程的实现代码块如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * 5. 启动并定期执行 SyncSupervisorEvent#run() 方法（默认间隔 10 秒），从 nimbus 节点领取分配给当前节点的任务并启动执行</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">ConcurrentHashMap&lt;String, String&gt; workerThreadPids = <span class="keyword">new</span> ConcurrentHashMap&lt;&gt;();</span><br><span class="line">SyncProcessEvent syncProcessEvent = <span class="keyword">new</span> SyncProcessEvent(</span><br><span class="line">        supervisorId, conf, localState, workerThreadPids, sharedContext, workerReportError, stormClusterState);</span><br><span class="line"></span><br><span class="line">EventManagerImp syncSupEventManager = <span class="keyword">new</span> EventManagerImp();</span><br><span class="line">AsyncLoopThread syncSupEventThread = <span class="keyword">new</span> AsyncLoopThread(syncSupEventManager);</span><br><span class="line">threads.add(syncSupEventThread);</span><br><span class="line"></span><br><span class="line">SyncSupervisorEvent syncSupervisorEvent = <span class="keyword">new</span> SyncSupervisorEvent(</span><br><span class="line">        supervisorId, conf, syncSupEventManager, stormClusterState, localState, syncProcessEvent, hb);</span><br><span class="line"></span><br><span class="line"><span class="comment">// ${supervisor.monitor.frequency.secs}，默认为 10 秒</span></span><br><span class="line"><span class="keyword">int</span> syncFrequency = JStormUtils.parseInt(conf.get(Config.SUPERVISOR_MONITOR_FREQUENCY_SECS));</span><br><span class="line">EventManagerPusher syncSupervisorPusher = <span class="keyword">new</span> EventManagerPusher(syncSupEventManager, syncSupervisorEvent, syncFrequency);</span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * 每间隔一段时间（默认为 10 秒）调用 EventManagerPusher#run()，</span></span><br><span class="line"><span class="comment"> * 本质上是调用 EventManagerImp#add(RunnableCallback) 将 syncSupervisorEvent 记录到自己的阻塞队列中，</span></span><br><span class="line"><span class="comment"> * 同时 EventManagerImp 也会循环消费阻塞队列，取出其中的 syncSupervisorEvent，并应用其 run 方法：SyncSupervisorEvent#run()</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">AsyncLoopThread syncSupervisorThread = <span class="keyword">new</span> AsyncLoopThread(syncSupervisorPusher);</span><br><span class="line">threads.add(syncSupervisorThread);</span><br></pre></td></tr></tbody></table></div></figure>
+<p>要理解该过程的运行机制，我们应该倒着来看相应的源码实现，首先看一下代码块的倒数第二行：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">AsyncLoopThread syncSupervisorThread = <span class="keyword">new</span> AsyncLoopThread(syncSupervisorPusher);</span><br></pre></td></tr></tbody></table></div></figure>
+<p>由前面我们对 Storm 基本线程模型的分析可以知道，这行代码会启动一个线程去循环执行入参回调的 run 方法，这里也就是 <code>EventManagerPusher#run</code> 方法，该方法的实现比较简单：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>{</span><br><span class="line">    eventManager.add(event);</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>也就是不断的调用 <code>EventManager#add</code> 方法（默认间隔时间为 10 秒），继续往前看我们知道这里的 EventManager 类实际实现是 EventManagerImp，而不断的调用其 add 方法添加的 event 本质上就是一个 SyncSupervisorEvent 实例对象。EventManagerImp 维护了一个阻塞队列来不断记录加入的 event，它本身也是一个回调，再往前看我们就可以看到它在实例化时也被 AsyncLoopThread 启动，<code>EventManagerImp#run</code> 方法实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>{</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        RunnableCallback r = queue.take();</span><br><span class="line">        <span class="keyword">if</span> (r == <span class="keyword">null</span>) {</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        }</span><br><span class="line">        r.run();</span><br><span class="line">        e = r.error();</span><br><span class="line">        <span class="keyword">this</span>.processInc();</span><br><span class="line">    } <span class="keyword">catch</span> (InterruptedException e) {</span><br><span class="line">        LOG.info(<span class="string">"Interrupted when processing event."</span>);</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>该方法就是不断的从阻塞队列中取出相应的回调并应用其 run 方法，也就是不断应用 <code>SyncSupervisorEvent#run</code> 方法。</p>
+<p>以上就是步骤五的整体逻辑，简单描述就是定期的往阻塞队列中添加 SyncSupervisorEvent 事件，而线程会循环的消费队列，取出事件并应用事件的 run 方法。下面来深入分析一下 SyncSupervisorEvent 的 run 方法，该方法所做的工作也就是 supervisor 的核心逻辑，主要可以概括为 3 点：</p>
+<ol>
+<li>从 ZK 上下载任务分配信息，并更新到本地；</li>
+<li>从 nimbus 节点上下载 topology 对应的 jar 和配置文件；</li>
+<li>启动 worker 执行分配给当前 supervisor 的 topology 任务。</li>
+</ol>
+<p><code>SyncSupervisorEvent#run</code> 方法的实现比较长，下面按照执行步骤逐步拆分进行分析，首先来看一下从 ZK 上下载任务分配信息，并更新到本地的过程，相应实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * 1.1. 同步所有 topology 的任务分配信息及其版本信息到本地</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">if</span> (healthStatus.isMoreSeriousThan(HealthStatus.ERROR)) {</span><br><span class="line">    <span class="comment">// 检查当前 supervisor 的状态信息，如果是 PANIC 或 ERROR，则清除所有本地的任务分配相关信息</span></span><br><span class="line">    assignmentVersion.clear();</span><br><span class="line">    assignments.clear();</span><br><span class="line">    LOG.warn(<span class="string">"Supervisor machine check status: "</span> + healthStatus + <span class="string">", killing all workers."</span>);</span><br><span class="line">} <span class="keyword">else</span> {</span><br><span class="line">    <span class="comment">// 同步所有 topology 的任务分配信息及其版本（即更新 assignmentVersion 和 assignments 参数）</span></span><br><span class="line">    <span class="keyword">this</span>.getAllAssignments(assignmentVersion, assignments, syncCallback);</span><br><span class="line">}</span><br><span class="line">LOG.debug(<span class="string">"Get all assignments "</span> + assignments);</span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * 1.2. 从 supervisor 本地（supervisor/stormdist/）获取已经下载的所有的 topologyId</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">List&lt;String&gt; downloadedTopologyIds = StormConfig.get_supervisor_toplogy_list(conf);</span><br><span class="line">LOG.debug(<span class="string">"Downloaded storm ids: "</span> + downloadedTopologyIds);</span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * 1.3. 获取分配给当前 supervisor 的任务信息：&lt;port, LocalAssignments&gt;</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">Map&lt;Integer, LocalAssignment&gt; zkAssignment = <span class="keyword">this</span>.getLocalAssign(stormClusterState, supervisorId, assignments);</span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * 1.4. 更新 supervisor 本地的任务分配信息</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">Map&lt;Integer, LocalAssignment&gt; localAssignment;</span><br><span class="line"><span class="keyword">try</span> {</span><br><span class="line">    LOG.debug(<span class="string">"Writing local assignment "</span> + zkAssignment);</span><br><span class="line">    localAssignment = (Map&lt;Integer, LocalAssignment&gt;) localState.get(Common.LS_LOCAL_ASSIGNMENTS); <span class="comment">// local-assignments</span></span><br><span class="line">    <span class="keyword">if</span> (localAssignment == <span class="keyword">null</span>) {</span><br><span class="line">        localAssignment = <span class="keyword">new</span> HashMap&lt;&gt;();</span><br><span class="line">    }</span><br><span class="line">    localState.put(Common.LS_LOCAL_ASSIGNMENTS, zkAssignment);</span><br><span class="line">} <span class="keyword">catch</span> (IOException e) {</span><br><span class="line">    LOG.error(<span class="string">"put LS_LOCAL_ASSIGNMENTS "</span> + zkAssignment + <span class="string">" to localState failed"</span>);</span><br><span class="line">    <span class="keyword">throw</span> e;</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>Supervisor 节点在本地会缓存任务分配信息，同时会定期从 ZK 同步最新的任务分配信息到本地，从 ZK 上获取任务分配信息的逻辑位于 <code>SyncSupervisorEvent#getAllAssignments</code> 方法中，方法会从 ZK 的 assignments 路径下获取所有的 topologyId，并与本地比较对应 topology 的任务分配信息版本，如果版本有更新则更新本地缓存的任务分配信息。</p>
+<p>接下来 supervisor 会计算所有需要下载的 topology，包括需要更新的、需要重新下载的（之前下载有失败），以及在当前节点进行灰度的，并从 nimbus 节点下载各个 topology 对应的文件，包括 stormjar.jar、stormcode.ser、stormconf.ser，以及 lib 目录下面的依赖文件（如果存在的话），最后从本地删除那些之前下载过但是本次未分配给当前 supervisor 节点的 topology 文件，相应实现如下：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * 2.1. 获取所有需要执行下载操作的 topology_id 集合（包括需要更新的、需要重新下载，以及在当前节点灰度的）</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">Set&lt;String&gt; updateTopologies = <span class="keyword">this</span>.getUpdateTopologies(localAssignment, zkAssignment, assignments);</span><br><span class="line">Set&lt;String&gt; reDownloadTopologies = <span class="keyword">this</span>.getNeedReDownloadTopologies(localAssignment);</span><br><span class="line"><span class="keyword">if</span> (reDownloadTopologies != <span class="keyword">null</span>) {</span><br><span class="line">    updateTopologies.addAll(reDownloadTopologies);</span><br><span class="line">}</span><br><span class="line"><span class="comment">// 获取灰度发布且指定在当前 supervisor 的 topology：[topology_id, Pair(host, port)]</span></span><br><span class="line">Map&lt;String, Set&lt;Pair&lt;String, Integer&gt;&gt;&gt; upgradeTopologyPorts =</span><br><span class="line">        <span class="keyword">this</span>.getUpgradeTopologies(stormClusterState, localAssignment, zkAssignment);</span><br><span class="line"><span class="keyword">if</span> (upgradeTopologyPorts.size() &gt; <span class="number">0</span>) {</span><br><span class="line">    LOG.info(<span class="string">"upgrade topology ports:{}"</span>, upgradeTopologyPorts);</span><br><span class="line">    updateTopologies.addAll(upgradeTopologyPorts.keySet());</span><br><span class="line">}</span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * 2.2. 从 nimbus 下载对应的 topology 任务代码</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="comment">// 从 ZK 上获取分配给当前 supervisor 的 [topologyId, master-code-dir] 信息</span></span><br><span class="line">Map&lt;String, String&gt; topologyCodes = getTopologyCodeLocations(assignments, supervisorId);</span><br><span class="line"><span class="comment">// downloadFailedTopologyIds which can't finished download binary from nimbus</span></span><br><span class="line">Set&lt;String&gt; downloadFailedTopologyIds = <span class="keyword">new</span> HashSet&lt;&gt;(); <span class="comment">// 记录所有下载失败的 topologyId</span></span><br><span class="line"><span class="comment">// 从 nimbus 下载相应的 topology jar 文件到 supervisor 本地</span></span><br><span class="line"><span class="keyword">this</span>.downloadTopology(topologyCodes, downloadedTopologyIds, updateTopologies, assignments, downloadFailedTopologyIds);</span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * 2.3. 删除无用的 topology 相关文件（之前下载过，但是本次未分配给当前 supervisor）</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">this</span>.removeUselessTopology(topologyCodes, downloadedTopologyIds);</span><br></pre></td></tr></tbody></table></div></figure>
+<p>文件下载的逻辑位于 <code>SyncSupervisorEvent#downloadTopology</code> 方法中，文件下载的过程可以概括为以下 5 个步骤：</p>
+<ol>
+<li>从 nimbus 上下载 topology 相关文件到 supervisor 的临时目录：<code>${storm.local.dir}/supervisor/tmp/${uuid}</code>；</li>
+<li>抽取 stormjar.jar 的 resources 文件；</li>
+<li>将临时目录下的文件移动到 <code>${storm.local.dir}/supervisor/stormdist/${topology_id}</code> 目录；</li>
+<li>清空临时目录；</li>
+<li>添加对应的时间戳文件：<code>${storm.local.dir}/supervisor/stormdist/${topology_id}/timestamp</code>。</li>
+</ol>
+<p>最后 supervisor 节点会调用 <code>SyncProcessEvent#run</code> 方法杀死状态异常的 worker，同时启动新的 worker 执行分配的任务：</p>
+<figure class="highlight java"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * 3. kill bad workers, start new workers</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">syncProcesses.run(zkAssignment, downloadFailedTopologyIds, upgradeTopologyPorts);</span><br><span class="line"></span><br><span class="line"><span class="comment">// SyncProcessEvent#run</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">(Map&lt;Integer, LocalAssignment&gt; localAssignments,</span></span></span><br><span class="line"><span class="function"><span class="params">                Set&lt;String&gt; downloadFailedTopologyIds,</span></span></span><br><span class="line"><span class="function"><span class="params">                Map&lt;String, Set&lt;Pair&lt;String, Integer&gt;&gt;&gt; upgradeTopologyPorts)</span> </span>{</span><br><span class="line"></span><br><span class="line">    LOG.debug(<span class="string">"Syncing processes, interval (sec): "</span> + TimeUtils.time_delta(lastTime));</span><br><span class="line">    lastTime = TimeUtils.current_time_secs();</span><br><span class="line">    <span class="keyword">try</span> {</span><br><span class="line">        <span class="keyword">if</span> (localAssignments == <span class="keyword">null</span>) {</span><br><span class="line">            localAssignments = <span class="keyword">new</span> HashMap&lt;&gt;();</span><br><span class="line">        }</span><br><span class="line">        LOG.debug(<span class="string">"Assigned tasks: "</span> + localAssignments);</span><br><span class="line"></span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">         * 3.1 获取本地所有 worker 的状态信息：Map&lt;worker_id [WorkerHeartbeat, state]&gt;</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        Map&lt;String, StateHeartbeat&gt; localWorkerStats;</span><br><span class="line">        <span class="keyword">try</span> {</span><br><span class="line">            <span class="comment">// Map[workerId, [worker heartbeat, state]]</span></span><br><span class="line">            localWorkerStats = <span class="keyword">this</span>.getLocalWorkerStats(conf, localState, localAssignments);</span><br><span class="line">        } <span class="keyword">catch</span> (Exception e) {</span><br><span class="line">            LOG.error(<span class="string">"Failed to get local worker stats"</span>);</span><br><span class="line">            <span class="keyword">throw</span> e;</span><br><span class="line">        }</span><br><span class="line">        LOG.debug(<span class="string">"Allocated: "</span> + localWorkerStats);</span><br><span class="line"></span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">         * 3.2 杀死无用的 worker，并从 localWorkerStats 中移除</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        Map&lt;String, Integer&gt; taskCleanupTimeoutMap;</span><br><span class="line">        Set&lt;Integer&gt; keepPorts = <span class="keyword">null</span>;</span><br><span class="line">        <span class="keyword">try</span> {</span><br><span class="line">            <span class="comment">// [topology_id, cleanup_second]</span></span><br><span class="line">            taskCleanupTimeoutMap = (Map&lt;String, Integer&gt;) localState.get(Common.LS_TASK_CLEANUP_TIMEOUT); <span class="comment">// task-cleanup-timeout</span></span><br><span class="line">            <span class="comment">// 对于一些状态为 disallowed/timedOut 的 worker 进行 kill，并清空相应的数据，同时返可用的 worker port</span></span><br><span class="line">            keepPorts = <span class="keyword">this</span>.killUselessWorkers(localWorkerStats, localAssignments, taskCleanupTimeoutMap);</span><br><span class="line">            localState.put(Common.LS_TASK_CLEANUP_TIMEOUT, taskCleanupTimeoutMap);</span><br><span class="line">        } <span class="keyword">catch</span> (IOException e) {</span><br><span class="line">            LOG.error(<span class="string">"Failed to kill workers"</span>, e);</span><br><span class="line">        }</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 3.3 检测 worker 是否正在启动中，清空处于运行态和启动失败 worker 的相应数据（workerIdToStartTimeAndPort 和 portToWorkerId）</span></span><br><span class="line">        <span class="keyword">this</span>.checkNewWorkers(conf);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 3.4 标记需要重新下载的 topology（没有启动成功，同时下载时间已经超过 2 分钟）</span></span><br><span class="line">        <span class="keyword">this</span>.checkNeedUpdateTopologies(localWorkerStats, localAssignments);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 3.5 启动新的 worker 执行 topology 任务</span></span><br><span class="line">        <span class="keyword">this</span>.startNewWorkers(keepPorts, localAssignments, downloadFailedTopologyIds);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 3.6 启动相应的 worker 执行在当前节点 灰度的 topology 任务</span></span><br><span class="line">        <span class="keyword">this</span>.restartUpgradingWorkers(localAssignments, localWorkerStats, upgradeTopologyPorts);</span><br><span class="line"></span><br><span class="line">    } <span class="keyword">catch</span> (Exception e) {</span><br><span class="line">        LOG.error(<span class="string">"Failed to init SyncProcessEvent"</span>, e);</span><br><span class="line">    }</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>无论是新任务分配，还是灰度更新，启动 worker 的过程都是调用了 <code>SyncProcessEvent#startWorkers</code> 方法，该方法为每个新的 worker 基于 UUID 创建一个 workerId，以及进程目录 <code>${storm.local.dir}/workers/${worker_id}/pids</code>，并调用 <code>SyncProcessEvent#doLaunchWorker</code> 方法启动 worker，同时更新 worker 在本地的相应数据。Worker 进程的启动和运行机制将在下一篇中进行详细说明。</p>
+<p>在分析 nimbus 节点启动过程中有一步会启动一个 HTTP 服务，用于接收查询 nimbus 节点本地日志和配置等数据的需求，supervisor 节点的启动过程也同样包含这样一个过程。Supervisor 的 HTTP 服务默认会监听在 7622 端口，用于接收来自 UI 的请求。</p>
+<p>最后对于集群模式，如果配置了 <code>supervisor.enable.check=true</code> 则 supervisor 节点在启动时会创建一个线程用于定期检查 supervisor 的运行状况，另外还会启动一个线程用于同步 nimbus 的配置信息到本地节点。最后会创建并返回一个 SupervisorManger 类对象，用于对于当前 supervisor 节点进行管理。</p>
+<p>到此，supervisor 节点基本启动完成了，supervisor 会定期基于 ZK 从 nimbus 节点领取任务，然后启动 worker 去执行任务，而启动 worker 的过程我们将在下一篇中进行详细分析。</p>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2018/11/19/storm/storm-supervisor/">https://plotor.github.io/2018/11/19/storm/storm-supervisor/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Storm/">Storm</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/JStorm/">JStorm</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2018/11/20/storm/storm-worker/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">JStorm 源码解析：Worker 的启动和运行机制</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2018/11/18/storm/storm-nimbus/"><span class="paginator-prev__text">JStorm 源码解析：Nimbus 的启动和运行机制</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>

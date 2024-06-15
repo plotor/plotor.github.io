@@ -1,0 +1,1095 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="OAuth 2.0 协议是一种三方授权协议，目前大部分的第三方授权场景（例如接入微信第三方登录）均为基于该协议的标准或改进实现。OAuth 1.0 版本于 2007 年发布，2.0 版本则在 2011 年发布，其中 2.0 版本取消了所有 token 的加密过程，并简化了授权流程，但因强制使用 HTTPS 协议，被认为安全性高于之前的版本。  项目地址：https:&#x2F;&#x2F;github.com&#x2F;plo">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OAuth 2.0 开放授权那些事儿">
+<meta property="og:url" content="https://plotor.github.io/2018/03/04/protocol/oauth-v2-protocol/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="OAuth 2.0 协议是一种三方授权协议，目前大部分的第三方授权场景（例如接入微信第三方登录）均为基于该协议的标准或改进实现。OAuth 1.0 版本于 2007 年发布，2.0 版本则在 2011 年发布，其中 2.0 版本取消了所有 token 的加密过程，并简化了授权流程，但因强制使用 HTTPS 协议，被认为安全性高于之前的版本。  项目地址：https:&#x2F;&#x2F;github.com&#x2F;plo">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://plotor.github.io/images/2017/oauth_basic_flow.png">
+<meta property="og:image" content="https://plotor.github.io/images/2017/oauth-v2-authorization-code.png">
+<meta property="og:image" content="https://plotor.github.io/images/2017/oauth-v2-implicit-grant.png">
+<meta property="og:image" content="https://plotor.github.io/images/2017/oauth-v2-resource-owner-password-credentials.png">
+<meta property="og:image" content="https://plotor.github.io/images/2017/oauth-v2-client-credentials.png">
+<meta property="article:published_time" content="2018-03-04T14:04:17.000Z">
+<meta property="article:modified_time" content="2024-06-15T06:56:17.967Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="OAuth">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://plotor.github.io/images/2017/oauth_basic_flow.png"><title>OAuth 2.0 开放授权那些事儿 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2018/03/04/protocol/oauth-v2-protocol/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">OAuth 2.0 开放授权那些事儿</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2018-03-04</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">8.9k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">33分</span></span></div></header><div class="post-body"><p><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://tools.ietf.org/html/rfc6749">OAuth 2.0</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 协议是一种三方授权协议，目前大部分的第三方授权场景（例如接入微信第三方登录）均为基于该协议的标准或改进实现。<span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://tools.ietf.org/html/rfc5849">OAuth 1.0</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 版本于 2007 年发布，2.0 版本则在 2011 年发布，其中 2.0 版本取消了所有 token 的加密过程，并简化了授权流程，但因强制使用 HTTPS 协议，被认为安全性高于之前的版本。</p>
+<ul>
+<li>项目地址：<span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/plotor/oauth4j">https://github.com/plotor/oauth4j</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+</ul>
+<a id="more"></a>
+
+
+        <h3 id="小场景带你感受-OAuth-2-0-的交互过程">
+          <a href="#小场景带你感受-OAuth-2-0-的交互过程" class="heading-link"><i class="fas fa-link"></i></a>小场景带你感受 OAuth 2.0 的交互过程</h3>
+      <p>为了让你对 OAuth 2.0 协议有一个整体上的感知，这里先设置一个小场景对协议的交互过程进行模拟。话说阿冰在花果山上有几亩果园，种了各种各样的水果，有苹果、荔枝、西瓜等等，并由管理员老王进行看管。</p>
+<p>夏天到了，果园里的的水果涨势喜人，阿冰的好朋友小桂子想去果园摘一些西瓜和荔枝解解馋，于是小桂子提着果篮吭哧吭哧就跑到了花果山。结果，被管理员老王一把拦住，呵斥道：“要摘水果，必须经过阿冰的同意，快出示相关凭证”。小桂子当然没有，还纳闷去哪搞什么凭证。这时老王拎着小桂子来到了一个茅草房前，只见上面写着“花果山街道办事处”，并告诉小桂子这里可以开具凭证。</p>
+<p>小桂子来到柜台前，业务人员询问了其姓名，并要求出示身份证件。核实身份之后，业务人员询问小桂子要去谁的果园，采摘什么水果？小桂子如实答复，不一会只见业务人员打印出了一张凭证，并将其丢入一个“时光通道”，凭证上写着：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">小桂子请求在您的果园采摘以下水果：</span><br><span class="line">- 采摘您的西瓜 2 个</span><br><span class="line">- 采摘您的荔枝 3 斤</span><br></pre></td></tr></tbody></table></div></figure>
+<p>通道那头的阿冰收到凭证之后盖上自己的印章以示同意，然后将其投回了“时光通道”。最终小桂子拿到了经过阿冰授权的凭证，跳着奔向果园。管理员老王验证了小桂子出示的凭证，并摘了 2 个西瓜和 3 斤荔枝交到了小桂子手上。</p>
+<p>一个星期后，小桂子嘴又馋了，拿着上次的凭证直奔花果山，到了果园门口又被老王拦住了，老王说：“你这凭证已经过期了，必须再次请求阿冰授权”。小桂子满脸委屈，嘟囔着：“不就想吃俩西瓜嘛，怎么就管的这么严”。</p>
+<p>小编不才，实在编不下去了，就这样结束吧。。。</p>
+<p>在这个故事中，凭证限制了小桂子是否可以获得水果，以及获得哪些水果，每种水果多少斤。此外凭证还具备生命周期，超出凭证范围的请求都会被老王拒绝。通过凭证，小桂子可以获取到自己想要的水果，阿冰也不需要亲临花果山，在做好果园管理的同时，又不影响阿冰的生活。</p>
+<p>回到正题，对于 OAuth 2.0 协议（以下简称 OAuth 协议），我相信大部分读者都有所接触，最常见的就是使用微信登录第三方应用。的确，OAuth 协议被广泛应用于第三方授权登录中，借助第三方登录可以让用户免于再次注册之苦，支持第三方登录也对这些网站、APP 起到了积极的作用，免去了复杂的注册过程，用户体验更佳。这样在提高留存率的同时，也更加易于收集用户的一些非敏感信息等，另外还可以借助一些社交类的第三方帐号进行站点推广。</p>
+
+        <h3 id="基本概念与授权流程">
+          <a href="#基本概念与授权流程" class="heading-link"><i class="fas fa-link"></i></a>基本概念与授权流程</h3>
+      <p>作为第三方登录服务提供方，其核心矛盾点是 <strong>既要让用户在对接服务的 APP 上完成登录，同时还不能让该 APP 拿到用户的密码凭证</strong> 。解决这一矛盾的利器就是 token（中文译为令牌），而 OAuth 协议的最终目的就是给第三方应用下发 token，它记录了用户的登录或授权状态。通过将 token 下发给第三方应用，既能让 APP 登录并拿到用户许可的数据，也可以将用户的密码凭证牢牢拽在服务自己手里。</p>
+<p>上面的论述可能侧重了第三方登录，实际上登录只是一个授权的过程，OAuth 2.0 协设计的目的在于开放授权。对于一个应用，其最终目的还是在于拿到用户存储在资源服务器上的用户数据，所以登录授权还只是第一步，后续 APP 还需要携带 token 去资源服务器请求用户数据，这个时候是一个鉴权的过程。OAuth 协议的主要目的在于授权，至于鉴权，实现上主要还是对请求传递过来的 token 进行解析和验证，这一块相对要简单一些，所以本文主要讲解 OAuth 授权的过程。</p>
+
+        <h4 id="角色定义">
+          <a href="#角色定义" class="heading-link"><i class="fas fa-link"></i></a>角色定义</h4>
+      <p>OAuth 2.0 协议的交互过程主要涉及 4 类角色：</p>
+<ul>
+<li><strong>资源所有者（resource owner）</strong> ：受保护资源所属的实体，比如资源的所有人，下文的用户即为资源所有者。</li>
+<li><strong>资源服务器（resource server）</strong> ：托管受保护资源的服务器，能够响应持有访问令牌的资源访问请求，可以与授权服务器是同一台服务器，也可以分开。</li>
+<li><strong>客户端（client）</strong> ：客户端是 OAuth 服务的接入方，其目的是希望请求用户存储在资源服务器上的受保护资源。</li>
+<li><strong>授权服务器（authorization server）</strong> ：授权服务器的主要职责是验证资源所有者的身份，并依据资源所有者的许可向客户端下发访问令牌。</li>
+</ul>
+<p>在之前的故事中，果园中的水果就是资源，而资源所有者是阿冰，果园可以看做是资源服务器，小桂子就是客户端，而街道办事处是整个流程的授权中心，也就是上面的授权服务器。</p>
+
+        <h4 id="基本概念">
+          <a href="#基本概念" class="heading-link"><i class="fas fa-link"></i></a>基本概念</h4>
+      
+        <h5 id="访问令牌（access-token）">
+          <a href="#访问令牌（access-token）" class="heading-link"><i class="fas fa-link"></i></a>访问令牌（access token）</h5>
+      <p>还记得故事中老王问小桂子要的凭证吗？凭证限制了小桂子只能摘 2 个西瓜和 3 斤荔枝，并且凭证还是具备生命周期的，一个星期之后小桂子再拿着过期的凭证老王也不认了。</p>
+<p>实际上故事中的凭证对应的是 OAuth 2.0 中的访问令牌，访问令牌是在用户授权许可下，授权服务器下发给客户端的一个授权凭证，该令牌所要表达的意思是 <strong>“用户授予该 APP 在多少时间范围内允许访问哪些与自己相关的服务或数据 ”</strong> ，所以访问令牌主要在 <strong>时间</strong> 和 <strong>权限</strong> 两个维度进行控制。此外，访问令牌对于客户端来说是就是一个字符串，客户端无法知晓字符串背后所隐藏的用户信息，因此不用担心用户的密码凭证会因此泄露。</p>
+
+        <h5 id="刷新令牌（refresh-token）">
+          <a href="#刷新令牌（refresh-token）" class="heading-link"><i class="fas fa-link"></i></a>刷新令牌（refresh token）</h5>
+      <p>故事中小桂子最后之所以觉得委屈是因为意识到自己需要再重复走一次授权过程，这让小桂子觉得很麻烦，专业点说就是用户体验太差，解决之道就是引入刷新令牌。</p>
+<p>刷新令牌的作用在于更新访问令牌。访问令牌的生命周期一般较短，这样可以保证在发生访问令牌泄露时，不至于造成太坏的影响。然而，访问令牌有效期设置太短导致的副作用就是用户需要频繁授权，虽然可以通过一定的机制进行静默授权，但是频繁的调用授权接口之于授权服务器也是一种压力。此时可以在下发访问令牌的同时下发一个刷新令牌，刷新令牌的生命周期明显长于访问令牌，这样在访问令牌失效时，可以利用刷新令牌去授权服务器换取新的访问令牌，不过协议对于刷新令牌没有强制规定，是否需要该令牌客户端可以自行选择。</p>
+
+        <h5 id="回调地址（redirect-uri）">
+          <a href="#回调地址（redirect-uri）" class="heading-link"><i class="fas fa-link"></i></a>回调地址（redirect uri）</h5>
+      <p>OAuth 2.0 是一类基于回调的授权协议。以授权码模式为例，整个授权需要分为两步进行：第一步下发授权码；第二步根据授权码请求授权服务器下发访问令牌。OAuth 在第一步下发授权码时，是将授权码以参数的形式添加到回调地址后面，并以 302 跳转的形式进行下发，这样简化了客户端的操作，不需要再主动去触发一次请求，即可进入下一步流程。</p>
+<p>回调的设计存在一定的安全隐患，坏人可以利用该机制引导用户到一个恶意站点，继而对用户发起攻击。对于授权服务器而言也存在一定的危害，坏人可以利用该机制让授权服务器变成“肉鸡”，以授权服务器为代理请求目标地址，这样在消耗授权服务器资源的同时，也对目标地址服务器产生 DDOS 攻击。</p>
+<p>为了避免上述安全隐患，OAuth 协议强制要求客户端在注册时填写自己的回调地址，其目的是为了让回调请求能够到达客户端自己的服务器，从而可以走获取访问令牌的流程。客户端可以同时配置多个回调地址，并在请求授权时携带一个地址，服务器会验证客户端传递上来的回调地址是否与之前注册的回调地址相同，或者前者是后者集合的一个元素，只有在满足这一条件下才允许下发授权码，同时协议还要求两步请求客户端携带的回调地址必须一致，通过这些措施来保证回调过程能够正常到达客户端自己的服务器，并继续后面拿授权码换取访问令牌的过程。</p>
+
+        <h5 id="权限范围（scope）">
+          <a href="#权限范围（scope）" class="heading-link"><i class="fas fa-link"></i></a>权限范围（scope）</h5>
+      <p>访问令牌自带过期时间，可以在时间维度上对授权进行控制，而在权限维度层面，OAuth 引入了一个叫 scope 的概念。Scope 可以看做是一个对象，包含权限 ID、名称，以及描述信息等，比如“获取您的基本资料（头像、昵称）”。应用在接入 OAuth 服务时必须向服务提供方申请相应的 scope，并在请求授权时指明该参数，这些权限在用户确认授权时必须毫无保留的展示给用户，以让用户知道本次请求需要访问用户的哪些数据或服务。</p>
+<p>在之前的故事中凭证允许小桂子只能摘取 2 个西瓜和 3 斤荔枝，这里就对应两个 scope，这些信息是写入到凭证（访问令牌）中的，从而限制凭证的权限范围。</p>
+
+        <h4 id="基本授权流程">
+          <a href="#基本授权流程" class="heading-link"><i class="fas fa-link"></i></a>基本授权流程</h4>
+      <p>OAuth 2.0 协议定义了 4 种授权模式，其中最具代表性的是授权码模式，我们将在 3.1 节中详细介绍，这里先简单体会一下 OAuth 2.0 的授权流程，交互时序图如下：</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2017/oauth_basic_flow.png" alt="image">
+      </p>
+<p>假设整个流程开始之前，用户已经登录，那么整个授权流程如下：</p>
+<ol>
+<li>客户端请求资源所有者（用户）授权，一般都是由授权服务器进行引导；</li>
+<li>资源所有者实施授权（采用 4 种授权模式中的一种），客户端拿到用户的授权凭证；</li>
+<li>客户端携带用户授权凭证请求授权服务器下发访问令牌；</li>
+<li>授权服务器验证客户端出示的授权凭证，并下发访问令牌；</li>
+<li>客户端携带访问令牌请求存储在资源服务器上的用户受保护资源；</li>
+<li>资源服务器验证客户端出示的访问令牌，通过则响应客户端的请求。</li>
+</ol>
+<p>整个过程中，客户端都无法接触到用户的密码凭证信息，客户端通过访问令牌请求受保护资源，用户可以通过对授权操作的控制来间接控制客户端对于受保护资源的访问权限范围和周期。</p>
+
+        <h3 id="四种授权模式">
+          <a href="#四种授权模式" class="heading-link"><i class="fas fa-link"></i></a>四种授权模式</h3>
+      <p>OAuth 2.0 相对于 1.0 版本在授权模式上做了更多的细化，已定义的授权模式分为四种：</p>
+<ul>
+<li>授权码模式（Authorization Code Grant）。</li>
+<li>隐式授权模式（Implicit Grant）。</li>
+<li>资源所有者密码凭证模式（Resource Owner Password Credentials Grant）。</li>
+<li>客户端凭证模式（Client Credentials Grant）。</li>
+</ul>
+
+        <h4 id="授权码授权模式（Authorization-Code-Grant）">
+          <a href="#授权码授权模式（Authorization-Code-Grant）" class="heading-link"><i class="fas fa-link"></i></a>授权码授权模式（Authorization Code Grant）</h4>
+      <p>授权码模式在整个授权流程上与 1.0 版本最为贴近，但是流程上还是要简化许多，也是 OAuth 2.0 中最标准、应用最为广泛的授权模式。这类授权模式非常适用于具备服务端的应用，当然现在大多数 APP 都有自己的服务端，所以授权码模式拥有最广泛的应用场景，下图为授权码各个角色之间的交互时序：</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2017/oauth-v2-authorization-code.png" alt="image">
+      </p>
+<p>整个授权流程说明如下（具体参数释义见下文）：</p>
+<ol>
+<li>客户端携带 <code>client_id</code>, <code>scope</code>, <code>redirect_uri</code>, <code>state</code> 等信息请求授权服务器下发 <code>code</code>；</li>
+<li>授权服务器验证客户端身份，通过则询问用户是否同意授权（此时会跳转到用户能够直观看到的授权页面，等待用户点击确认授权）；</li>
+<li>假设用户同意授权，此时授权服务器会将 <code>code</code> 和 <code>state</code> 拼接在 <code>redirect_uri</code> 后面，并以 302 形式下发 <code>code</code>；</li>
+<li>客户端携带 <code>code</code>, <code>redirect_uri</code>, 以及 <code>client_secret</code> 请求授权服务器下发 <code>access_token</code>；</li>
+<li>授权服务器验证客户端身份，同时验证 <code>code</code>，以及 <code>redirect_uri</code> 是否与第一步相同，通过则下发 <code>access_token</code>，并选择性下发 <code>refresh_token</code>。</li>
+</ol>
+
+        <h5 id="获取授权码">
+          <a href="#获取授权码" class="heading-link"><i class="fas fa-link"></i></a>获取授权码</h5>
+      <p>授权码是授权流程的一个中间临时凭证，是对用户确认授权这一操作的一个短暂性表征，其生命周期一般较短，协议建议最大不要超过 10 分钟。在这一有效时间内，客户端可以通过授权码去授权服务器请求换取访问令牌，授权码应该采取防重放措施。</p>
+<p><strong>请求参数说明：</strong></p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>名称</th>
+<th>是否必须</th>
+<th>描述信息</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>response_type</td>
+<td>必须</td>
+<td>对于授权码模式来说 <code>response_type=code</code>。</td>
+</tr>
+<tr>
+<td>client_id</td>
+<td>必须</td>
+<td>客户端 ID，用于标识一个客户端，在注册应用时生成。</td>
+</tr>
+<tr>
+<td>redirect_uri</td>
+<td>可选</td>
+<td>授权回调地址，具体参见 2.2.3 小节。</td>
+</tr>
+<tr>
+<td>scope</td>
+<td>可选</td>
+<td>权限范围，用于对客户端的权限进行控制，如果客户端没有传递该参数，那么服务器则以该应用被许可的所有权限代替。</td>
+</tr>
+<tr>
+<td>state</td>
+<td>推荐</td>
+<td>用于维持请求和回调过程中的状态，防止 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://zh.wikipedia.org/wiki/%E8%B7%A8%E7%AB%99%E8%AF%B7%E6%B1%82%E4%BC%AA%E9%80%A0">CSRF攻击</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>，服务器不对该参数做任何处理，如果客户端携带了该参数，则服务器在响应时原封不动的进行返回。</td>
+</tr>
+</tbody></table></div>
+<p><strong>请求参数示例：</strong></p>
+<figure class="highlight http"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">GET</span> <span class="string">/authorize?response_type=code&amp;client_id=s6BhdRkqt3&amp;state=xyz&amp;redirect_uri=https%3A%2F%2Fclient%2Eexample%2Ecom%2Fcb</span> <span class="meta">HTTP/1.1</span></span><br><span class="line"><span class="attribute">Host</span><span class="punctuation">: </span>server.example.com</span><br></pre></td></tr></tbody></table></div></figure>
+<p>客户端携带上述参数请求授权服务器，授权服务器会验证客户端的身份以及相关参数，并在确认用户已登录的前提下弹出授权页询问用户是否同意授权，如果用户同意则会将 code 和 state 信息添加到回调地址后面，并以 302 的形式下发。</p>
+<p><strong>成功响应参数说明：</strong></p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>名称</th>
+<th>是否必须</th>
+<th>描述信息</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>code</td>
+<td>必须</td>
+<td>授权码，授权码代表用户确认授权的暂时性凭证，推荐最大生命周期不超过 10 分钟。</td>
+</tr>
+<tr>
+<td>state</td>
+<td>可选</td>
+<td>如果客户端传递了该参数，则必须原封不动返回。</td>
+</tr>
+</tbody></table></div>
+<p><strong>成功响应示例：</strong></p>
+<figure class="highlight http"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">HTTP/1.1</span> <span class="number">302</span> Found</span><br><span class="line"><span class="attribute">Location</span><span class="punctuation">: </span>https://client.example.com/cb?code=SplxlOBeZQQYbYS6WxSbIA&amp;state=xyz</span><br></pre></td></tr></tbody></table></div></figure>
+<p>如果请求参数错误，或者服务器端响应错误，那么需要将错误信息添加在回调地址后面，同样以 302 形式下发（回调地址错误，或客户端标识无效除外）。</p>
+<p><strong>错误响应参数说明：</strong></p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>名称</th>
+<th>是否必须</th>
+<th>描述信息</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>error</td>
+<td>必须</td>
+<td>错误代码。</td>
+</tr>
+<tr>
+<td>error_description</td>
+<td>可选</td>
+<td>具备可读性的错误描述信息。</td>
+</tr>
+<tr>
+<td>error_uri</td>
+<td>可选</td>
+<td>错误描述信息页面地址。</td>
+</tr>
+<tr>
+<td>state</td>
+<td>可选</td>
+<td>如果客户端传递了该参数，则必须原封不动返回。</td>
+</tr>
+</tbody></table></div>
+<p><strong>错误响应示例：</strong></p>
+<figure class="highlight http"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">HTTP/1.1</span> <span class="number">302</span> Found</span><br><span class="line"><span class="attribute">Location</span><span class="punctuation">: </span>https://client.example.com/cb?error=access_denied&amp;state=xyz</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h5 id="下发访问令牌">
+          <a href="#下发访问令牌" class="heading-link"><i class="fas fa-link"></i></a>下发访问令牌</h5>
+      <p>授权服务器的授权端点在以 302 形式下发 code 之后，用户代理（例如浏览器）将携带对应的 code 回调请求用户指定的 redirect_url，这个地址应该能够保证请求打到应用服务器的对应接口，该接口可以由此拿到 code，并附加相应参数请求授权服务器的令牌端点，授权端点验证 code 和相关参数，验证通过则下发 access_token。</p>
+<p><strong>请求参数说明：</strong></p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>名称</th>
+<th>是否必须</th>
+<th>描述信息</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>grant_type</td>
+<td>必须</td>
+<td>对于授权码模式 <code>grant_type=authorization_code</code>。</td>
+</tr>
+<tr>
+<td>code</td>
+<td>必须</td>
+<td>上一步骤获取的授权码。</td>
+</tr>
+<tr>
+<td>redirect_uri</td>
+<td>必须</td>
+<td>授权回调地址，具体参见 2.2.3 小节，如果上一步有设置，则必须相同。</td>
+</tr>
+<tr>
+<td>client_id</td>
+<td>必须</td>
+<td>客户端 ID，用于标识一个客户端，在注册应用时生成。</td>
+</tr>
+</tbody></table></div>
+<p>如果在注册应用时有下发客户端凭证信息（client_secret），那么客户端必须携带该参数以让授权服务器验证客户端的真实性。针对客户端凭证需要多说的一点就是不能将其存储或传递到客户端，客户端无法保证 client_secret 的安全，应该始终将其存储在应用的服务器端，当下发授权码回调请求到应用服务器时，在服务器端携带上 client_secret 继续请求下发令牌。</p>
+<p><strong>请求参数示例：</strong></p>
+<figure class="highlight"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">POST</span> <span class="string">/token</span> <span class="meta">HTTP/1.1</span></span><br><span class="line"><span class="attribute">Host</span><span class="punctuation">: </span>server.example.com</span><br><span class="line"><span class="attribute">Authorization</span><span class="punctuation">: </span>Basic czZCaGRSa3F0MzpnWDFmQmF0M2JW</span><br><span class="line"><span class="attribute">Content-Type</span><span class="punctuation">: </span>application/x-www-form-urlencoded</span><br><span class="line"></span><br><span class="line">grant_type=authorization_code&amp;code=SplxlOBeZQQYbYS6WxSbIA&amp;redirect_uri=https%3A%2F%2Fclient%2Eexample%2Ecom%2Fcb</span><br></pre></td></tr></tbody></table></div></figure>
+<p>授权服务器需要验证客户端的真实性，以及是否与之前请求授权码的客户端属同一个（请求授权时的信息可以记录在授权码中，或以授权码为 key 建立缓存），授权服务器还要保证授权码处于生命周期内，且只能被使用一次。验证通过之后，授权服务器生成 access_token，并选择性下发 refresh_token，OAuth 2.0 协议明确了 token 的下发策略，对于 token 的生成策略没有做太多说明，不过相关 RFC 补充文档为生成 token 提供了指导，目前主要的 token 有 BEARER、MAC 等类型。</p>
+<p><strong>成功响应参数说明：</strong></p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>名称</th>
+<th>是否必须</th>
+<th>描述信息</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>access_token</td>
+<td>必须</td>
+<td>访问令牌</td>
+</tr>
+<tr>
+<td>token_type</td>
+<td>必须</td>
+<td>访问令牌类型，比如 BEARER、MAC 等。</td>
+</tr>
+<tr>
+<td>expires_in</td>
+<td>推荐</td>
+<td>访问令牌的生命周期，以秒为单位，表示令牌下发后多久时间过期，如果没有指定该项，则使用默认值。</td>
+</tr>
+<tr>
+<td>refresh_token</td>
+<td>可选</td>
+<td>刷新令牌，选择性下发，参见 2.2.2。</td>
+</tr>
+<tr>
+<td>scope</td>
+<td>可选</td>
+<td>权限范围，如果最终下发的访问令牌对应的权限范围与实际应用指定的不一致，则必须在下发访问令牌时用该参数指定说明。</td>
+</tr>
+</tbody></table></div>
+<p>最后访问令牌以 JSON 格式响应，并要求指定响应首部 <code>Cache-Control: no-store</code> 和 <code>Pragma: no-cache</code>。</p>
+<p><strong>成功响应示例：</strong></p>
+<figure class="highlight"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">HTTP/1.1</span> <span class="number">200</span> OK</span><br><span class="line"><span class="attribute">Content-Type</span><span class="punctuation">: </span>application/json;charset=UTF-8</span><br><span class="line"><span class="attribute">Cache-Control</span><span class="punctuation">: </span>no-store</span><br><span class="line"><span class="attribute">Pragma</span><span class="punctuation">: </span>no-cache</span><br><span class="line">{</span><br><span class="line">    "access_token":"2YotnFZFEjr1zCsicMWpAA",</span><br><span class="line">    "token_type":"example",</span><br><span class="line">    "expires_in":3600,</span><br><span class="line">    "refresh_token":"tGzv3JOkF0XG5Qx2TlKWIA",</span><br><span class="line">    "example_parameter":"example_value"</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>错误响应参数说明：</strong></p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>名称</th>
+<th>是否必须</th>
+<th>描述信息</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>error</td>
+<td>必须</td>
+<td>错误代码。</td>
+</tr>
+<tr>
+<td>error_description</td>
+<td>可选</td>
+<td>具备可读性的错误描述信息。</td>
+</tr>
+<tr>
+<td>error_uri</td>
+<td>可选</td>
+<td>错误描述信息页面地址。</td>
+</tr>
+</tbody></table></div>
+<p><strong>错误响应示例：</strong></p>
+<figure class="highlight"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">HTTP/1.1</span> <span class="number">400</span> Bad Request</span><br><span class="line"><span class="attribute">Content-Type</span><span class="punctuation">: </span>application/json;charset=UTF-8</span><br><span class="line"><span class="attribute">Cache-Control</span><span class="punctuation">: </span>no-store</span><br><span class="line"><span class="attribute">Pragma</span><span class="punctuation">: </span>no-cache</span><br><span class="line"></span><br><span class="line">{</span><br><span class="line">    "error":"invalid_request"</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h5 id="一点小感悟">
+          <a href="#一点小感悟" class="heading-link"><i class="fas fa-link"></i></a>一点小感悟</h5>
+      <p>授权码授权模式是 OAuth 2.0 协议已定义 4 种模式中最为严谨的模式，其余 3 中模式都是建立在一些特殊场景下，并对这些场景做了一些妥协和优化。授权码授权流程分为两步走，将用户授权与下发访问令牌分开，这给授权带来了更多的灵活性。正常授权过程中必须经过用户登录这一步骤，在用户已登录的前提下，可以直接询问用户是否同意授权，但是在一些场景下，比如内部走 SSO（单点登录）的应用集成了基于 OAuth 授权的第三方应用，此时在 OAuth 授权登录第三方应用时，用户体验较好的流程是不需要用户再次输入用户名和密码的，这就需要将外围 APP 的登录态传递给嵌套的应用，但是这样是存在安全问题的，用户的登录态必须把握在走 SSO 登录流程的应用手上，这样的场景下授权码授权模式的两步走流程就可以满足在不交出用户登录态的情况下，无需再次登录即可授权。</p>
+<p>内部应用可以拿着第三方应用的 client_id 等信息代替第三方应用去请求获取 code，因为自己持有用户的登录态，所以过程中无需用户再次输入用户名和密码，拿到 code 之后将其交给第三方应用。第三方应用利用 code 和自己的 client_secret 信息去请求授权服务器下发 token，整个流程内部应用不需要交出自己持有的用户登录态，第三方应用也无需交出自己的 client_secret 信息，最终却能够实现在保护用户密码凭证的前提下无需再次登录即可完成整个授权流程。</p>
+
+        <h4 id="隐式授权模式（Implicit-Grant）">
+          <a href="#隐式授权模式（Implicit-Grant）" class="heading-link"><i class="fas fa-link"></i></a>隐式授权模式（Implicit Grant）</h4>
+      <p>对于一些纯客户端应用，往往无法妥善的保管其客户端凭证，同时因为没有服务器端，所以无法向授权服务器传递凭证信息，并且纯客户端应用在请求交互上要弱于有服务器的应用，这时候减少交互可以让应用的稳定性和用户体验更好，隐式授权模式是对这一应用场景的优化。</p>
+<p>隐式授权模式在安全性上要弱于授权码模式，因为无法对当前客户端的真实性进行验证，同时对于下发的 access_token 存在被同设备上其它应用窃取的风险，为了降低这类风险，隐式授权模式强制要求不能下发 refresh_token，这一强制要求的另外一个考量是因为 refresh_token 的生命周期较长，而客户端无法安全的对其进行存储和保护。下图为授权码各个角色之间的交互时序：</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2017/oauth-v2-implicit-grant.png" alt="image">
+      </p>
+<p>整个授权流程说明如下：</p>
+<ol>
+<li>客户端携带 <code>client_id</code>, <code>scope</code>, <code>redirect_uri</code>, <code>state</code> 等信息请求授权服务器下发 <code>access_token</code>；</li>
+<li>授权服务器验证客户端身份，通过则询问用户是否同意授权（此时会跳转到用户能够直观看到的授权页面，等待用户点击确认授权）；</li>
+<li>假设用户同意授权，此时授权服务器会将 <code>access_token</code> 和 <code>state</code> 等信息以 URI Fragment 形式拼接在 <code>redirect_uri</code> 后面，并以 302 形式下发；</li>
+<li>客户端利用脚本解析获取 <code>access_token</code>。</li>
+</ol>
+
+        <h5 id="请求获取访问令牌">
+          <a href="#请求获取访问令牌" class="heading-link"><i class="fas fa-link"></i></a>请求获取访问令牌</h5>
+      <p>不同于授权码模式的分两步走，隐式授权码模式一步即可拿到访问令牌。</p>
+<p><strong>请求参数说明：</strong></p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>名称</th>
+<th>是否必须</th>
+<th>描述信息</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>response_type</td>
+<td>必须</td>
+<td>对于授权码模式 <code>response_type=token</code>。</td>
+</tr>
+<tr>
+<td>client_id</td>
+<td>必须</td>
+<td>客户端 ID，用于标识一个客户端，在注册应用时生成。</td>
+</tr>
+<tr>
+<td>redirect_uri</td>
+<td>可选</td>
+<td>授权回调地址，具体参见 2.2.3 小节。</td>
+</tr>
+<tr>
+<td>scope</td>
+<td>可选</td>
+<td>权限范围，用于对客户端的权限进行控制，如果客户端没有传递该参数，那么服务器则以该应用被许可的所有权限代替。</td>
+</tr>
+<tr>
+<td>state</td>
+<td>推荐</td>
+<td>用于维持请求和回调过程中的状态，防止 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://zh.wikipedia.org/wiki/%E8%B7%A8%E7%AB%99%E8%AF%B7%E6%B1%82%E4%BC%AA%E9%80%A0">CSRF攻击</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>，服务器不对该参数做任何处理，如果客户端携带了该参数，则服务器在响应时原封不动的返回。</td>
+</tr>
+</tbody></table></div>
+<p><strong>请求参数示例：</strong></p>
+<figure class="highlight http"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">GET</span> <span class="string">/authorize?response_type=token&amp;client_id=s6BhdRkqt3&amp;state=xyz&amp;redirect_uri=https%3A%2F%2Fclient%2Eexample%2Ecom%2Fcb</span> <span class="meta">HTTP/1.1</span></span><br><span class="line"><span class="attribute">Host</span><span class="punctuation">: </span>server.example.com</span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>成功响应参数说明：</strong></p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>名称</th>
+<th>是否必须</th>
+<th>描述信息</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>access_token</td>
+<td>必须</td>
+<td>访问令牌。</td>
+</tr>
+<tr>
+<td>token_type</td>
+<td>必须</td>
+<td>访问令牌类型，比如 BEARER，MAC 等。</td>
+</tr>
+<tr>
+<td>expires_in</td>
+<td>推荐</td>
+<td>访问令牌的生命周期，以秒为单位，表示令牌下发后多久时间过期，如果没有指定该项，则使用默认值。</td>
+</tr>
+<tr>
+<td>scope</td>
+<td>可选</td>
+<td>权限范围，如果最终下发的访问令牌对应的权限范围与实际应用指定的不一致，则必须在下发访问令牌时用该参数指定说明。</td>
+</tr>
+<tr>
+<td>state</td>
+<td>可选</td>
+<td>如果客户端传递了该参数，则必须原封不动返回。</td>
+</tr>
+</tbody></table></div>
+<p>隐式授权模式不下发刷新令牌，访问令牌以 URI Fragment 的形式拼接在授权回调地址后面以 302 形式下发，并要求指定响应首部 <code>Cache-Control: no-store</code> 和 <code>Pragma: no-cache</code>。</p>
+<p><strong>成功响应示例：</strong></p>
+<figure class="highlight http"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">HTTP/1.1</span> <span class="number">302</span> Found</span><br><span class="line"><span class="attribute">Location</span><span class="punctuation">: </span>http://example.com/cb#access_token=2YotnFZFEjr1zCsicMWpAA&amp;state=xyz&amp;token_type=example&amp;expires_in=3600</span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>错误响应参数说明：</strong></p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>名称</th>
+<th>是否必须</th>
+<th>描述信息</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>error</td>
+<td>必须</td>
+<td>错误代码。</td>
+</tr>
+<tr>
+<td>error_description</td>
+<td>可选</td>
+<td>具备可读性的错误描述信息。</td>
+</tr>
+<tr>
+<td>error_uri</td>
+<td>可选</td>
+<td>错误描述信息页面地址。</td>
+</tr>
+<tr>
+<td>state</td>
+<td>可选</td>
+<td>如果客户端传递了该参数，则必须原封不动返回。</td>
+</tr>
+</tbody></table></div>
+<p>授权服务器将上述元素以 URI Fragment 形式拼接在授权回调地址后面以 302 形式下发（redirect_uri 或 client_id 错误除外）。</p>
+<p><strong>错误响应参数示例：</strong></p>
+<figure class="highlight http"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">HTTP/1.1</span> <span class="number">302</span> Found</span><br><span class="line"><span class="attribute">Location</span><span class="punctuation">: </span>https://client.example.com/cb#error=access_denied&amp;state=xyz</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="资源所有者密码凭证授权模式（Resource-Owner-Password-Credentials-Grant）">
+          <a href="#资源所有者密码凭证授权模式（Resource-Owner-Password-Credentials-Grant）" class="heading-link"><i class="fas fa-link"></i></a>资源所有者密码凭证授权模式（Resource Owner Password Credentials Grant）</h4>
+      <p>资源所有者密码凭证授权模式建立在资源所有者充分信任客户端的前提下，因为该模式客户端可以拿到用户的登录凭证，从而在用户无感知的情况下完成整个授权流程，毕竟都有用户的登录凭证了，再弹窗让用户确认授权也是多此一举。</p>
+<p>这里可能有一个比较疑惑的地方是，既然都已经拿到了用户的登录凭证了，为什么还需要绕一大圈子走 OAuth 授权，拿到访问令牌后再去请求用户的受保护资源呢？以我的个人经验来说，客户端在拿到用户的登录凭证之后确实可以直接请求用户的资源，但是服务端一般不认，因为服务端采用 OAuth 协议进行鉴权。</p>
+<p>举个例子，比如有一个 API 是获取某个用户的通讯录，这是用户十分敏感的数据，且一般只能授予内部应用，如果是在服务级别进行控制，那么只要拿到接口访问权限，该应用可以请求获取任何一个用户的通讯录数据，这是一件十分危险的事情。如果基于 OAuth 做鉴权，那么就可以将粒度控制在用户级别。前面讲的两种授权方式在这种场景下都有一个共同的缺点，需要弹出授权页让用户确认授权，要知道这样的场景往往是发生在内部应用中，内部应用是可以持有用户登录态的，这里的确认授权对于一个用户体验好的 APP 来说应该发生在用户登录时，通过用户协议等方式直接告诉用户，从而让用户在一次登录过程中可以让应用拿到用户的登录态和访问令牌。</p>
+<p>资源所有者密码凭证授权模式的交互时序如下：</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2017/oauth-v2-resource-owner-password-credentials.png" alt="image">
+      </p>
+<p>整个授权流程说明如下：</p>
+<ol>
+<li>用于授予客户端登录凭证（比如用户名和密码信息，亦或是 token）；</li>
+<li>客户端携带用户的登录凭证和 <code>scope</code> 等信息请求授权服务器下发 <code>access_token</code>；</li>
+<li>授权服务器验证用户的登录凭证和客户端信息的真实性，通过则下发 <code>access_token</code>，并选择性下发 <code>refresh_token</code>。</li>
+</ol>
+
+        <h5 id="用户授予登录凭证">
+          <a href="#用户授予登录凭证" class="heading-link"><i class="fas fa-link"></i></a>用户授予登录凭证</h5>
+      <p>用于登录凭证如何传递给客户端这一块协议未做说明，实际中该类授权一般用于内部应用，这类应用的特点就是为用户提供登录功能，当用户登录之后，这类应用也就持有了用户的登录态，可以是用户登录的 session 标识，也可以是走 SSO 下发的 token 信息。</p>
+
+        <h5 id="请求获取访问令牌-1">
+          <a href="#请求获取访问令牌-1" class="heading-link"><i class="fas fa-link"></i></a>请求获取访问令牌</h5>
+      <p><strong>请求参数说明：</strong></p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>名称</th>
+<th>是否必须</th>
+<th>描述信息</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>grant_type</td>
+<td>必须</td>
+<td>对于本模式 <code>grant_type=password</code>。</td>
+</tr>
+<tr>
+<td>username</td>
+<td>必须</td>
+<td>用户名。</td>
+</tr>
+<tr>
+<td>password</td>
+<td>必须</td>
+<td>用户密码。</td>
+</tr>
+<tr>
+<td>scope</td>
+<td>可选</td>
+<td>权限范围，如果最终下发的访问令牌对应的权限范围与实际应用指定的不一致，则必须在下发访问令牌时用该参数指定说明。</td>
+</tr>
+</tbody></table></div>
+<p>如果在注册应用时有下发客户端凭证信息（client_secret），那么客户端必须携带该参数以让授权服务器验证客户端的真实性。</p>
+<p><strong>请求参数示例：</strong></p>
+<figure class="highlight"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">POST</span> <span class="string">/token</span> <span class="meta">HTTP/1.1</span></span><br><span class="line"><span class="attribute">Host</span><span class="punctuation">: </span>server.example.com</span><br><span class="line"><span class="attribute">Authorization</span><span class="punctuation">: </span>Basic czZCaGRSa3F0MzpnWDFmQmF0M2JW</span><br><span class="line"><span class="attribute">Content-Type</span><span class="punctuation">: </span>application/x-www-form-urlencoded</span><br><span class="line"></span><br><span class="line">grant_type=password&amp;username=johndoe&amp;password=A3ddj3w</span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>成功响应参数说明：</strong></p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>名称</th>
+<th>是否必须</th>
+<th>描述信息</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>access_token</td>
+<td>必须</td>
+<td>访问令牌。</td>
+</tr>
+<tr>
+<td>token_type</td>
+<td>必须</td>
+<td>访问令牌类型，比如 BEARER、MAC 等。</td>
+</tr>
+<tr>
+<td>expires_in</td>
+<td>推荐</td>
+<td>访问令牌的生命周期，以秒为单位，表示令牌下发后多久时间过期，如果没有指定该项，则使用默认值。</td>
+</tr>
+<tr>
+<td>refresh_token</td>
+<td>可选</td>
+<td>刷新令牌，选择性下发，参见 2.2.2。</td>
+</tr>
+<tr>
+<td>scope</td>
+<td>可选</td>
+<td>权限范围，如果最终下发的访问令牌对应的权限范围与实际应用指定的不一致，则必须在下发访问令牌时用该参数指定说明。</td>
+</tr>
+</tbody></table></div>
+<p>最后访问令牌以 JSON 格式响应，并要求指定响应首部 <code>Cache-Control: no-store</code> 和 <code>Pragma: no-cache</code>。</p>
+<p><strong>成功响应参数示例：</strong></p>
+<figure class="highlight"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">HTTP/1.1</span> <span class="number">200</span> OK</span><br><span class="line"><span class="attribute">Content-Type</span><span class="punctuation">: </span>application/json;charset=UTF-8</span><br><span class="line"><span class="attribute">Cache-Control</span><span class="punctuation">: </span>no-store</span><br><span class="line"><span class="attribute">Pragma</span><span class="punctuation">: </span>no-cache</span><br><span class="line"></span><br><span class="line">{</span><br><span class="line">    "access_token":"2YotnFZFEjr1zCsicMWpAA",</span><br><span class="line">    "token_type":"example",</span><br><span class="line">    "expires_in":3600,</span><br><span class="line">    "refresh_token":"tGzv3JOkF0XG5Qx2TlKWIA",</span><br><span class="line">    "example_parameter":"example_value"</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>错误响应参数说明：</strong></p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>名称</th>
+<th>是否必须</th>
+<th>描述信息</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>error</td>
+<td>必须</td>
+<td>错误代码。</td>
+</tr>
+<tr>
+<td>error_description</td>
+<td>可选</td>
+<td>具备可读性的错误描述信息。</td>
+</tr>
+<tr>
+<td>error_uri</td>
+<td>可选</td>
+<td>错误描述信息页面地址。</td>
+</tr>
+</tbody></table></div>
+<p><strong>错误响应示例：</strong></p>
+<figure class="highlight"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">HTTP/1.1</span> <span class="number">400</span> Bad Request</span><br><span class="line"><span class="attribute">Content-Type</span><span class="punctuation">: </span>application/json;charset=UTF-8</span><br><span class="line"><span class="attribute">Cache-Control</span><span class="punctuation">: </span>no-store</span><br><span class="line"><span class="attribute">Pragma</span><span class="punctuation">: </span>no-cache</span><br><span class="line"></span><br><span class="line">{</span><br><span class="line">    "error":"invalid_request"</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="客户端凭证授权模式（Client-Credentials-Grant）">
+          <a href="#客户端凭证授权模式（Client-Credentials-Grant）" class="heading-link"><i class="fas fa-link"></i></a>客户端凭证授权模式（Client Credentials Grant）</h4>
+      <p>客户端凭证授权模式基于客户端持有的证书去请求用户的受保护资源，如果把这里的受保护资源定义得更加宽泛一点，比如说是对一个内网接口权限的调用，那么这类授权方式可以被改造为内网权限验证服务。客户端凭证授权模式的交互时序如下：</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2017/oauth-v2-client-credentials.png" alt="image">
+      </p>
+<p>整个授权流程说明如下：</p>
+<ol>
+<li>客户端携带客户端凭证和 <code>scope</code> 等信息请求授权服务器下发 <code>access_token</code>；</li>
+<li>授权服务器验证客户端真实性，通过则下发 <code>access_token</code>。</li>
+</ol>
+
+        <h5 id="请求获取访问令牌：">
+          <a href="#请求获取访问令牌：" class="heading-link"><i class="fas fa-link"></i></a>请求获取访问令牌：</h5>
+      <p><strong>请求参数说明：</strong></p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>名称</th>
+<th>是否必须</th>
+<th>描述信息</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>grant_type</td>
+<td>必须</td>
+<td>对于本模式 <code>grant_type=client_credentials</code>。</td>
+</tr>
+<tr>
+<td>scope</td>
+<td>可选</td>
+<td>权限范围，如果最终下发的访问令牌对应的权限范围与实际应用指定的不一致，则必须在下发访问令牌时用该参数指定说明。</td>
+</tr>
+</tbody></table></div>
+<p><strong>请求参数示例：</strong></p>
+<figure class="highlight"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">POST</span> <span class="string">/token</span> <span class="meta">HTTP/1.1</span></span><br><span class="line"><span class="attribute">Host</span><span class="punctuation">: </span>server.example.com</span><br><span class="line"><span class="attribute">Authorization</span><span class="punctuation">: </span>Basic czZCaGRSa3F0MzpnWDFmQmF0M2JW</span><br><span class="line"><span class="attribute">Content-Type</span><span class="punctuation">: </span>application/x-www-form-urlencoded</span><br><span class="line"></span><br><span class="line">grant_type=client_credentials</span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>成功响应参数说明：</strong></p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>名称</th>
+<th>是否必须</th>
+<th>描述信息</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>access_token</td>
+<td>必须</td>
+<td>访问令牌。</td>
+</tr>
+<tr>
+<td>token_type</td>
+<td>必须</td>
+<td>访问令牌类型，比如 BEARER、MAC 等。</td>
+</tr>
+<tr>
+<td>expires_in</td>
+<td>推荐</td>
+<td>访问令牌的生命周期，以秒为单位，表示令牌下发后多久时间过期，如果没有指定该项，则使用默认值。</td>
+</tr>
+<tr>
+<td>scope</td>
+<td>可选</td>
+<td>权限范围，如果最终下发的访问令牌对应的权限范围与实际应用指定的不一致，则必须在下发访问令牌时用该参数指定说明。</td>
+</tr>
+</tbody></table></div>
+<p>最后访问令牌以 JSON 格式响应，并要求指定响应首部 <code>Cache-Control: no-store</code> 和 <code>Pragma: no-cache</code>。</p>
+<p><strong>成功响应参数示例：</strong></p>
+<figure class="highlight"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">HTTP/1.1</span> <span class="number">200</span> OK</span><br><span class="line"><span class="attribute">Content-Type</span><span class="punctuation">: </span>application/json;charset=UTF-8</span><br><span class="line"><span class="attribute">Cache-Control</span><span class="punctuation">: </span>no-store</span><br><span class="line"><span class="attribute">Pragma</span><span class="punctuation">: </span>no-cache</span><br><span class="line"></span><br><span class="line">{</span><br><span class="line">    "access_token":"2YotnFZFEjr1zCsicMWpAA",</span><br><span class="line">    "token_type":"example",</span><br><span class="line">    "expires_in":3600,</span><br><span class="line">    "example_parameter":"example_value"</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>错误响应参数说明：</strong></p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>名称</th>
+<th>是否必须</th>
+<th>描述信息</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>error</td>
+<td>必须</td>
+<td>错误代码。</td>
+</tr>
+<tr>
+<td>error_description</td>
+<td>可选</td>
+<td>具备可读性的错误描述信息。</td>
+</tr>
+<tr>
+<td>error_uri</td>
+<td>可选</td>
+<td>错误描述信息页面地址。</td>
+</tr>
+</tbody></table></div>
+<p><strong>错误响应示例：</strong></p>
+<figure class="highlight"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">HTTP/1.1</span> <span class="number">400</span> Bad Request</span><br><span class="line"><span class="attribute">Content-Type</span><span class="punctuation">: </span>application/json;charset=UTF-8</span><br><span class="line"><span class="attribute">Cache-Control</span><span class="punctuation">: </span>no-store</span><br><span class="line"><span class="attribute">Pragma</span><span class="punctuation">: </span>no-cache</span><br><span class="line"></span><br><span class="line">{</span><br><span class="line">    "error":"invalid_request"</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="总结">
+          <a href="#总结" class="heading-link"><i class="fas fa-link"></i></a>总结</h3>
+      <p>本文介绍了 OAuth 2.0 授权协议的理论知识，OAuth 2.0 被广泛应用于第三方授权登录，很多其它的协议都可以基于该协议进行改造，比如前面提到的 SSO，作为开发人员，还是建议对该协议或多或少有些了解。如果要自己实现一个授权和鉴权服务，该协议为我们绘制指明了思路，但是还有很多细节实现需要我们再去查阅各种资料和实践。</p>
+<p>关于 token 的生成最后再补充一点，OAuth 2.0 协议只是一笔带过的说它是一个字符串，用于表示特定的权限、生命周期等，却没有明确阐述 token 的生成策略，以及如何去验证一个 token。协议不去详细阐述，个人觉得是因为这一块是与具体业务绑定的，无法完全做到抽象，并且在这一块去做详细的规定，意义也不大。</p>
+<p>Token 本质上就是对用户授权这一操作在时间和权限范围两个维度上的一个表征，协议可以对 token 的传递和基本验证做相应规定，但是具体的一个 token 包含哪些元素，采用什么样的生成算法还是需要由自己去把握。一些文档，比如参考文献 3 和 4 都为 token 的生成进行了扩展说明，鉴于篇幅，不再展开。</p>
+
+        <h3 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h3>
+      <ol>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://tools.ietf.org/html/rfc5849">RFC5849 - The OAuth 1.0 Protocol</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://tools.ietf.org/html/rfc6749">RFC6749 - The OAuth 2.0 Authorization Framework</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://tools.ietf.org/html/rfc6750">RFC6750 - The OAuth 2.0 Authorization Framework: Bearer Token Usage</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://tools.ietf.org/html/draft-hammer-oauth-v2-mac-token-02">HTTP Authentication: MAC Authentication (draft-hammer-oauth-v2-mac-token-02)</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+</ol>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2018/03/04/protocol/oauth-v2-protocol/">https://plotor.github.io/2018/03/04/protocol/oauth-v2-protocol/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/OAuth/">OAuth</a></span></div><nav class="post-paginator paginator"><div class="paginator-prev"><a class="paginator-prev__link" href="/2018/03/25/algorithm/rb-tree/"><span class="paginator-prev__icon"><i class="fas fa-angle-left"></i></span><span class="paginator-prev__text">那些年，面试被虐过的红黑树</span></a></div><div class="paginator-next"><a class="paginator-next__link" href="/2017/12/17/rpc/dubbo-spi/"><span class="paginator-prev__text">Dubbo 之于 SPI 扩展机制的实现分析</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%B0%8F%E5%9C%BA%E6%99%AF%E5%B8%A6%E4%BD%A0%E6%84%9F%E5%8F%97-OAuth-2-0-%E7%9A%84%E4%BA%A4%E4%BA%92%E8%BF%87%E7%A8%8B"><span class="toc-number">1.</span> <span class="toc-text">
+          小场景带你感受 OAuth 2.0 的交互过程</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5%E4%B8%8E%E6%8E%88%E6%9D%83%E6%B5%81%E7%A8%8B"><span class="toc-number">2.</span> <span class="toc-text">
+          基本概念与授权流程</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%A7%92%E8%89%B2%E5%AE%9A%E4%B9%89"><span class="toc-number">2.1.</span> <span class="toc-text">
+          角色定义</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5"><span class="toc-number">2.2.</span> <span class="toc-text">
+          基本概念</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E8%AE%BF%E9%97%AE%E4%BB%A4%E7%89%8C%EF%BC%88access-token%EF%BC%89"><span class="toc-number">2.2.1.</span> <span class="toc-text">
+          访问令牌（access token）</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E5%88%B7%E6%96%B0%E4%BB%A4%E7%89%8C%EF%BC%88refresh-token%EF%BC%89"><span class="toc-number">2.2.2.</span> <span class="toc-text">
+          刷新令牌（refresh token）</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E5%9B%9E%E8%B0%83%E5%9C%B0%E5%9D%80%EF%BC%88redirect-uri%EF%BC%89"><span class="toc-number">2.2.3.</span> <span class="toc-text">
+          回调地址（redirect uri）</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E6%9D%83%E9%99%90%E8%8C%83%E5%9B%B4%EF%BC%88scope%EF%BC%89"><span class="toc-number">2.2.4.</span> <span class="toc-text">
+          权限范围（scope）</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%9F%BA%E6%9C%AC%E6%8E%88%E6%9D%83%E6%B5%81%E7%A8%8B"><span class="toc-number">2.3.</span> <span class="toc-text">
+          基本授权流程</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9B%9B%E7%A7%8D%E6%8E%88%E6%9D%83%E6%A8%A1%E5%BC%8F"><span class="toc-number">3.</span> <span class="toc-text">
+          四种授权模式</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%8E%88%E6%9D%83%E7%A0%81%E6%8E%88%E6%9D%83%E6%A8%A1%E5%BC%8F%EF%BC%88Authorization-Code-Grant%EF%BC%89"><span class="toc-number">3.1.</span> <span class="toc-text">
+          授权码授权模式（Authorization Code Grant）</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E8%8E%B7%E5%8F%96%E6%8E%88%E6%9D%83%E7%A0%81"><span class="toc-number">3.1.1.</span> <span class="toc-text">
+          获取授权码</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E4%B8%8B%E5%8F%91%E8%AE%BF%E9%97%AE%E4%BB%A4%E7%89%8C"><span class="toc-number">3.1.2.</span> <span class="toc-text">
+          下发访问令牌</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E4%B8%80%E7%82%B9%E5%B0%8F%E6%84%9F%E6%82%9F"><span class="toc-number">3.1.3.</span> <span class="toc-text">
+          一点小感悟</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E9%9A%90%E5%BC%8F%E6%8E%88%E6%9D%83%E6%A8%A1%E5%BC%8F%EF%BC%88Implicit-Grant%EF%BC%89"><span class="toc-number">3.2.</span> <span class="toc-text">
+          隐式授权模式（Implicit Grant）</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E8%AF%B7%E6%B1%82%E8%8E%B7%E5%8F%96%E8%AE%BF%E9%97%AE%E4%BB%A4%E7%89%8C"><span class="toc-number">3.2.1.</span> <span class="toc-text">
+          请求获取访问令牌</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%B5%84%E6%BA%90%E6%89%80%E6%9C%89%E8%80%85%E5%AF%86%E7%A0%81%E5%87%AD%E8%AF%81%E6%8E%88%E6%9D%83%E6%A8%A1%E5%BC%8F%EF%BC%88Resource-Owner-Password-Credentials-Grant%EF%BC%89"><span class="toc-number">3.3.</span> <span class="toc-text">
+          资源所有者密码凭证授权模式（Resource Owner Password Credentials Grant）</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E7%94%A8%E6%88%B7%E6%8E%88%E4%BA%88%E7%99%BB%E5%BD%95%E5%87%AD%E8%AF%81"><span class="toc-number">3.3.1.</span> <span class="toc-text">
+          用户授予登录凭证</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E8%AF%B7%E6%B1%82%E8%8E%B7%E5%8F%96%E8%AE%BF%E9%97%AE%E4%BB%A4%E7%89%8C-1"><span class="toc-number">3.3.2.</span> <span class="toc-text">
+          请求获取访问令牌</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%AE%A2%E6%88%B7%E7%AB%AF%E5%87%AD%E8%AF%81%E6%8E%88%E6%9D%83%E6%A8%A1%E5%BC%8F%EF%BC%88Client-Credentials-Grant%EF%BC%89"><span class="toc-number">3.4.</span> <span class="toc-text">
+          客户端凭证授权模式（Client Credentials Grant）</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E8%AF%B7%E6%B1%82%E8%8E%B7%E5%8F%96%E8%AE%BF%E9%97%AE%E4%BB%A4%E7%89%8C%EF%BC%9A"><span class="toc-number">3.4.1.</span> <span class="toc-text">
+          请求获取访问令牌：</span></a></li></ol></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">4.</span> <span class="toc-text">
+          总结</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">5.</span> <span class="toc-text">
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">95</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">13</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">27</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2024</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>
