@@ -6,7 +6,7 @@
 <meta property="og:description" content="上一篇我们介绍了 JRaft 关于日志复制机制的设计与实现，其中提到了快照机制本质上也是一种对日志数据复制的优化手段，本文我们就对 JRaft 关于快照机制的设计与实现展开分析。在开始之前我们先聊聊为什么需要引入快照机制，思考以下两个问题：  因为日志数据需要落盘存储，当日志数据量大到磁盘空间无法容纳时，除了扩容是否还有其它的优化手段？ 当一个新的节点加入 Raft 集群时需要重放集群之前接收到的">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2020-06-22T06:15:39.000Z">
-<meta property="article:modified_time" content="2024-07-12T03:34:50.557Z">
+<meta property="article:modified_time" content="2024-07-19T07:51:44.375Z">
 <meta property="article:author" content="zhenchao">
 <meta property="article:tag" content="Raft">
 <meta property="article:tag" content="SOFA-JRaft">
