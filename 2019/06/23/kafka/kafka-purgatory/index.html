@@ -6,7 +6,7 @@
 <meta property="og:description" content="Kafka 一些组件的命名很是有趣，比如炼狱（purgatory）、死神（reaper）等，在日常开发中也建议大家在类和方法命名上能够以一些能够表达类或方法意图的人或事物的名词进行命名，让项目显得更加的生动。今天我们要分析的组件就是以 purgatory 命名的 DelayedOperationPurgatory，DelayedOperationPurgatory 是一个相对独立的组件，我们可以将">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2019-06-23T07:32:28.000Z">
-<meta property="article:modified_time" content="2024-09-17T09:05:22.499Z">
+<meta property="article:modified_time" content="2024-09-30T09:38:40.718Z">
 <meta property="article:author" content="zhenchao">
 <meta property="article:tag" content="Kafka">
 <meta name="twitter:card" content="summary"><title>Kafka 源码解析：延时任务调度策略 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2019/06/23/kafka/kafka-purgatory/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
