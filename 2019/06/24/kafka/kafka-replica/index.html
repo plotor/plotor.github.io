@@ -6,7 +6,7 @@
 <meta property="og:description" content="在分布式应用中，通常会引入冗余策略来保证集群中节点在宕机时的服务可用性，Kafka 在设计上也是如此。Kafka 会为每个 topic 分区创建多个副本，并将这些副本分散在多台 broker 节点上，以避免单点问题。一个分区的副本集合包含一个 leader 角色和多个 follower 角色，其中 leader 副本主要负责响应客户端对于指定 topic 分区消息的读写，并管理集合中的其它 fol">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2019-06-24T07:45:56.000Z">
-<meta property="article:modified_time" content="2024-12-09T05:12:58.122Z">
+<meta property="article:modified_time" content="2024-12-10T08:35:13.064Z">
 <meta property="article:author" content="zhenchao">
 <meta property="article:tag" content="Kafka">
 <meta name="twitter:card" content="summary"><title>Kafka 源码解析：分区多副本容错机制 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2019/06/24/kafka/kafka-replica/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
