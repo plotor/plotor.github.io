@@ -1,0 +1,536 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="Triton Inference Server（下文简称 Triton）是 Nvidia 推出的高性能推理服务器，支持多种模型框架和硬件平台，关于 Triton 的更多内容可以参考 官方文档。Triton 与 Ray Serve 在功能定位方面存在相同之处，不过二者也各有优势：  Ray Serve 原生支持以分布式模式运行，可在单一应用中编排并部署多个模型，以满足复杂推理场景的需求。同时，其内置">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Ray Serve 集成 Triton Inference Server 构建模型在线推理服务">
+<meta property="og:url" content="https://plotor.github.io/2025/03/31/ray/triton-inference-server/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="Triton Inference Server（下文简称 Triton）是 Nvidia 推出的高性能推理服务器，支持多种模型框架和硬件平台，关于 Triton 的更多内容可以参考 官方文档。Triton 与 Ray Serve 在功能定位方面存在相同之处，不过二者也各有优势：  Ray Serve 原生支持以分布式模式运行，可在单一应用中编排并部署多个模型，以满足复杂推理场景的需求。同时，其内置">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://plotor.github.io/images/2025/ray-serve-triton-infer-server.png">
+<meta property="article:published_time" content="2025-03-31T13:06:00.000Z">
+<meta property="article:modified_time" content="2025-04-03T11:48:01.445Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Ray">
+<meta property="article:tag" content="LLM">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://plotor.github.io/images/2025/ray-serve-triton-infer-server.png"><title>Ray Serve 集成 Triton Inference Server 构建模型在线推理服务 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2025/03/31/ray/triton-inference-server/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">Ray Serve 集成 Triton Inference Server 构建模型在线推理服务</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2025-03-31</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">2.8k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">13分</span></span></div></header><div class="post-body"><p>Triton Inference Server（下文简称 Triton）是 Nvidia 推出的高性能推理服务器，支持多种模型框架和硬件平台，关于 Triton 的更多内容可以参考 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/introduction/index.html">官方文档</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>。Triton 与 Ray Serve 在功能定位方面存在相同之处，不过二者也各有优势：</p>
+<ul>
+<li><p>Ray Serve 原生支持以分布式模式运行，可在单一应用中编排并部署多个模型，以满足复杂推理场景的需求。同时，其内置的弹性伸缩特性能够有效平衡用户请求与资源开销。</p>
+</li>
+<li><p>Triton 主要专注于单机推理场景，兼容多种硬件平台。通过引入动态批处理、多 GPU 并行推理等技术以提升模型推理性能，同时支持以 Backend 插件形式集成多种模型框架，并对外提供统一的接入 API。</p>
+</li>
+</ul>
+<p>如下图所示，通过将 Ray Serve 与 Triton 集成能够让二者的优势形成互补：</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2025/ray-serve-triton-infer-server.png" alt="image">
+      </p>
+<p>在集成模式下，Ray Serve 主要承担流量承接、负载均衡、模型编排以及弹性伸缩等职责；而 Triton 则作为单机版的模型推理服务，具备模型加载、推理及加速等功能。本文首先介绍如何基于 Triton 部署大语言模型，然后介绍如何将 Ray Serve 与 Triton 集成，使用的环境信息如下：</p>
+<blockquote>
+<ul>
+<li>镜像：nvcr.io/nvidia/tritonserver:25.02-trtllm-python-py3</li>
+<li>模型：Llama-3.2-1B-Instruct</li>
+<li>显卡：Nvidia A10 (24GB), CUDA 12.2</li>
+</ul>
+</blockquote>
+
+        <h2 id="基于-Triton-部署单机版在线推理服务">
+          <a href="#基于-Triton-部署单机版在线推理服务" class="heading-link"><i class="fas fa-link"></i></a>基于 Triton 部署单机版在线推理服务</h2>
+      <p>Triton 支持多种类型的 Backend，这里我们以 TensorRT-LLM Backend 为例。要让 Triton 能够部署 Llama 模型，主要包含如下两步操作：</p>
+<ol>
+<li><p>编译模型文件生成 TensorRT 引擎，利用 TensorRT-LLM Backend 实现与 Triton 集成。</p>
+</li>
+<li><p>通过 TensorRT-LLM Backend 内置的模型集成配置模板对 Triton 模型仓库进行配置，以便 Triton 能够识别并部署该模型。</p>
+</li>
+</ol>
+<p>简单起见，这里我们基于 Nvidia 提供的镜像创建 Docker 容器进行操作，以避免复杂的 CUDA 驱动安装，以及一系列环境配置等。为了让 Docker 容器能够访问宿主机 GPU 资源，你需要参考 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html">官方文档</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 安装配置 NVIDIA Container Toolkit，然后基于 <code>nvcr.io/nvidia/tritonserver:25.02-trtllm-python-py3</code> 镜像创建并进入 Docker 容器：</p>
+<figure class="highlight bash"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">$ docker run -it \</span><br><span class="line">  --name triton-infer-server \</span><br><span class="line">  --gpus all \</span><br><span class="line">  --ipc=host \</span><br><span class="line">  -p8000:8000 -p8001:8001 -p8002:8002 -p:8080:8080 -p8265:8265 \</span><br><span class="line">  -v /opt/workspace:/opt/workspace \</span><br><span class="line">  -w /opt/workspace \</span><br><span class="line">  -d nvcr.io/nvidia/tritonserver:25.02-trtllm-python-py3 \</span><br><span class="line">  /bin/bash</span><br><span class="line"></span><br><span class="line">$ docker <span class="built_in">exec</span> -it 859b7c7d53dd /bin/bash</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="编译模型">
+          <a href="#编译模型" class="heading-link"><i class="fas fa-link"></i></a>编译模型</h3>
+      <p>以 <code>Llama-3.2-1B-Instruct</code> 模型为例，参考 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/NVIDIA/TensorRT-LLM/tree/main/examples/llama">官方文档</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 将其转换成 TensorRT 引擎格式：</p>
+<ul>
+<li><p>脚本 <code>convert_checkpoint.py</code> 用于将 HF 权重转换为 TensorRT-LLM 检查点。</p>
+</li>
+<li><p>命令 <code>trtllm-build</code> 用于从 TensorRT-LLM 检查点构建 TensorRT-LLM 引擎。</p>
+</li>
+</ul>
+<p>操作示例：</p>
+<figure class="highlight bash"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> /opt/workspace/nvidia &amp;&amp; git <span class="built_in">clone</span> https://github.com/NVIDIA/TensorRT-LLM.git</span><br><span class="line"></span><br><span class="line"><span class="built_in">cd</span> ./TensorRT-LLM &amp;&amp; pip install --upgrade -r requirements.txt</span><br><span class="line"></span><br><span class="line"><span class="built_in">cd</span> ./examples/llama</span><br><span class="line"></span><br><span class="line">python convert_checkpoint.py \</span><br><span class="line">  --model_dir /opt/workspace/models/llama/Llama-3.2-1B-Instruct \</span><br><span class="line">  --output_dir /opt/workspace/models/llama/tllm_checkpoint_1gpu_tp1 \</span><br><span class="line">  --dtype float16 \</span><br><span class="line">  --tp_size 1</span><br><span class="line"></span><br><span class="line">trtllm-build \</span><br><span class="line">  --checkpoint_dir /opt/workspace/models/llama/tllm_checkpoint_1gpu_tp1 \</span><br><span class="line">  --output_dir /opt/workspace/models/llama/trt_engines \</span><br><span class="line">  --gemm_plugin auto</span><br></pre></td></tr></tbody></table></div></figure>
+<p>这一步完成后将在 <code>trt_engines</code> 目录下生成如下 2 个文件：</p>
+<ul>
+<li><p><code>rank0.engine</code>：该文件包含嵌入模型权重的可执行操作图。</p>
+</li>
+<li><p><code>config.json</code>：该文件包含模型的详细信息，例如结构、精度，以及引擎中集成的插件列表等。</p>
+</li>
+</ul>
+<p>此时，我们可以通过 TensorRT-LLM 提供的脚本进行推理验证：</p>
+<figure class="highlight bash"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> /opt/workspace/nvidia/TensorRT-LLM/examples/llama</span><br><span class="line"></span><br><span class="line">python ../run.py \</span><br><span class="line">  --input_text <span class="string">"What is Nvidia Triton Inference Server"</span> \</span><br><span class="line">  --max_output_len=1024 \</span><br><span class="line">  --tokenizer_dir /opt/workspace/models/llama/Llama-3.2-1B-Instruct \</span><br><span class="line">  --engine_dir=/opt/workspace/models/llama/trt_engines</span><br></pre></td></tr></tbody></table></div></figure>
+<p>没有问题的话，上述请求会返回模型的推理结果。</p>
+
+        <h3 id="部署模型">
+          <a href="#部署模型" class="heading-link"><i class="fas fa-link"></i></a>部署模型</h3>
+      <p>TensorRT-LLM Backend 内置了模型集成配置模板以简化模型的集成操作（位于 <code>all_models/inflight_batcher_llm</code> 目录，内容如下），模板主要包含 4 个模块，分别对应模型执行过程的不同阶段。</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">.</span><br><span class="line">|-- ensemble</span><br><span class="line">|   |-- 1</span><br><span class="line">|   `-- config.pbtxt</span><br><span class="line">|-- postprocessing</span><br><span class="line">|   |-- 1</span><br><span class="line">|   |   `-- model.py</span><br><span class="line">|   `-- config.pbtxt</span><br><span class="line">|-- preprocessing</span><br><span class="line">|   |-- 1</span><br><span class="line">|   |   `-- model.py</span><br><span class="line">|   `-- config.pbtxt</span><br><span class="line">`-- tensorrt_llm</span><br><span class="line">    |-- 1</span><br><span class="line">    |   |-- config.json</span><br><span class="line">    |   |-- model.py</span><br><span class="line">    |   `-- rank0.engine</span><br><span class="line">    `-- config.pbtxt</span><br></pre></td></tr></tbody></table></div></figure>
+<p>说明：</p>
+<ul>
+<li><p>模块 preprocessing 包含用于对输入进行 tokenizing 的脚本，支持将用户输入的 prompt 字符串转换成 input_id 列表。</p>
+</li>
+<li><p>模块 postprocessing 包含用于对输出进行 de-tokenizing 的脚本，支持将模型输出的 output_id 列表转换成用户能够理解的字符串。</p>
+</li>
+<li><p>模块 tensorrt_llm 包含用户编译生成的模型文件，负载加载并调用用户自定义模型完成推理操作。</p>
+</li>
+<li><p>模块 ensemble  用于将 preprocessing、tensorrt_llm 和 postprocessing 模块串联在一起，指导 Triton 如何在这些模块之间传输数据以构建一个完整的推理流程。</p>
+</li>
+</ul>
+<p>你可以从 Github 下载模型仓库配置模板，并将前面编译得到的模型文件拷贝到模型仓库中：</p>
+<figure class="highlight bash"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> /opt/workspace/nvidia &amp;&amp; git <span class="built_in">clone</span> https://github.com/triton-inference-server/tensorrtllm_backend.git</span><br><span class="line"></span><br><span class="line">cp -r ./tensorrtllm_backend/all_models/inflight_batcher_llm/* /opt/workspace/models/llama/triton</span><br><span class="line"></span><br><span class="line">cp /opt/workspace/models/llama/trt_engines/* /opt/workspace/models/llama/triton/tensorrt_llm/1</span><br></pre></td></tr></tbody></table></div></figure>
+<p>然后执行如下命令修改相关配置：</p>
+<figure class="highlight bash"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">TOKENIZER_DIR=/opt/workspace/models/llama/Llama-3.2-1B-Instruct</span><br><span class="line">TOKENIZER_TYPE=auto</span><br><span class="line">ENGINE_DIR=/opt/workspace/models/llama/triton/tensorrt_llm/1</span><br><span class="line">DECOUPLED_MODE=<span class="literal">false</span></span><br><span class="line">MODEL_FOLDER=/opt/workspace/models/llama/triton</span><br><span class="line">MAX_BATCH_SIZE=4</span><br><span class="line">INSTANCE_COUNT=1</span><br><span class="line">MAX_QUEUE_DELAY_MS=10000</span><br><span class="line">TRITON_BACKEND=tensorrtllm</span><br><span class="line">LOGITS_DATATYPE=<span class="string">"TYPE_FP32"</span></span><br><span class="line">FILL_TEMPLATE_SCRIPT=/opt/workspace/nvidia/tensorrtllm_backend/tools/fill_template.py</span><br><span class="line">python3 <span class="variable">${FILL_TEMPLATE_SCRIPT}</span> -i <span class="variable">${MODEL_FOLDER}</span>/preprocessing/config.pbtxt tokenizer_dir:<span class="variable">${TOKENIZER_DIR}</span>,tokenizer_type:<span class="variable">${TOKENIZER_TYPE}</span>,triton_max_batch_size:<span class="variable">${MAX_BATCH_SIZE}</span>,preprocessing_instance_count:<span class="variable">${INSTANCE_COUNT}</span></span><br><span class="line">python3 <span class="variable">${FILL_TEMPLATE_SCRIPT}</span> -i <span class="variable">${MODEL_FOLDER}</span>/postprocessing/config.pbtxt tokenizer_dir:<span class="variable">${TOKENIZER_DIR}</span>,tokenizer_type:<span class="variable">${TOKENIZER_TYPE}</span>,triton_max_batch_size:<span class="variable">${MAX_BATCH_SIZE}</span>,postprocessing_instance_count:<span class="variable">${INSTANCE_COUNT}</span></span><br><span class="line">python3 <span class="variable">${FILL_TEMPLATE_SCRIPT}</span> -i <span class="variable">${MODEL_FOLDER}</span>/tensorrt_llm_bls/config.pbtxt triton_max_batch_size:<span class="variable">${MAX_BATCH_SIZE}</span>,decoupled_mode:<span class="variable">${DECOUPLED_MODE}</span>,bls_instance_count:<span class="variable">${INSTANCE_COUNT}</span>,logits_datatype:<span class="variable">${LOGITS_DATATYPE}</span></span><br><span class="line">python3 <span class="variable">${FILL_TEMPLATE_SCRIPT}</span> -i <span class="variable">${MODEL_FOLDER}</span>/ensemble/config.pbtxt triton_max_batch_size:<span class="variable">${MAX_BATCH_SIZE}</span>,logits_datatype:<span class="variable">${LOGITS_DATATYPE}</span></span><br><span class="line">python3 <span class="variable">${FILL_TEMPLATE_SCRIPT}</span> -i <span class="variable">${MODEL_FOLDER}</span>/tensorrt_llm/config.pbtxt triton_backend:<span class="variable">${TRITON_BACKEND}</span>,triton_max_batch_size:<span class="variable">${MAX_BATCH_SIZE}</span>,decoupled_mode:<span class="variable">${DECOUPLED_MODE}</span>,engine_dir:<span class="variable">${ENGINE_DIR}</span>,max_queue_delay_microseconds:<span class="variable">${MAX_QUEUE_DELAY_MS}</span>,batching_strategy:inflight_fused_batching,encoder_input_features_data_type:TYPE_FP16,logits_datatype:<span class="variable">${LOGITS_DATATYPE}</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>如果需要手动编辑 CPU 核数可以修改 <code>config.pbtxt</code> 配置：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">instance_group [</span><br><span class="line">  {</span><br><span class="line">    count: 8</span><br><span class="line">    kind : KIND_CPU</span><br><span class="line">  }</span><br><span class="line">]</span><br></pre></td></tr></tbody></table></div></figure>
+<p>需要注意的是这个参数不宜设置过大，否则可能导致服务拉不起来报 OOM 错误：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[TensorRT-LLM][ERROR] [engine.cpp::readEngineFromArchive::1093] Error Code 2: OutOfMemory (Requested size was 996311552 bytes.)</span><br></pre></td></tr></tbody></table></div></figure>
+<p>启动 Triton Inference Server：</p>
+<figure class="highlight bash"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> /opt/workspace/nvidia/tensorrtllm_backend</span><br><span class="line"></span><br><span class="line">python scripts/launch_triton_server.py \</span><br><span class="line">  --model_repo /opt/workspace/models/llama/triton \</span><br><span class="line">  --world_size 1</span><br></pre></td></tr></tbody></table></div></figure>
+<p>启动成功将会在最后打印：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">I0314 12:05:57.080618 17817 grpc_server.cc:2558] "Started GRPCInferenceService at 0.0.0.0:8001"</span><br><span class="line">I0314 12:05:57.080826 17817 http_server.cc:4725] "Started HTTPService at 0.0.0.0:8000"</span><br><span class="line">I0314 12:05:57.122329 17817 http_server.cc:358] "Started Metrics Service at 0.0.0.0:8002"</span><br></pre></td></tr></tbody></table></div></figure>
+<p>此时可以通过 POST 请求验证：</p>
+<figure class="highlight bash"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">curl --location <span class="string">'http://127.0.0.1:8000/v2/models/ensemble/generate'</span> \</span><br><span class="line">--header <span class="string">'Content-Type: application/json'</span> \</span><br><span class="line">--data <span class="string">'{</span></span><br><span class="line"><span class="string">  "text_input": "介绍一下 Triton Inference Server",</span></span><br><span class="line"><span class="string">  "parameters": {</span></span><br><span class="line"><span class="string">    "max_tokens": 256,</span></span><br><span class="line"><span class="string">    "bad_words": [</span></span><br><span class="line"><span class="string">      ""</span></span><br><span class="line"><span class="string">    ],</span></span><br><span class="line"><span class="string">    "stop_words": [</span></span><br><span class="line"><span class="string">      ""</span></span><br><span class="line"><span class="string">    ]</span></span><br><span class="line"><span class="string">  }</span></span><br><span class="line"><span class="string">}'</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h2 id="引入-Ray-Serve-构建分布式在线推理服务">
+          <a href="#引入-Ray-Serve-构建分布式在线推理服务" class="heading-link"><i class="fas fa-link"></i></a>引入 Ray Serve 构建分布式在线推理服务</h2>
+      <p>Ray Serve 是依托于 Ray 分布式计算框架之上构建的模型在线服务库，提供基于给定模型构建高性能、低延迟在线推理服务的能力。基于 Ray Serve 构建在线推理服务具有如下优势：</p>
+<ul>
+<li><p>__异构计算__：支持根据模型对资源的需求，灵活地将模型部署并运行于 CPU 或 GPU 类型的节点上。</p>
+</li>
+<li><p>__弹性伸缩__：支持依据请求负载，在预设范围内自动调整集群规模，以平衡推理性能与资源开销。火山 EMR Ray 在社区 Autoscale 能力的基础上进一步优化，支持自定义扩缩容指标和策略。</p>
+</li>
+<li><p>__失败容错__：支持多副本部署以抵御单副本故障，同时提供针对系统级、应用级的故障恢复能力，当副本或节点出现故障时，可通过重试、重调度等方式确保服务持续运行。</p>
+</li>
+<li><p>__多模型融合__：支持在单个 Ray Serve 应用中编排部署多个模型，这些模型可以独立或组合对外提供服务，同时针对各个模型可以独立配置资源调度、弹性伸缩等。</p>
+</li>
+<li><p>__动态批处理__：支持按照请求数量和时间跨度对多个请求进行合并，然后批量发送给模型进行处理，通过借助硬件（如 GPU）的并行计算能力，能够在显著提升吞吐量的同时，尽量维持低延迟。</p>
+</li>
+<li><p>__模型多路复用__：针对需加载大量模型的应用场景（例如个性化推荐），允许单个应用加载多个模型并向外部提供服务，然而出于资源考量，也会对应用内单副本可加载的模型在数量上加以限制。同时，Ray Serve 会尽可能将请求路由至已完成模型加载的副本进行处理，以平衡推理性能与资源消耗。</p>
+</li>
+<li><p>__支持原生集成 vLLM 实现推理加速__：提供与 vLLM 引擎的原生集成能力，通过简单配置即可复用 vLLM 在推理场景中引入的 PagedAttention、动态批处理等多项优化技术，以提升模型推理性能和资源利用率。</p>
+</li>
+<li><p>__支持集成 Nvidia Triton Inference Server 实现优势互补__：Triton 针对单机推理场景进行了大量的优化以提升性能，但生产化部署还需要具备负载均衡、弹性伸缩、失败容错，以及模型编排等多方面的能力，通过集成 Triton，能够实现双方优势的有效互补。在集成形态下，Triton 作为单机版的模型推理服务，而 Ray Serve 则承担上层路由与管理职责，提供整体的请求路由、负载均衡、多模型编排，以及弹性伸缩等能力。</p>
+</li>
+<li><p>简洁的编程模型便于进行本地开发与调试，仅需进行简单修改便可进行线上部署。</p>
+</li>
+<li><p>Python Native。</p>
+</li>
+</ul>
+<p>在分布式在线推理场景下，通过将 Ray Serve 与 Triton 进行集成，能够在发挥 Triton 在单机场景固有优势的同时，为其补齐在分布式场景下的不足。Triton 提供了 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/client_guide/python.html">In-Process Python API</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span> 用于支持 Python 生态与 Triton 进行集成，相较于发送 HTTP 请求的方式更为便捷。下面的示例通过 Triton In-Process Python API 实现了 Ray Serve 与 Triton 的集成：</p>
+<figure class="highlight python"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> ctypes</span><br><span class="line"><span class="keyword">from</span> typing <span class="keyword">import</span> Iterable</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> numpy <span class="keyword">as</span> np</span><br><span class="line"><span class="keyword">import</span> tritonserver</span><br><span class="line"><span class="keyword">from</span> fastapi <span class="keyword">import</span> FastAPI</span><br><span class="line"><span class="keyword">from</span> ray <span class="keyword">import</span> serve</span><br><span class="line"></span><br><span class="line">api = FastAPI()</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="meta">@serve.deployment(<span class="params"></span></span></span><br><span class="line"><span class="meta"><span class="params">    ray_actor_options=<span class="built_in">dict</span>(<span class="params"></span></span></span></span><br><span class="line"><span class="meta"><span class="params"><span class="params">        num_gpus=<span class="number">1</span></span></span></span></span><br><span class="line"><span class="meta"><span class="params"><span class="params">    </span>)</span></span></span><br><span class="line"><span class="meta"><span class="params"></span>)</span></span><br><span class="line"><span class="meta">@serve.ingress(<span class="params">api</span>)</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Generator</span>:</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span>(<span class="params">self, model_path: <span class="built_in">str</span></span>):</span></span><br><span class="line">        <span class="keyword">import</span> torch</span><br><span class="line">        <span class="keyword">assert</span> torch.cuda.is_available(), RuntimeError(<span class="string">"CUDA is not available"</span>)</span><br><span class="line"></span><br><span class="line">        self._server = tritonserver.Server(</span><br><span class="line">            tritonserver.Options(</span><br><span class="line">                model_repository=model_path,</span><br><span class="line">                log_info=<span class="literal">True</span>,</span><br><span class="line">                log_warn=<span class="literal">True</span>,</span><br><span class="line">                log_error=<span class="literal">True</span></span><br><span class="line">            )</span><br><span class="line">        )</span><br><span class="line">        self._server.start(wait_until_ready=<span class="literal">True</span>)</span><br><span class="line">        self._model = self._server.model(<span class="string">"ensemble"</span>)</span><br><span class="line"></span><br><span class="line"><span class="meta">    @api.get(<span class="params"><span class="string">"/generate"</span></span>)</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">generate</span>(<span class="params">self, query: <span class="built_in">str</span></span>):</span></span><br><span class="line">        <span class="keyword">if</span> <span class="keyword">not</span> self._model.ready():</span><br><span class="line">            <span class="keyword">raise</span> RuntimeError(<span class="string">"Model is not ready, Please try again later."</span>)</span><br><span class="line"></span><br><span class="line">        resp = <span class="built_in">list</span>(self._model.infer(inputs={</span><br><span class="line">            <span class="string">"text_input"</span>: [[query]],</span><br><span class="line">            <span class="string">"max_tokens"</span>: np.array([[<span class="number">1024</span>]], dtype=np.int32)</span><br><span class="line">        }))[<span class="number">0</span>]</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> self._to_string(resp.outputs[<span class="string">"text_output"</span>])</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">_to_string</span>(<span class="params">self, tensor: tritonserver.Tensor</span>) -&gt; str:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        This method is copied from https://github.com/triton-inference-server/server</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        ...</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">app = Generator.bind(<span class="string">"/opt/workspace/models/llama/triton"</span>)</span><br></pre></td></tr></tbody></table></div></figure>
+<p>注意：</p>
+<ol>
+<li><p>由于 ensemble 模块是整个推理模型流程对外接口，因此加载的模型名称应该是 ensemble，而不是 tensorrt_llm。</p>
+</li>
+<li><p>对于需要 GPU 资源的模型，必须配置 <code>num_gpus</code> 参数，否则 Ray Serve 并不会将 Deployment 调度部署到 GPU 节点上，从而导致 Triton 加载失败。</p>
+</li>
+</ol>
+<p>通过执行 <code>serve deploy</code> 命令，可将上述 Ray Serve 应用部署至目标 Ray Cluster 集群。应用成功启动后，可通过以下 POST 请求向模型发送推理请求：</p>
+<figure class="highlight bash"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">curl --location <span class="string">'http://127.0.0.1:8000/v1/chat/completions'</span> \</span><br><span class="line">--header <span class="string">'Content-Type: application/json'</span> \</span><br><span class="line">--data <span class="string">'{</span></span><br><span class="line"><span class="string">  "model": "meta-llama/Llama-3.2-1B-Instruct",</span></span><br><span class="line"><span class="string">  "messages": [</span></span><br><span class="line"><span class="string">    {</span></span><br><span class="line"><span class="string">      "role": "user",</span></span><br><span class="line"><span class="string">      "content": "介绍一下 Ray Serve 集成 Triton Inference Server 的优势"</span></span><br><span class="line"><span class="string">    }</span></span><br><span class="line"><span class="string">  ]</span></span><br><span class="line"><span class="string">}'</span></span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h2 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h2>
+      <ul>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/introduction/index.html">NVIDIA Triton Inference Server</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://developer.nvidia.com/blog/turbocharging-meta-llama-3-performance-with-nvidia-tensorrt-llm-and-nvidia-triton-inference-server/">Turbocharging Meta Llama 3 Performance with NVIDIA TensorRT-LLM and NVIDIA Triton Inference Server</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+</ul>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2025/03/31/ray/triton-inference-server/">https://plotor.github.io/2025/03/31/ray/triton-inference-server/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Ray/">Ray</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/LLM/">LLM</a></span></div><nav class="post-paginator paginator"><div class="paginator-next"><a class="paginator-next__link" href="/2020/06/29/sofa/sofa-jraft-linearizable-read/"><span class="paginator-prev__text">SOFA-JRaft 源码解析：线性一致性读</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9F%BA%E4%BA%8E-Triton-%E9%83%A8%E7%BD%B2%E5%8D%95%E6%9C%BA%E7%89%88%E5%9C%A8%E7%BA%BF%E6%8E%A8%E7%90%86%E6%9C%8D%E5%8A%A1"><span class="toc-number">1.</span> <span class="toc-text">
+          基于 Triton 部署单机版在线推理服务</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BC%96%E8%AF%91%E6%A8%A1%E5%9E%8B"><span class="toc-number">1.1.</span> <span class="toc-text">
+          编译模型</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%83%A8%E7%BD%B2%E6%A8%A1%E5%9E%8B"><span class="toc-number">1.2.</span> <span class="toc-text">
+          部署模型</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BC%95%E5%85%A5-Ray-Serve-%E6%9E%84%E5%BB%BA%E5%88%86%E5%B8%83%E5%BC%8F%E5%9C%A8%E7%BA%BF%E6%8E%A8%E7%90%86%E6%9C%8D%E5%8A%A1"><span class="toc-number">2.</span> <span class="toc-text">
+          引入 Ray Serve 构建分布式在线推理服务</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">3.</span> <span class="toc-text">
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">96</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">14</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">29</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2025</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>
