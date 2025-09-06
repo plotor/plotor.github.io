@@ -11,7 +11,7 @@
 <meta property="og:image" content="https://plotor.github.io/images/2025/daft-swordfish-pipeline.jpg">
 <meta property="og:image" content="https://plotor.github.io/images/2025/daft-pipeline-exec2.gif">
 <meta property="article:published_time" content="2025-09-02T14:16:00.000Z">
-<meta property="article:modified_time" content="2025-09-06T07:13:05.468Z">
+<meta property="article:modified_time" content="2025-09-06T07:21:29.424Z">
 <meta property="article:author" content="zhenchao">
 <meta property="article:tag" content="Daft">
 <meta property="article:tag" content="AI">
@@ -63,11 +63,11 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
           <a href="#Daft-分层架构设计" class="heading-link"><i class="fas fa-link"></i></a>Daft 分层架构设计</h2>
       <p>在正式开始分析上述 DataFrame 示例的执行过程之前，我们首先从整体层面介绍一下 Daft 的分层架构设计。如下图所示，除了 Daft 执行所依托的本地或分布式 Runtime 环境之外，就 Daft 本身的整体架构设计而言，可划分为 API 层、Plan 层，以及执行层 3 个层次：</p>
 <ul>
-<li><p>__API 层__：提供 SQL 和 Python DataFrame 两种接入 API。Daft 通过对分布式多模态数据进行表格化抽象，并按照行维度切分成多个分片分散到集群的各个节点进行分布式处理，以实现对数据的并行计算。</p>
+<li><p><strong>API 层</strong> ：提供 SQL 和 Python DataFrame 两种接入 API。Daft 通过对分布式多模态数据进行表格化抽象，并按照行维度切分成多个分片分散到集群的各个节点进行分布式处理，以实现对数据的并行计算。</p>
 </li>
-<li><p>__Plan 层__：基于用户输入的 SQL 或 DataFrame 构建逻辑执行计划（LogicalPlan）和物理执行计划（PhysicalPlan）。虽然用户通过 SQL 或 DataFrame API 编写业务逻辑，但在 Daft 内部会将其转换成逻辑执行计划进行统一表示，并应用优化器对逻辑执行计划进行优化以获得更好的执行性能。经过优化处理后的逻辑执行计划将被进一步转换为物理执行计划，并应用物理执行计划层面的优化器做进一步优化。</p>
+<li><p><strong>Plan 层</strong> ：基于用户输入的 SQL 或 DataFrame 构建逻辑执行计划（LogicalPlan）和物理执行计划（PhysicalPlan）。虽然用户通过 SQL 或 DataFrame API 编写业务逻辑，但在 Daft 内部会将其转换成逻辑执行计划进行统一表示，并应用优化器对逻辑执行计划进行优化以获得更好的执行性能。经过优化处理后的逻辑执行计划将被进一步转换为物理执行计划，并应用物理执行计划层面的优化器做进一步优化。</p>
 </li>
-<li><p>__执行层__：经过 Plan 层构造并优化得到的物理执行计划需要根据单机或分布式运行模式进一步拆分成一系列可被执行的 Task，并由调度器调度执行，同时管理 Task 的执行状态。</p>
+<li><p><strong>执行层</strong> ：经过 Plan 层构造并优化得到的物理执行计划需要根据单机或分布式运行模式进一步拆分成一系列可被执行的 Task，并由调度器调度执行，同时管理 Task 的执行状态。</p>
 </li>
 </ul>
 <p>
@@ -91,15 +91,15 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
       </p>
 <p>为了解决这一问题，Daft 与传统计算引擎一样，在内部实现了面向逻辑执行计划的优化器框架，并内置数十条优化规则实现对逻辑执行计划树进行优化改写。以图片分类任务 DataFrame 程序对应的逻辑执行计划为例，Daft 主要会应用如下优化规则对其进行优化：</p>
 <ul>
-<li><p>__Filter/Limit 表达式下推__：示例程序通过 <code>filter</code> 算子筛选出长宽均为 256 的图片，并通过 <code>limit</code> 算子限制仅返回 100 条计算结果，优化器层面会将 Filter 和 Limit 表达式下推给 Scan 节点，实现过滤并减少需要扫描和处理的数据量。</p>
+<li><p><strong>Filter/Limit 表达式下推</strong> ：示例程序通过 <code>filter</code> 算子筛选出长宽均为 256 的图片，并通过 <code>limit</code> 算子限制仅返回 100 条计算结果，优化器层面会将 Filter 和 Limit 表达式下推给 Scan 节点，实现过滤并减少需要扫描和处理的数据量。</p>
 </li>
-<li><p>__连续 Project 节点合并__：示例程序对应的逻辑执行计划树包含多个连续的 Project 节点，因此可以尝试将其合并以实现将多次 Project 投影操作合并为一次执行，这样在缩短执行链路的同时，也便于将 Project 表达式下推给 Scan 节点。如上图（1）所示，多个 Project 节点经过合并后可以压缩成为图（2）所示的 1 个 Project 节点。</p>
+<li><p><strong>连续 Project 节点合并</strong> ：示例程序对应的逻辑执行计划树包含多个连续的 Project 节点，因此可以尝试将其合并以实现将多次 Project 投影操作合并为一次执行，这样在缩短执行链路的同时，也便于将 Project 表达式下推给 Scan 节点。如上图（1）所示，多个 Project 节点经过合并后可以压缩成为图（2）所示的 1 个 Project 节点。</p>
 </li>
-<li><p>__UDF Project 分离__：经过合并后的 Project 可能会将 UDF 列与普通列合并在一起，这通常不便于框架实现 UDF 功能，同时在执行 UDF 时也不够灵活和高效，因此通常的做法是将 UDF Project 列从 Project 中分离出来进行单独处理。例如上述图（2）经过合并后的 Project 包含两个 UDF Project 列（即 <code>py_udf</code> 列），其中内侧的 UDF 以解码得到的 image 列作为输入，其输出的 tensor 列继续作为外侧的 UDF 的输入，并输出 labels 列。因此我们需要将这两个 UDF Project 列从 Project 中分离，得到如图（3）所示的逻辑执行计划。</p>
+<li><p><strong>UDF Project 分离</strong> ：经过合并后的 Project 可能会将 UDF 列与普通列合并在一起，这通常不便于框架实现 UDF 功能，同时在执行 UDF 时也不够灵活和高效，因此通常的做法是将 UDF Project 列从 Project 中分离出来进行单独处理。例如上述图（2）经过合并后的 Project 包含两个 UDF Project 列（即 <code>py_udf</code> 列），其中内侧的 UDF 以解码得到的 image 列作为输入，其输出的 tensor 列继续作为外侧的 UDF 的输入，并输出 labels 列。因此我们需要将这两个 UDF Project 列从 Project 中分离，得到如图（3）所示的逻辑执行计划。</p>
 </li>
-<li><p>__细粒度 Project 节点拆分__：该优化规则目前主要面向包含 <code>url_download</code> 表达式的 Project 节点。设想对于一个包含 1 万个 URL 的 CSV 文件，那么按照 Daft 的分区策略，这 1 万个 URL 将会集中到 1 个 Task 中进行处理，因此无法发挥分布式多节点并行下载的优势，同时也容易造成单节点 OOM 和连接数超限等问题。因此，我们可以将包含 <code>url_download</code> 表达式的 Project 节点分离出来单独处理，从而更加细粒度的控制批次大小和并发度。图（3）中包含 <code>url_download</code> 表达式的 Project 节点经过拆分后得到的逻辑执行计划如图（4）所示。</p>
+<li><p><strong>细粒度 Project 节点拆分</strong> ：该优化规则目前主要面向包含 <code>url_download</code> 表达式的 Project 节点。设想对于一个包含 1 万个 URL 的 CSV 文件，那么按照 Daft 的分区策略，这 1 万个 URL 将会集中到 1 个 Task 中进行处理，因此无法发挥分布式多节点并行下载的优势，同时也容易造成单节点 OOM 和连接数超限等问题。因此，我们可以将包含 <code>url_download</code> 表达式的 Project 节点分离出来单独处理，从而更加细粒度的控制批次大小和并发度。图（3）中包含 <code>url_download</code> 表达式的 Project 节点经过拆分后得到的逻辑执行计划如图（4）所示。</p>
 </li>
-<li><p>__物化 Scan 算子__：依据用户输入的数据源路径，Daft 会在优化逻辑执行计划期间访问数据源的元信息，并构造一系列 ScanTask 实现对数据的并发加载。同时，针对一些下推优化规则探测到的可以下推到 Scan 节点的表达式（例如 Filter、Limit、Project ），也会一并物化到 ScanTask 中。</p>
+<li><p><strong>物化 Scan 算子</strong> ：依据用户输入的数据源路径，Daft 会在优化逻辑执行计划期间访问数据源的元信息，并构造一系列 ScanTask 实现对数据的并发加载。同时，针对一些下推优化规则探测到的可以下推到 Scan 节点的表达式（例如 Filter、Limit、Project ），也会一并物化到 ScanTask 中。</p>
 </li>
 </ul>
 <p>示例 DataFrame 对应的逻辑执行计划在经过 Daft 优化器中的一系列优化规则优化改写后，进一步得到优化后的逻辑执行计划如下：</p>
@@ -108,7 +108,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 
         <h2 id="构造并优化物理执行计划">
           <a href="#构造并优化物理执行计划" class="heading-link"><i class="fas fa-link"></i></a>构造并优化物理执行计划</h2>
-      <p>经过优化器优化得到的逻辑执行计划本质上还是对用户构建的 DataFrame 在逻辑语义层面的表示，并不能直接被执行引擎执行。__逻辑执行计划层面更多关注的是用户提交的 SQL 或 DataFrame 需要“做什么”的问题，而无需关注需要在什么平台上执行，以及是单机执行还是分布式执行等“怎么做”的问题__。因此上述优化后的逻辑执行计划还需要进一步被转换成如下所示的物理执行计划：</p>
+      <p>经过优化器优化得到的逻辑执行计划本质上还是对用户构建的 DataFrame 在逻辑语义层面的表示，并不能直接被执行引擎执行。 <strong>逻辑执行计划层面更多关注的是用户提交的 SQL 或 DataFrame 需要“做什么”的问题，而无需关注需要在什么平台上执行，以及是单机执行还是分布式执行等“怎么做”的问题</strong> 。因此上述优化后的逻辑执行计划还需要进一步被转换成如下所示的物理执行计划：</p>
 <figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">* UDF Executor:</span><br><span class="line">|   UDF __main__.ResNetModel = py_udf(col(0: __TruncateRootUDF_0-4-0__)) as labels</span><br><span class="line">|   Passthrough Columns = [col(1: name), col(2: height), col(3: width), col(4: url)]</span><br><span class="line">|   Concurrency = 4</span><br><span class="line">|   Resource request = { num_cpus = 0, num_gpus = 0.25 }</span><br><span class="line">|</span><br><span class="line">* Project: col(4: __TruncateRootUDF_0-4-0__), col(0: name), col(1: height), col(2: width), col(3: url)</span><br><span class="line">|</span><br><span class="line">* UDF Executor:</span><br><span class="line">|   UDF __main__.&lt;lambda&gt; = py_udf(col(0: __TruncateRootUDF_1-4-0__)) as tensor as __TruncateRootUDF_0-4-0__</span><br><span class="line">|   Passthrough Columns = [col(1: name), col(2: height), col(3: width), col(4: url)]</span><br><span class="line">|   Concurrency = 8</span><br><span class="line">|   Resource request = None</span><br><span class="line">|</span><br><span class="line">* Project: col(0: __TruncateRootUDF_1-4-0__) as __TruncateRootUDF_1-4-0__, col(1: name) as name, col(2: height) as height, col(3: width) as width, col(4: url) as url</span><br><span class="line">|</span><br><span class="line">* Project: image_decode(col(0: id-5752374d-e36f-498f-bd85-29a3633c949a) as bytes, ...) as image as __TruncateRootUDF_1-4-0__, col(1: name), col(2: height), col(3: width), col(4:</span><br><span class="line">|     url)</span><br><span class="line">|</span><br><span class="line">* Project: url_download(col(3: url), ...) as id-5752374d-e36f-498f-bd85-29a3633c949a, col(0: name), col(1: height), col(2: width), col(3: url)</span><br><span class="line">|</span><br><span class="line">* Limit: 100</span><br><span class="line">|   Stats = { Approx num rows = 100, Approx size bytes = 5.47 KiB, Accumulated selectivity = 0.00 }</span><br><span class="line">|</span><br><span class="line">* ScanTaskSource:</span><br><span class="line">|   Num Scan Tasks = 1424</span><br><span class="line">|   Estimated Scan Bytes = 28364955</span><br><span class="line">|   Pushdowns: {filter: [col(height) == lit(256)] &amp; [col(width) == lit(256)], limit: 100}</span><br><span class="line">|   Schema: {name#Utf8, height#Int64, width#Int64, url#Utf8}</span><br><span class="line">|   Scan Tasks: [ ... ]</span><br><span class="line">|   Stats = { Approx num rows = 300,469, Approx size bytes = 16.23 MiB, Accumulated selectivity = 0.20 }</span><br></pre></td></tr></tbody></table></div></figure>
 <p>考虑 Daft 支持单机和分布式两套执行引擎，因此将逻辑执行计划转换成物理执行计划的过程需要区分是单机执行还是分布式执行。</p>
 <p>本文主要介绍 Swordfish 单机执行引擎的运行机制。对于单机执行而言，转化成物理执行计划的过程可以简单理解为是对逻辑执行计划树进行深度优先遍历，并一一映射算子的过程，即将逻辑算子映射成为物理算子。当然，并不是所有的逻辑算子都有对应的物理算子实现，比如 Offset 这类逻辑算子会在优化器层面被改写成 Limit 算子，所以对于 <code>.offset(x).limit(y)</code> 这类操作最终在物理执行计划层面只需要一个 <code>limit(y, x)</code> 算子即可表达。</p>
@@ -183,9 +183,9 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 <li>数据是如何被处理的？</li>
 <li>数据是如何被写回的？</li>
 </ol>
-<p>__首先，我们来探究数据是如何被加载进 Pipeline 管道的__。前面已经介绍过，在构造和优化执行计划期间，Daft 会基于数据源路径构造和物化一系列的 ScanTask，用于实现对数据的并行加载。同时，Daft 在构建 Pipeline 管道期间会将数据源 Scan 算子封装到 SourceNode 节点中。在执行层面，Daft 在内部通过多生产者单消费者模式（MPSC: Multi Producer Single Consumer）实现对于这些 ScanTask 的调度执行。</p>
+<p><strong>首先，我们来探究数据是如何被加载进 Pipeline 管道的</strong> 。前面已经介绍过，在构造和优化执行计划期间，Daft 会基于数据源路径构造和物化一系列的 ScanTask，用于实现对数据的并行加载。同时，Daft 在构建 Pipeline 管道期间会将数据源 Scan 算子封装到 SourceNode 节点中。在执行层面，Daft 在内部通过多生产者单消费者模式（MPSC: Multi Producer Single Consumer）实现对于这些 ScanTask 的调度执行。</p>
 <p>具体来说，Daft 会在内部创建一个 MPSC 的 Channel ，所有的 ScanTask 在运行期间会依据数据源的具体格式调用对应的 SDK 流式加载数据，并将数据按照 Morsel 分片粒度投递给该 MPSC Channel，而下游的处理节点会订阅该 Channel，并从中以 Morsel 分片粒度消费数据并应用处理逻辑。当然，对于较大的数据源而言，Daft 可能会为其创建成千上万的 ScanTask，如果将这些 ScanTask 一并提交执行，势必会造成资源争抢，导致运行效率不高。因此，Daft 在内部会维护一个 Task 池子，以限制同一时刻能够执行的 ScanTask 数量上限。</p>
-<p>__其次，我们以执行 UDF 为切入点来探究数据在 Pipeline 管道中是如何被处理的__。不同于传统大数据处理场景，在多模态数据处理场景中，UDF 扮演着至关重要的作用，也是一个被高频使用的功能。如下所示，我们在示例 DataFrame 中定义了两个 UDF：</p>
+<p><strong>其次，我们以执行 UDF 为切入点来探究数据在 Pipeline 管道中是如何被处理的</strong> 。不同于传统大数据处理场景，在多模态数据处理场景中，UDF 扮演着至关重要的作用，也是一个被高频使用的功能。如下所示，我们在示例 DataFrame 中定义了两个 UDF：</p>
 <figure class="highlight python"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">.with_column(<span class="string">'tensor'</span>, col(<span class="string">'image'</span>).apply(</span><br><span class="line">    func=<span class="keyword">lambda</span> img: transform(img),</span><br><span class="line">    return_dtype=daft.DataType.tensor(dtype=daft.DataType.float32()))).exclude(<span class="string">"image"</span>)</span><br><span class="line">.with_column(<span class="string">'labels'</span>, ResNetModel(col(<span class="string">'tensor'</span>))).exclude(<span class="string">'tensor'</span>)</span><br></pre></td></tr></tbody></table></div></figure>
 <p>其中 <code>transform</code> 是一个无状态的 UDF，用于按行实现对于图片数据的基础预处理操作；<code>ResNetModel</code> 是一个有状态的 UDF，该 UDF 会在初始化时加载 ResNet50 模型，并按批次调用模型对图片进行离线分类打标。</p>
 <p>在实现层面，Daft 使用 IntermediateNode 节点将 UDF 封装到 Pipeline 管道中。作为 Pipeline 管道的中间节点，IntermediateNode 在启动后会执行：</p>
@@ -195,7 +195,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 <li>提交运行 UDF 的 Worker 集合，各 Worker 按照 MPSC 模式消费上游处理完成的数据，并执行 UDF 逻辑，同时将结果输出投递到输出 Channel 中，供下游节点继续消费处理。</li>
 </ol>
 <p>对于 Swordfish 执行引擎而言，Daft 内部定义了 UdfOperator 用于执行 UDF 的内在业务逻辑。如果我们在定义 UDF 时配置了内存资源参数 <code>memory_bytes</code>，则引擎在开始执行 UDF 之前，会尝试从逻辑层面申请对应数量的内存资源。本文我们侧重于从整体流程层面了解 Swordfish 引擎的执行机制，关于 UdfOperator 如何执行 UDF 中定义的内在业务逻辑，将不在本文中继续展开。我们计划后续通过专门的文章介绍 Daft 关于 UDF 的执行机制。</p>
-<p>__最后，我们以写 Lance 格式数据为例来探究 Pipeline 管道中被处理完成的数据，是如何最终写回文件系统的__。Daft 内部定义了 LanceWriter 用于实现写 Lance 格式数据，而 LanceWriter 本质上是对 Lance Python SDK 的包装，内部定义了 <code>write</code> 方法实现按 Partition 分片将数据写成 Lance 格式。</p>
+<p><strong>最后，我们以写 Lance 格式数据为例来探究 Pipeline 管道中被处理完成的数据，是如何最终写回文件系统的</strong> 。Daft 内部定义了 LanceWriter 用于实现写 Lance 格式数据，而 LanceWriter 本质上是对 Lance Python SDK 的包装，内部定义了 <code>write</code> 方法实现按 Partition 分片将数据写成 Lance 格式。</p>
 <p>针对 <code>write_lance</code> 这类 Sink 操作，Daft 使用 BlockingSinkNode 节点实现了 LanceWriter 与 Pipeline 管道的集成。在整体执行流程上，BlockingSinkNode 在启动后与 IntermediateNode 的执行流程类似，主要的区别在于：</p>
 <ol>
 <li>在计算 Worker 并发度时，主要判断是否指定了 <code>partition_by</code> 分区列，如果指定则默认采用当前所在机器的 CPU 核心数，否则就简单的设置为 1；</li>
