@@ -1,0 +1,559 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="在 DATA + AI 数据科学领域，Pandas 无疑是数据科学家和开发者们的“瑞士军刀”。凭借相对完善的 DataFrame API 和丰富的生态，Pandas 极大简化了在中小型数据集上的数据清洗、分析和探索性工作。然而，随着数据集规模的增长，Pandas 在执行效率和资源开销层面的短板也逐渐凸显，因此诞生了 Polars、Dask 一类的产品：  Polars 采取纵向优化策略，通过 Ru">
+<meta property="og:type" content="article">
+<meta property="og:title" content="通过图片分类任务探寻 Daft 运行机制之 Flotilla 引擎篇">
+<meta property="og:url" content="https://plotor.github.io/2025/12/08/daft/daft-flotilla/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="在 DATA + AI 数据科学领域，Pandas 无疑是数据科学家和开发者们的“瑞士军刀”。凭借相对完善的 DataFrame API 和丰富的生态，Pandas 极大简化了在中小型数据集上的数据清洗、分析和探索性工作。然而，随着数据集规模的增长，Pandas 在执行效率和资源开销层面的短板也逐渐凸显，因此诞生了 Polars、Dask 一类的产品：  Polars 采取纵向优化策略，通过 Ru">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://plotor.github.io/images/2025/daft-flotilla-engine.jpg?raw=false">
+<meta property="og:image" content="https://plotor.github.io/images/2025/daft-flotilla-produce-tasks.jpg?raw=false">
+<meta property="og:image" content="https://plotor.github.io/images/2025/daft-flotilla-plan-runner.jpg?raw=false">
+<meta property="og:image" content="https://plotor.github.io/images/2025/daft-flotilla-udf-actor.jpg?raw=true">
+<meta property="article:published_time" content="2025-12-08T10:16:00.000Z">
+<meta property="article:modified_time" content="2025-12-08T11:53:49.896Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Daft">
+<meta property="article:tag" content="AI">
+<meta property="article:tag" content="Ray">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://plotor.github.io/images/2025/daft-flotilla-engine.jpg?raw=false"><title>通过图片分类任务探寻 Daft 运行机制之 Flotilla 引擎篇 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2025/12/08/daft/daft-flotilla/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">通过图片分类任务探寻 Daft 运行机制之 Flotilla 引擎篇</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2025-12-08</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">6.6k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">26分</span></span></div></header><div class="post-body"><p>在 DATA + AI 数据科学领域，Pandas 无疑是数据科学家和开发者们的“瑞士军刀”。凭借相对完善的 DataFrame API 和丰富的生态，Pandas 极大简化了在中小型数据集上的数据清洗、分析和探索性工作。然而，随着数据集规模的增长，Pandas 在执行效率和资源开销层面的短板也逐渐凸显，因此诞生了 Polars、Dask 一类的产品：</p>
+<ul>
+<li><p>Polars 采取纵向优化策略，通过 Rust 语言对引擎内核进行重新设计和实现，并引入查询优化器、向量化执行引擎等手段以进一步提升执行性能，但开源版本仅提供单机运行模式。</p>
+</li>
+<li><p>Dask 则采用横向优化策略，可以将其看作是 Pandas 的分布式实现。</p>
+</li>
+</ul>
+<p>Daft 则融合了 Polars 和 Dask 二者的优势，在内核层面采用 Rust 语言实现，并提供 Python DataFrame 和 SQL 接入 API，同时提供单机和分布式两套执行引擎，并支持无缝切换运行模式。重要的是，Daft 内置多模态类型和算子，并依托于 Ray 实现异构资源管理，从而将应用领域由传统结构化数据处理拓展至多模态数据处理场景。<a id="more"></a></p>
+<p>此前，我们曾在文章《<a href="/2025/09/02/daft/daft-swordfish/">通过图片分类任务探寻 Daft 运行机制之 Swordfish 引擎篇</a>》中通过一个典型图片分类任务，由浅入深介绍了 Daft 单机执行引擎 Swordfish 的运行机制。本文我们将沿用这个示例，继续探寻 Daft 分布式执行引擎 Flotilla 的设计与实现。</p>
+
+        <h2 id="一键切换至分布式模式运行">
+          <a href="#一键切换至分布式模式运行" class="heading-link"><i class="fas fa-link"></i></a>一键切换至分布式模式运行</h2>
+      <p>我们再来回顾一下这个图片分类任务示例程序，不过这次稍微对其做了一些修改，增加了 <code>into_batches</code> 逻辑，具体如下所示。通过 <code>into_batches</code> 将数据切分成合适大小的批次，对于包含需要基于 URL 实时下载数据的场景来说是一个不错的优化项，因为这样能够将下载任务分发给更多的节点执行，以尽量发挥分布式执行的优势，避免单节点网络资源成为瓶颈。</p>
+<figure class="highlight python"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">df = (daft</span><br><span class="line">      <span class="comment"># 读取 Parquet 格式图片数据集</span></span><br><span class="line">      .read_parquet(path=<span class="string">"s3://ai/dataset/url_ILSVRC2012/*.parquet"</span>, io_config=IO_CONFIG)</span><br><span class="line">      <span class="comment"># 筛选目标尺寸的图片</span></span><br><span class="line">      .<span class="built_in">filter</span>((col(<span class="string">'width'</span>) &gt;= <span class="number">400</span>) &amp; (col(<span class="string">'height'</span>) &gt;= <span class="number">300</span>))</span><br><span class="line">      <span class="comment"># 将数据按 batch_size 切分成更小的批次进行处理</span></span><br><span class="line">      .into_batches(batch_size=<span class="number">64</span>)</span><br><span class="line">      <span class="comment"># 通过 url 下载对应的图片二进制数据</span></span><br><span class="line">      .with_column(<span class="string">'bytes'</span>, col(<span class="string">'url'</span>).download(io_config=IO_CONFIG))</span><br><span class="line">      <span class="comment"># 将二进制图片解码成为图片类型</span></span><br><span class="line">      .with_column(<span class="string">'image'</span>, col(<span class="string">'bytes'</span>).decode_image(mode=ImageMode.RGB)).exclude(<span class="string">'bytes'</span>)</span><br><span class="line">      <span class="comment"># 对图片执行基本的预处理，包括裁剪、归一化等</span></span><br><span class="line">      .with_column(<span class="string">'tensor'</span>,</span><br><span class="line">                   col(<span class="string">'image'</span>).apply(</span><br><span class="line">                       func=<span class="keyword">lambda</span> img: transforms.Compose([</span><br><span class="line">                           transforms.ToTensor(),</span><br><span class="line">                           transforms.Resize(<span class="number">256</span>),</span><br><span class="line">                           transforms.CenterCrop(<span class="number">224</span>),</span><br><span class="line">                           transforms.Normalize(mean=[<span class="number">0.485</span>, <span class="number">0.456</span>, <span class="number">0.406</span>], std=[<span class="number">0.229</span>, <span class="number">0.224</span>, <span class="number">0.225</span>])])(img),</span><br><span class="line">                       return_dtype=daft.DataType.tensor(dtype=daft.DataType.float32())</span><br><span class="line">                   )).exclude(<span class="string">'image'</span>)</span><br><span class="line">      <span class="comment"># 调用 ResNet50 模型对图片进行离线推理打标</span></span><br><span class="line">      .with_column(<span class="string">'labels'</span>, ResNetModel(col(<span class="string">'tensor'</span>))).exclude(<span class="string">'tensor'</span>)</span><br><span class="line">      )</span><br><span class="line"></span><br><span class="line">df.write_lance(uri=<span class="string">"/opt/workspace/data/lance"</span>)</span><br></pre></td></tr></tbody></table></div></figure>
+<p>Daft 默认以单机模式执行上述程序，如果你希望切换至分布式模式执行以支撑更高的负载，则只需少量配置或修改即可实现。Daft 分布式执行引擎底层依赖 Ray 做资源管理，因此最简单的方式是通过 <code>export DAFT_RUNNER=ray</code> 设置环境变量进行切换，或者在代码中显式指定使用 Ray Runner：</p>
+<figure class="highlight python"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">daft.set_runner_ray(address=<span class="string">"ray://..."</span>)</span><br></pre></td></tr></tbody></table></div></figure>
+<p>更多关于 Daft on Ray 分布式运行的介绍可以参考 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://docs.daft.ai/en/stable/distributed/ray/">官方文档</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>。</p>
+
+        <h2 id="Flotilla-分布式引擎整体架构">
+          <a href="#Flotilla-分布式引擎整体架构" class="heading-link"><i class="fas fa-link"></i></a>Flotilla 分布式引擎整体架构</h2>
+      <p>Flotilla 分布式执行引擎在整体架构设计上可以简单理解为 Swordfish 单机执行引擎的分布式版本，通过统筹协调多个 Swordfish 单机引擎进行组建。在实现层面，Flotilla 依赖 Ray 做异构资源管理，并在每个 Ray Worker 节点上启动一个名为 RaySwordfishActor 的常驻 Ray Actor，用于接收和执行单机版的物理执行计划。当用户提交一个 Query 请求时，Flotilla 会首先将 Query 对应的分布式物理执行计划拆分成一系列可被 Swordfish 单机引擎执行的 SwordfishTask，然后通过内置的调度器将这些 SwordfishTask 调度分发给对应的 RaySwordfishActor 节点，而每个 RaySwordfishActor 在内部会运行一个 Swordfish 单机执行引擎，以此实现执行调度给当前 RaySwordfishActor 节点的执行计划。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2025/daft-flotilla-engine.jpg?raw=false" style="" alt="Daft Flotilla Engine">
+      </p>
+<p>如上图所示展示了构成 Flotilla 分布式执行引擎的核心组件：</p>
+<ul>
+<li><p><strong>RayRunner：</strong> 类比 Swordfish 单机执行引擎中的 NativeRunner，Flotilla 引擎依托 Ray 做异构资源管理，因此提供了 RayRunner 组件负责在本地启动 Ray 集群实例或与指定远端 Ray 集群建连。此外，RayRunner 还负责通过 FlotillaRunner 向 Ray 集群提交 Query 对应的逻辑执行计划，并输出执行结果。</p>
+</li>
+<li><p><strong>FlotillaRunner：</strong> 可以理解为 Flotilla 引擎与运行在 Ray 集群上组件进行交互的客户端实现，负责在 Ray 集群 Head 节点上启动 RemoteFlotillaRunner，并提交执行 Query 对应的逻辑执行计划，同时轮询读取执行结果。</p>
+</li>
+<li><p><strong>RemoteFlotillaRunner：</strong> Flotilla 引擎运行在 Ray 集群上的 API Server 实现，负责接收客户端提交的 Query 对应的逻辑执行计划，并返回执行结果给到客户端。</p>
+</li>
+<li><p><strong>DistributedPhysicalPlanRunner：</strong> 可以理解为 Flotilla 引擎的服务端实现，DistributedPhysicalPlanRunner 本身只是 Python 和 Rust 交互的胶水层，核心实现是 PlanRunner。PlanRunner 负责将优化后的逻辑执行计划转换成分布式物理执行计划，并进一步生成一系列可被调度执行的 SwordfishTask，通过调度器 Scheduler 和分发器 Dispatcher 将 SwordfishTask 调度分发给运行在 Ray 集群上的各个 RaySwordfishActor 执行。</p>
+</li>
+</ul>
+<p>Flotilla 引擎服务端主要采用 Rust 语言编写，除了 PlanRunner，还包含 RayWorkerManager、Scheduler、Dispatcher 和 RaySwordfishActor 几个核心组件：</p>
+<ul>
+<li><p><strong>RayWorkerManager：</strong> 负责与 Ray 集群进行交互，提供了一系列与 Ray 集群进行交互的接口，包括感知 Ray 集群 Worker 节点列表、在 Worker 节点上启动运行 RaySwordfishActor、向目标 Worker 节点批量提交 SwordfishTask，以及集群扩容等。</p>
+</li>
+<li><p><strong>Scheduler：</strong> Flotilla 引擎的调度器实现，负责按照任务具体的调度策略为每个待调度的  SwordfishTask 规划 Worker 节点。Scheduler 在内部通过一个优先级队列维护由 PlanRunner 提交待调度的 SwordfishTask 集合，并通过一个事件循环轮询消费该队列、更新本地记录的 Ray Worker 节点状态，以及按需触发对集群进行扩容。</p>
+</li>
+<li><p><strong>Dispatcher：</strong> Flotilla 引擎的分发器实现，负责将 SwordfishTask 按照目标 Worker ID 进行分组，并依托 RayWorkerManager 批量提交给指定的 Worker 节点执行。Dispatcher 会在 Scheduler 的事件循环中被周期性触发调用。</p>
+</li>
+<li><p><strong>RaySwordfishActor：</strong> 负责执行由 Dispatcher 提交给所在 Worker 节点上的 SwordfishTask。RaySwordfishActor 可以看作是一个常驻的 Swordfish 单机执行引擎，内部通过 NativeExecutor 执行接收到的 SwordfishTask。</p>
+</li>
+</ul>
+<p>介绍完了 Flotilla 引擎的整体架构，我们再来简单聊聊 Flotilla 诞生的背景。Flotilla 可以看做是 Daft 分布式执行引擎的 v2.0 版本（或者叫 v1.5 版本更加确切），也是当前版本默认启用的分布式引擎，而 v1.0 版本（即 Legacy Ray Runner）已经在最新版本中被移除。之所以要重新设计分布式执行引擎，主要是考虑 Legacy Ray Runner 在实现层面会将整个执行层都交由 Ray 来负责，Daft 能够做的仅仅是执行计划的规划、任务拆分和提交。这导致 Daft 对于任务的实际调度和执行可操作性很受限，存在 2 个核心问题：</p>
+<ol>
+<li><p><strong>执行性能低：</strong> 对于稍复杂的作业通常会切分成多个 Stage，每个 Stage 包含大量的任务，Daft 在将这些任务提交后，Ray 集群会按照提交顺序对任务进行调度执行。当任务数较多时往往会导致执行模式由 Pipeline 退化成 Stage by Stage。对于多模态数据处理这类异构计算场景，极易造成资源得不到充分利用，进而导致处理性能低效。</p>
+</li>
+<li><p><strong>内存压力大：</strong> Ray 集群通过 Object Memory Store 实现任务之间的数据交换，而 Stage by Stage 的执行模式需要将上游 Stage 全部处理完成之后再开始执行下游 Stage，中间的处理结果需要全部由 Object Memory Store 承载，这给 Ray 集群造成了极大的内存压力，极易导致 OOM 错误。</p>
+</li>
+</ol>
+<p><strong>Flotilla 相对于 Legacy Ray Runner 的核心改变是将任务的调度层和执行层从 Ray 层面剥离，改为由自己完全掌控，Ray 则简化成仅仅充当异构资源管理角色。</strong> 在调度层面，Flotilla 内置的 Scheduler 能够保证 Pipeline 中的各个节点均能获得运行所需的资源，让数据能够在 Pipeline 中流式被处理，不至于造成 Pipeline 堵塞。在执行层面，Flotilla 能够复用单机执行引擎 Swordfish 优秀特性，包括 Pipeline 架构、动态数据分片，以及向量化执行等。</p>
+
+        <h2 id="Flotilla-分布式引擎运行机制">
+          <a href="#Flotilla-分布式引擎运行机制" class="heading-link"><i class="fas fa-link"></i></a>Flotilla 分布式引擎运行机制</h2>
+      <p>在了解了 Flotilla 分布式引擎的整体架构之后，本小节继续回到图片分类示例程序，从引擎内部视角探寻 Flotilla 的运行机制。</p>
+
+        <h3 id="基于物理执行计划生成可执行任务">
+          <a href="#基于物理执行计划生成可执行任务" class="heading-link"><i class="fas fa-link"></i></a>基于物理执行计划生成可执行任务</h3>
+      <p>我们在《<a href="/2025/09/02/daft/daft-swordfish/">通过图片分类任务探寻 Daft 运行机制之 Swordfish 引擎篇</a>》一文中介绍了 Daft 如何将示例程序对应的 DataFrame 在引擎内部转换并优化得到逻辑执行计划。逻辑执行计划本质上是引擎在内部对用户构建的 DataFrame 在逻辑语义层面的表示，并不能直接被调度执行，还需要进一步将其转换成物理执行计划，并最终封装成可调度执行的任务列表。</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">* Sink: DataSink(Lance Write)</span><br><span class="line">|   Output schema = write_results#Python</span><br><span class="line">|</span><br><span class="line">* ActorUDF: __main__.ResNetModel</span><br><span class="line">|   Projection = [col(1: name), col(2: height), col(3: width), col(4: url), py_udf(col(0: __TruncateRootUDF_0-4-0__)) as labels]</span><br><span class="line">|   Properties = { batch_size = 8, concurrency = 4, async = false, scalar = false }</span><br><span class="line">|   Resource request = { num_gpus = 0.25 }</span><br><span class="line">|</span><br><span class="line">* Project: col(4: __TruncateRootUDF_0-4-0__), col(0: name), col(1: height), col(2: width), col(3: url)</span><br><span class="line">|   Resource request = None</span><br><span class="line">|</span><br><span class="line">* UDF: __main__.&lt;lambda&gt;</span><br><span class="line">|   Expr = py_udf(col(0: __TruncateRootUDF_1-4-0__)) as __TruncateRootUDF_0-4-0__</span><br><span class="line">|   Passthrough Columns = [col(1: name), col(2: height), col(3: width), col(4: url)]</span><br><span class="line">|   Properties = { async = false, scalar = false }</span><br><span class="line">|   Resource request = None</span><br><span class="line">|</span><br><span class="line">* Project: col(0: __TruncateRootUDF_1-4-0__) as __TruncateRootUDF_1-4-0__, col(1: name) as name, col(2: height) as height, col(3: width) as width, col(4: url) as url</span><br><span class="line">|   Resource request = None</span><br><span class="line">|</span><br><span class="line">* Project: image_decode(col(0: id-a01e5022-8f40-4f2f-80f5-e7f42e4fab38) as bytes, lit("raise"), lit(PyObject(RGB))) as __TruncateRootUDF_1-4-0__, col(1: name), col(2: height), col(3: width), col(4: url)</span><br><span class="line">|   Resource request = None</span><br><span class="line">|</span><br><span class="line">* Project: url_download(col(3: url), ...) as id-a01e5022-8f40-4f2f-80f5-e7f42e4fab38, col(0: name), col(1: height), col(2: width), col(3: url)</span><br><span class="line">|   Resource request = None</span><br><span class="line">|</span><br><span class="line">* IntoBatches: 64</span><br><span class="line">|</span><br><span class="line">* ScanTaskSource:</span><br><span class="line">|   Num Scan Tasks = 1424</span><br><span class="line">|   Estimated Scan Bytes = 28364955</span><br><span class="line">|   Pushdowns: {filter: [col(width) &gt;= lit(400)] &amp; [col(height) &gt;= lit(300)]}</span><br><span class="line">|   Schema: {name#Utf8, height#Int64, width#Int64, url#Utf8}</span><br><span class="line">|   Scan Tasks: [ ... ]</span><br></pre></td></tr></tbody></table></div></figure>
+<p>引擎在基于逻辑执行计划构造物理执行计划时需要关注具体在什么平台上执行，是单机执行还是分布式执行等问题。上述展示了示例程序使用分布式执行引擎 Flotilla 执行时对应的物理执行计划，感兴趣的读者可以将其与《<a href="/2025/09/02/daft/daft-swordfish/">通过图片分类任务探寻 Daft 运行机制之 Swordfish 引擎篇</a>》一文中展示的单机执行引擎 Swordfish 对应的物理执行计划相比对，还是有些细微的差别。不过，同单机物理执行计划一样，构造分布式物理执行计划的过程同样可以简单理解为是对逻辑执行计划树进行深度优先遍历，并一一映射算子的过程，即将逻辑算子映射成为物理算子。</p>
+<p>物理执行计划本质上是一棵静态树结构，所以并不能将其直接丢给引擎去执行，因此接下来需要将上述物理执行计划拆分成一系列可调度执行的任务。例如上述物理执行计划会被拆分成如下图所示的两个 Stage（ <em>说明：这里的 Stage 并非 Flotilla 的原生概念，而是用来表示一类 SwordfishTask，或者使用 Fragment 命名会更好？</em> ），每个 Stage 包含一个由多个算子节点构成的 Pipeline 管道：</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2025/daft-flotilla-produce-tasks.jpg?raw=false" style="" alt="Daft Flotilla Produce Tasks">
+      </p>
+<p>在实现层面，Flotilla 会对物理执行计划树进行深度优先遍历，并应用各个节点的 <code>produce_tasks</code> 方法生成对应的 SwordfishTask 集合。以上述物理执行计划为例，我们挑选几个具有代表性的节点展开介绍：</p>
+<ul>
+<li><p><strong>ScanSourceNode 节点：</strong> 对于 Scan 节点而言，我们曾在《<a href="/2025/09/02/daft/daft-swordfish/">通过图片分类任务探寻 Daft 运行机制之 Swordfish 引擎篇</a>》中介绍过，物化 Scan 算子的优化规则会基于数据源按规则切分构造一系列 ScanTask。Flotilla 在这一步会通过单机 PhysicalScan 节点逐一封装各个 ScanTask 并生成对应的 SwordfishTask 任务列表。</p>
+</li>
+<li><p><strong>IntoBatches 节点：</strong> IntoBatches 节点用于将分区数据按照指定的 <code>batch_size</code> 进行切分或合并，因此会涉及到对数据的重分片，进而影响 SwordfishTask 执行的并行度，因此可以看到 IntoBatches 会将执行计划拆分成两个 Stage。在实现层面，IntoBatches 分为 Local 和 Global 两阶段来实现，即如果分区中包含的数据条数大于 <code>batch_size</code> 设置的值，则会先在 Scan 节点节点侧进行局部切分，在局部切分不满足 <code>batch_size</code> 约束的情况下会进一步在数据接收侧进行进一步攒批，从而尽量保证向后投递的数据条数满足 <code>batch_size</code> 约束。此外，需要澄清的一点是，<strong>IntoBatches 虽然将执行计划切分成了两个 Stage，但两个 Stage 中对应的 SwordfishTask 仍然采用流式模式执行。</strong> Flotilla 并不会阻塞等待 Stage 0 中的所有 SwordfishTask 执行完成后才开始调度 Stage 1 中的 SwordfishTask，而是当数据条数满足batch_size约束后即动态生成并调度 Stage 1 中的 SwordfishTask，从而提升整体执行效率和资源利用率。</p>
+</li>
+<li><p><strong>ActorUDF 节点：</strong> 对于指定了 <code>concurrency</code> 参数的 UDF 会被转化成 ActorUDF 节点，在生成对应的 SwordfishTask 期间，Flotilla 会按照concurrency参数设置启动对应数量的 Ray UDFActor 实例以运行用户编写的 UDF 逻辑，并在启动期间执行 UDF 的初始化逻辑。此外，Flotilla 会将 ActorUDF 节点包装成对应的 DistributedActorPoolProject 节点与上游物理执行计划一起构成新的物理执行计划并生成对应的 SwordfishTask。</p>
+</li>
+</ul>
+<p>总体而言， <strong>生成 SwordfishTask 的过程核心是将一个大的分布式物理执行计划按 Stage 切分成多个小的单机物理执行计划片段的过程。</strong> 除了需要触发切分 Stage 的算子外（例如上述介绍的 IntoBatches），Flotilla 会尽量将分布式物理执行计划中的各个节点一一映射成对应的单机物理执行计划节点，并将这些节点串起来构造成为一个完整的单机物理执行计划，而每个单机物理执行计划需要生成多少 SwordfishTask 实例通常由源头节点的并行度所决定。</p>
+<p>此外，本示例中由 IntoBatches 切分出来的两个 Stage 虽然能够采用流式模式执行，但 Flotilla 并不是针对所有切分出来的 Stage 都能做到流式，具体还是要视具体触发 Stage 切分的算子而定。例如，以 Broadcast Join 节点为例，因为需要将小表的数据广播到各个数据接收节点，因此这里就需要阻塞等待加载小表的全量数据。在实现层面，Flotilla 会先阻塞执行前置 Stage 节点的 PhysicalScan 任务，当完成对于广播表数据的加载后，Flotilla 会将这部分数据包装成 InMemoryScan 节点，同时遍历接收侧的各个 SwordfishTask 对应的 PhysicalScan 节点，并为每个 PhysicalScan 节点绑定一个 InMemoryScan 节点，以此实现广播的语义，最后通过对 PhysicalScan 和 InMemoryScan 节点附加 HashJoin 算子以进一步实现 Join 语义。</p>
+
+        <h3 id="统筹并管理-Ray-集群-Worker-节点">
+          <a href="#统筹并管理-Ray-集群-Worker-节点" class="heading-link"><i class="fas fa-link"></i></a>统筹并管理 Ray 集群 Worker 节点</h3>
+      <p>在将物理执行计划拆分成一系列 SwordfishTask 之后，Flotilla 需要将其调度分发给 Ray 集群执行，但在具体深入分析之前，我们先来了解一下 Flotilla 是如何管理 Ray 集群的。</p>
+<p>Flotilla 对于物理执行计划的规划、任务调度分发，以及运行状态管理等均在 Ray 集群的 Head 节点上完成，而对于任务的具体执行则由 Ray 集群的各个 Worker 节点承载。Flotilla 在内部定义了 WorkerManager 角色用于抽象对于分布式集群的管理和交互，核心功能包括集群节点感知与管理、任务提交与状态维护，以及弹性伸缩等，并针对 Ray 集群提供了 RayWorkerManager 实现。</p>
+<ul>
+<li><strong>集群状态感知</strong></li>
+</ul>
+<p>RayWorkerManager 实现了 <code>WorkerManager#worker_snapshots</code> 方法用于感知并记录所在 Ray 集群的 Worker 节点列表和资源信息（包括 CPU、GPU 和内存）。Flotilla 调度器会周期性调度该方法以保证本地记录的集群状态信息的新鲜度。对于感知到的每个 Ray Worker 节点，Flotilla 会在上面启动运行一个名为 RaySwordfishActor 的 Ray Actor 实例。 RaySwordfishActor 在内部运行着一个 Swordfish 单机执行引擎，负责以单机模式执行由 Scheduler 调度分发过来的单机物理执行计划。</p>
+<ul>
+<li><strong>任务提交运行</strong></li>
+</ul>
+<p>RayWorkerManager 实现了 <code>WorkerManager#submit_tasks_to_workers</code> 方法用于向指定 Worker 节点批量提交执行任务。这些任务会被封装成 SwordfishTask 实例（定义如下），核心是定义了可以被 Swordfish 单机引擎执行的物理执行计划，以及对应需要处理的数据分区元信息：</p>
+<figure class="highlight rust"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">pub</span>(<span class="keyword">crate</span>) <span class="class"><span class="keyword">struct</span> <span class="title">SwordfishTask</span></span> {</span><br><span class="line">    <span class="comment">// 任务上下文，包含所属的 Query，ID 等信息</span></span><br><span class="line">    task_context: TaskContext,</span><br><span class="line">    <span class="comment">// 可被 Swordfish 引擎执行的物理执行计划</span></span><br><span class="line">    plan: LocalPhysicalPlanRef,</span><br><span class="line">    <span class="comment">// 任务资源需求情况</span></span><br><span class="line">    resource_request: TaskResourceRequest,</span><br><span class="line">    <span class="comment">// 任务执行配置信息</span></span><br><span class="line">    config: Arc&lt;DaftExecutionConfig&gt;,</span><br><span class="line">    <span class="comment">// 任务需要处理的数据分区信息</span></span><br><span class="line">    psets: HashMap&lt;<span class="built_in">String</span>, <span class="built_in">Vec</span>&lt;PartitionRef&gt;&gt;,</span><br><span class="line">    <span class="comment">// 调度策略：节点亲和性 or 随机</span></span><br><span class="line">    strategy: SchedulingStrategy,</span><br><span class="line">    context: HashMap&lt;<span class="built_in">String</span>, <span class="built_in">String</span>&gt;,</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>我们知道 Flotilla 会在每个 Worker 节点上启动运行一个 RaySwordfishActor，而这里的 SwordfishTask 最终会被发送给对应 Worker 节点上的 RaySwordfishActor 进行处理。RaySwordfishActor 定义了 <code>RaySwordfishActor#run_plan</code> 异步方法，该方法在内部会创建 NativeExecutor，并调用 <code>NativeExecutor#run</code> 方法通过 Swordfish 单机引擎执行接收到的物理执行计划和分区数据。关于 NativeExecutor 的运行机制，我们曾在《<a href="/2025/09/02/daft/daft-swordfish/">通过图片分类任务探寻 Daft 运行机制之 Swordfish 引擎篇</a>》一文中深入分析并介绍过，不了解的读者可以参阅该文章，这里不再重复撰述。</p>
+
+        <h3 id="SwordfishTask-任务调度与分发执行">
+          <a href="#SwordfishTask-任务调度与分发执行" class="heading-link"><i class="fas fa-link"></i></a>SwordfishTask 任务调度与分发执行</h3>
+      <p>对于前面由物理执行计划生成得到的一系列 SwordfishTask，Flotilla 会将其提交给调度器 Scheduler 调度执行，并获取各个任务的执行结果。在了解了 Flotilla 如何管理 Ray 集群 Worker 节点，以及 Worker 如何执行 Flotilla 调度分发的 SwordfishTask 之后，我们继续来看 Flotilla 如何将这些 SwordfishTask 规划、调度分发给 Worker 节点，并对任务执行状态实施管理。</p>
+<p>Flotilla 在内部定义了调度器 Scheduler 和分发器 Dispatcher 两个角色，前者负责调度由物理执行计划生成的一系列待执行的 SwordfishTask，按照调度策略规划每个  SwordfishTask 应该发送给哪个 Worker 节点；后者则负责将规划好的 SwordfishTask 按 Worker ID 分组，并批量分发给目标 Worker 节点执行。</p>
+<p>对于每个用户提交的 Query，Flotilla 会为其创建并启动一个 Scheduler。Daft 默认提供了 DefaultScheduler 和 LinearScheduler 两类实现（默认使用 DefaultScheduler，可以通过 <code>DAFT_SCHEDULER_LINEAR</code> 环境变量启动 LinearScheduler）， <strong>二者的核心区别在于 DefaultScheduler 在资源允许的情况下会调度执行尽可能多的 SwordfishTask，而 LinearScheduler 则限制任何时刻只允许调度执行 1 个 SwordfishTask，从而保证串行执行的语义，适用于特定场景。</strong> 考虑大多数场景都会采用 DefaultScheduler，因此本小节我们主要以 DefaultScheduler 为例展开分析。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2025/daft-flotilla-plan-runner.jpg?raw=false" style="" alt="Daft Flotilla Plan Runner">
+      </p>
+<p>如上图所示，展示了 Flotilla 在调度分发 SwordfishTask 时相关组件的联动关系（其中红色线条表示任务调度分发的主线），核心执行流程可以概括为：</p>
+<ol>
+<li><p>PlanRunner 在完成基于物理执行计划生成一系列 SwordfishTask 后，会逐一将这些 SwordfishTask 提交给 Scheduler 进行调度，并等待获取各个 SwordfishTask 的执行结果；</p>
+</li>
+<li><p>Scheduler 在内部会通过一个优先级队列来维护接收到可调度的 SwordfishTask 集合，并启动一个事件循环轮询消费该队列。对于可调度的 SwordfishTask 则尝试依据其调度策略分配 Worker 节点：</p>
+<ol>
+<li>如果是 Spread 策略，则尝试从所有满足当前 SwordfishTask 资源需求的 Worker 节点中选择可用资源最多的 Worker 节点。</li>
+<li>如果是 WorkerAffinity 策略，则尝试将其调度给当前 SwordfishTask 指定的节点。如果期望节点不能满足当前 SwordfishTask 的资源需求，则在允许的情况下会进一步尝试 Spread 调度策略，否则会将该 SwordfishTask 重新入队列，等待下一轮循环重试。</li>
+</ol>
+</li>
+<li><p>Dispatcher 会在 Scheduler 的事件循环中被触发执行向 Ray 集群批量分发已经规划好 Worker 节点的 SwordfishTask 集合。在实现层面，Dispatcher 会首先将 SwordfishTask 按照 Worker ID 进行分组，然后调用前面介绍的 <code>WorkerManager#submit_tasks_to_workers</code> 方法向 Ray 集群的指定 Worker 节点批量提交 SwordfishTask。</p>
+</li>
+<li><p>Scheduler 在每次事件循环中会等待至少 1 个 SwordfishTask 执行完成，并尝试输出当前所有已完成执行 SwordfishTask 的计算结果，针对执行失败的 SwordfishTask 会重新入队列，等待下一轮循环重试。</p>
+</li>
+</ol>
+<p>需要说明的一点是，对于整棵物理执行计划树而言，可能会被切分成多个 Stage，而 Flotilla 基于物理执行计划生成 SwordfishTask 的过程和调度分发 SwordfishTask 的过程在 Stage 之间，甚至是 Stage 内部是完全并行执行的，这样的好处是对于构造好的 SwordfishTask 可以立即被调度执行，从而保证 Pipeline 整体的数据流动性，提升执行效率。</p>
+
+        <h3 id="聊聊分布式场景下-UDF-的运行机制">
+          <a href="#聊聊分布式场景下-UDF-的运行机制" class="heading-link"><i class="fas fa-link"></i></a>聊聊分布式场景下 UDF 的运行机制</h3>
+      <p>在大数据时代，用户通常习惯通过 SQL 开展数据分析任务，用户编写的 SQL 语句最终会被解析、转换成计算引擎的内置算子执行。然而，在如今 DATA + AI 的时代背景下，数据处理分析任务绕不开对于模型的调用，加上算法同学通常对 SQL 不够熟悉，因此“DataFrame + UDF”的应用组合逐渐成为主流，UDF 也由大数据时代的二等公民逐渐走到台前，扮演着与内置算子相当甚至更重要的角色。</p>
+<p>Daft 支持多种类型的 UDF，包括 Lambda UDF、Batch UDF 以及 Class UDF，以满足用户不同的应用场景。在实际应用中，我们通常会使用 Class UDF 离线加载模型并实施推理，因此本小节我们简单介绍一下 Flotilla 是如何执行 Class UDF 的，关于 UDF 运行机制的深入解析，我们会在后续通过专门的文章进行介绍。</p>
+<p>示例程序中我们实现了一个名为 ResNetModel 的 Class UDF，通过调用 ResNet50 模型实现对图片进行离线分类打标。前面在介绍 Flotilla 规划生成 SwordfishTask 时，曾提及过 Flotilla 会依据 UDF 的资源和并发度配置启动对应数量的 Ray UDFActor 以运行 Class UDF，并在启动期间执行对 Class UDF 的初始化逻辑。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2025/daft-flotilla-udf-actor.jpg?raw=true" style="" alt="Daft Flotilla UDF Actor">
+      </p>
+<p>Flotilla 在 SwordfishTask 中会为 Class UDF 添加一个 DistributedActorPoolProject 节点，我们可以将其理解为提交 UDF 任务的客户端，而将 UDFActor 理解为执行 UDF 任务的服务端。如上图所示，DistributedActorPoolProject 在本地会持有所有运行对应 UDF 的 UDFActor 实例引用，并将这些引用分为本地引用和远程引用两大类。当接收到待处理的请求时，DistributedActorPoolProject 会首先判断所在节点本地是否有可以调度的 UDFActor 实例，如果存在则轮询优先将请求发送给本地 UDFActor 实例进行处理，否则轮询请求远端 UDFActor 实例。</p>
+
+        <h2 id="结语">
+          <a href="#结语" class="heading-link"><i class="fas fa-link"></i></a>结语</h2>
+      <p>本文，我们沿用之前的图片分类示例程序，从内部视角对 Daft 分布式执行引擎 Flotilla 的运行机制进行了剖析。Flotilla 作为 Daft 推出的全新分布式执行引擎，相对于 Legacy Ray Runner 而言，内置实现了对可执行任务的规划、调度和分发机制，通过巧妙的统筹运行在各个节点上的 Swordfish 单机执行引擎实现对于用户作业的分布式计算，并借助 Ray 实现了对于异构资源的灵活管理，从而为 Daft 实现对多模态数据实施更加高效的分布式处理提供了有力支撑。</p>
+<p>Flotilla 作为一个分布式计算引擎，其背后设计和实现细节相当复杂，我们很难用一篇文章就能面面俱到。本文更多的还是梳理了 Flotilla 的执行主线，目标是引领你从整体层面去感知 Flotilla 引擎的内在设计和运行机制，以此作为你后续深入学习的引导。</p>
+
+        <h2 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h2>
+      <ul>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://dl.acm.org/doi/abs/10.1145/2588555.2610507">Morsel-driven parallelism: a NUMA-aware query evaluation framework for the many-core age</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://www.cambridge.org/core/journals/journal-of-functional-programming/article/push-versus-pullbased-loop-fusion-in-query-engines/D67AE4899E87F4B5102F859B0FC02045">Push versus pull-based loop fusion in query engines</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://dl.acm.org/doi/abs/10.14778/2002938.2002940">Efficiently compiling efficient query plans for modern hardware</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+</ul>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2025/12/08/daft/daft-flotilla/">https://plotor.github.io/2025/12/08/daft/daft-flotilla/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Daft/">Daft</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/AI/">AI</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Ray/">Ray</a></span></div><nav class="post-paginator paginator"><div class="paginator-next"><a class="paginator-next__link" href="/2025/09/02/daft/daft-swordfish/"><span class="paginator-prev__text">通过图片分类任务探寻 Daft 运行机制之 Swordfish 引擎篇</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E9%94%AE%E5%88%87%E6%8D%A2%E8%87%B3%E5%88%86%E5%B8%83%E5%BC%8F%E6%A8%A1%E5%BC%8F%E8%BF%90%E8%A1%8C"><span class="toc-number">1.</span> <span class="toc-text">
+          一键切换至分布式模式运行</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Flotilla-%E5%88%86%E5%B8%83%E5%BC%8F%E5%BC%95%E6%93%8E%E6%95%B4%E4%BD%93%E6%9E%B6%E6%9E%84"><span class="toc-number">2.</span> <span class="toc-text">
+          Flotilla 分布式引擎整体架构</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Flotilla-%E5%88%86%E5%B8%83%E5%BC%8F%E5%BC%95%E6%93%8E%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6"><span class="toc-number">3.</span> <span class="toc-text">
+          Flotilla 分布式引擎运行机制</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9F%BA%E4%BA%8E%E7%89%A9%E7%90%86%E6%89%A7%E8%A1%8C%E8%AE%A1%E5%88%92%E7%94%9F%E6%88%90%E5%8F%AF%E6%89%A7%E8%A1%8C%E4%BB%BB%E5%8A%A1"><span class="toc-number">3.1.</span> <span class="toc-text">
+          基于物理执行计划生成可执行任务</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BB%9F%E7%AD%B9%E5%B9%B6%E7%AE%A1%E7%90%86-Ray-%E9%9B%86%E7%BE%A4-Worker-%E8%8A%82%E7%82%B9"><span class="toc-number">3.2.</span> <span class="toc-text">
+          统筹并管理 Ray 集群 Worker 节点</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#SwordfishTask-%E4%BB%BB%E5%8A%A1%E8%B0%83%E5%BA%A6%E4%B8%8E%E5%88%86%E5%8F%91%E6%89%A7%E8%A1%8C"><span class="toc-number">3.3.</span> <span class="toc-text">
+          SwordfishTask 任务调度与分发执行</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%81%8A%E8%81%8A%E5%88%86%E5%B8%83%E5%BC%8F%E5%9C%BA%E6%99%AF%E4%B8%8B-UDF-%E7%9A%84%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6"><span class="toc-number">3.4.</span> <span class="toc-text">
+          聊聊分布式场景下 UDF 的运行机制</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BB%93%E8%AF%AD"><span class="toc-number">4.</span> <span class="toc-text">
+          结语</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">5.</span> <span class="toc-text">
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">98</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">15</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">31</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2025</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>
