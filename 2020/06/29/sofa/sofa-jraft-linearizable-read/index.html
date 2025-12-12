@@ -6,7 +6,7 @@
 <meta property="og:description" content="关于线性一致性读的定义，简单而言就是在 T 时刻执行写入操作，那么在 T 时刻之后一定能够读取到之前写入的值。Raft 算法能够至少保证集群节点数据的最终一致性，也就说就某一特定时刻而言各个节点之间的数据状态允许存在滞后。在分布式场景下如果允许各个节点随机响应用户的读请求，则可能会读取到脏数据。如果希望基于 Raft 算法实现线性一致性读语义，最简单的方式就是将读操作作为一个指令提交给 Raft">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2020-06-29T09:10:36.000Z">
-<meta property="article:modified_time" content="2025-12-01T12:29:42.755Z">
+<meta property="article:modified_time" content="2025-12-12T05:47:15.207Z">
 <meta property="article:author" content="zhenchao">
 <meta property="article:tag" content="Raft">
 <meta property="article:tag" content="SOFA-JRaft">
