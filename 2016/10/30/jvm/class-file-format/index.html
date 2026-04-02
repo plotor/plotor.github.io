@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="Class 文件（也叫字节码文件）与 JVM 一起支撑着 java 程序的跨平台运行，虽然两者目前主要服务于 java 语言，但是其最初的设计是为编程语言构建一个跨平台的基础运行环境，任何语言只要可以被编译为字节码文件，就可以依托于这一套基础运行环境，实现平台无关性。                     字节码文件结构       字节码文件是一组以 8 位字节为基础单位的二进制流，各个数据项">
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.8.0" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.8.0" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="Class 文件（也叫字节码文件）与 JVM 一起支撑着 java 程序的跨平台运行，虽然两者目前主要服务于 java 语言，但是其最初的设计是为编程语言构建一个跨平台的基础运行环境，任何语言只要可以被编译为字节码文件，就可以依托于这一套基础运行环境，实现平台无关性。                     字节码文件结构       字节码文件是一组以 8 位字节为基础单位的二进制流，各个数据项">
 <meta property="og:type" content="article">
 <meta property="og:title" content="探秘 JVM：字节码文件结构与指令">
 <meta property="og:url" content="https://plotor.github.io/2016/10/30/jvm/class-file-format/index.html">
@@ -12,7 +12,7 @@
 <meta property="article:author" content="zhenchao">
 <meta property="article:tag" content="JVM">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="https://plotor.github.io/images/2016/jvm-class-file-format.jpg"><title>探秘 JVM：字节码文件结构与指令 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2016/10/30/jvm/class-file-format/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+<meta name="twitter:image" content="https://plotor.github.io/images/2016/jvm-class-file-format.jpg"><title>探秘 JVM：字节码文件结构与指令 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2016/10/30/jvm/class-file-format/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.8.0"><link rel="stylesheet" href="css/custom.css"><script>var Stun = window.Stun || {};
 var CONFIG = {
   root: '/',
   algolia: undefined,
@@ -34,6 +34,7 @@ var CONFIG = {
   shortcuts: undefined,
   prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
   sourcePath: {"js":"js","css":"css","images":"images"},
+  unsplash: {"enable":true,"apiKey":"BFQf5aNMWD8KYWj1H6efSZ0qVcsWzsuV_FVmeuhJYj4","collections":null,"orientation":"landscape","width":1280,"height":720,"cache_duration":1},
 };
 
 window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
@@ -41,7 +42,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 </head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">探秘 JVM：字节码文件结构与指令</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2016-10-30</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">6.4k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">25分</span></span></div></header><div class="post-body"><p>Class 文件（也叫字节码文件）与 JVM 一起支撑着 java 程序的跨平台运行，虽然两者目前主要服务于 java 语言，但是其最初的设计是为编程语言构建一个跨平台的基础运行环境，任何语言只要可以被编译为字节码文件，就可以依托于这一套基础运行环境，实现平台无关性。</p>
 
         <h3 id="字节码文件结构">
-          <a href="#字节码文件结构" class="heading-link"><i class="fas fa-link"></i></a>字节码文件结构</h3>
+          <a href="#字节码文件结构" class="heading-link"><i class="fas fa-link"></i></a><a href="#字节码文件结构" class="headerlink" title="字节码文件结构"></a>字节码文件结构</h3>
       <p>字节码文件是一组以 8 位字节为基础单位的二进制流，各个数据项目（见下图）严格按照顺序紧凑排列，中间没有分隔符，当遇到需要占用 8 位字节以上空间的数据项时，则按照 <strong>高位优先</strong> 的方式分割成若干个 8 位字节进行存储。<a id="more"></a></p>
 <p>
         <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2016/jvm-class-file-format.jpg" alt="image">
@@ -53,13 +54,13 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 </ol>
 
         <h4 id="文件类型与版本">
-          <a href="#文件类型与版本" class="heading-link"><i class="fas fa-link"></i></a>文件类型与版本</h4>
+          <a href="#文件类型与版本" class="heading-link"><i class="fas fa-link"></i></a><a href="#文件类型与版本" class="headerlink" title="文件类型与版本"></a>文件类型与版本</h4>
       <p>字节码文件作为一种文件类型，和普通文件类型一样，也是通过在字节流最开始设置标志位来表示当前文件为字节码类型文件，标志位的值为： <strong>0xCAFEBABE</strong> 。如下所示，类型标志位占用前 4 个字节，第 5 和 6 两个字节表示 <strong>次版本号（Minor Version）</strong> ，第 7 和 8 两个字节表示 <strong>主版本号（Major Version）</strong> 。示例中的次版本号是 0，主版本号是 <code>0x0034</code>，对应十进制是 52，也就是 java1.8 版本，通常 jdk 版本过低导致编译出错时，编译器会打印出需要的 jdk 版本信息就是这里对应的十进制数字。</p>
 <figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">编号：0102 0304 0506 0708 0910 1112 1314 1516</span><br><span class="line">字节：CAFE BABE 0000 0034 0014 0a00 0300 1107</span><br></pre></td></tr></tbody></table></div></figure>
 <p>除了查看字节码文件的字节流，我们还可以通过 <code>javap -verbose &lt;class file&gt;</code> 来查看一个字节码文件的结构，相对于字节流更加直观。</p>
 
         <h4 id="常量池">
-          <a href="#常量池" class="heading-link"><i class="fas fa-link"></i></a>常量池</h4>
+          <a href="#常量池" class="heading-link"><i class="fas fa-link"></i></a><a href="#常量池" class="headerlink" title="常量池"></a>常量池</h4>
       <p>常量池挨着版本信息，主要用于存放字面量和符号引用，其大小通常是不固定的，所以在常量池的最开始需要设置一个 u2 类型的数据（即 constant_pool_count），以表示常量池的大小。需要注意的一点是， <strong>这个容量值的计数是从 1 开始的，而 0 则作为一个特殊值，用于某些指向常量池的索引在特定情况下需要表达“不引用任何常量池项目”的含义</strong> 。</p>
 <p>Java 截止目前（JDK 13）共定义了 17 种常量池表类型（如下表所示），这些类型的共同点就是在表开始的第一位定义了一个 u1 类型的标志位（tag），用于表示当前具体的常量类型。</p>
 <div class="table-container"><table>
@@ -162,7 +163,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
       </p>
 
         <h4 id="访问标志位">
-          <a href="#访问标志位" class="heading-link"><i class="fas fa-link"></i></a>访问标志位</h4>
+          <a href="#访问标志位" class="heading-link"><i class="fas fa-link"></i></a><a href="#访问标志位" class="headerlink" title="访问标志位"></a>访问标志位</h4>
       <p>访问标志位用于标识类或接口的访问信息，占据一个 u2，可用的标志位有 16 个，当前只定义了 9 个，具体如下：</p>
 <div class="table-container"><table>
 <thead>
@@ -220,7 +221,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 </tbody></table></div>
 
         <h4 id="索引">
-          <a href="#索引" class="heading-link"><i class="fas fa-link"></i></a>索引</h4>
+          <a href="#索引" class="heading-link"><i class="fas fa-link"></i></a><a href="#索引" class="headerlink" title="索引"></a>索引</h4>
       <p>索引包含类索引（this_class）、父类索引（super_class），以及接口索引集合（interfaces），这三项联合起来确定类的继承关系。</p>
 <p><strong>类索引</strong> 用于确定类的全限定名，占用一个 u2，指向一个类型为 <code>CONSTANT_Class_info</code> 的类描述符常量，据此可以找到定义在 <code>CONSTANT_Utf8_info</code> 类型常量中的全限定名字符串。</p>
 <p><strong>父类索引</strong> 用于确定当前类的父类的全限定名，由于 java 不允许多重继承，且对象默认继承 Object 类，所以除了 Object 类外，所有的其它类都有父类索引。</p>
@@ -228,7 +229,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 <p><strong>接口索引集合</strong> 用于描述一个类实现了哪些接口，按照在 implements 关键字后面的组织顺序在字节码文件中依次排列。接口索引是一组 u2 类型数据的集合，并在最前面设置一个 u2 类型的接口计数器（interfaces_count），用于记录实现接口的数目。</p>
 
         <h4 id="字段表集合">
-          <a href="#字段表集合" class="heading-link"><i class="fas fa-link"></i></a>字段表集合</h4>
+          <a href="#字段表集合" class="heading-link"><i class="fas fa-link"></i></a><a href="#字段表集合" class="headerlink" title="字段表集合"></a>字段表集合</h4>
       <p>字段表用于描述接口或者类中声明的变量（包括类变量和实例变量，但不包括局部变量），不包含从父类或父接口继承而来的字段。字段表的格式如下：</p>
 <div class="table-container"><table>
 <thead>
@@ -348,7 +349,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 <figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">void method() -&gt; ()V</span><br><span class="line">String method() -&gt; ()Ljava.lang.String;</span><br><span class="line">int method(char[] a, int b, int c, double d) -&gt; ([CIID)I</span><br></pre></td></tr></tbody></table></div></figure>
 
         <h4 id="方法表集合">
-          <a href="#方法表集合" class="heading-link"><i class="fas fa-link"></i></a>方法表集合</h4>
+          <a href="#方法表集合" class="heading-link"><i class="fas fa-link"></i></a><a href="#方法表集合" class="headerlink" title="方法表集合"></a>方法表集合</h4>
       <p>Class 文件存储格式对于方法的描述几乎与属性完全一致，同样主要包含访问标志（access_flags）、名称索引（name_index）、描述符索引（descriptor_index），以及属性集合（attributes）等，如下表所示：</p>
 <div class="table-container"><table>
 <thead>
@@ -467,7 +468,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 <p>在 java 程序中，方法的重载条件是方法名相同，但是参数签名不同（类型、个数，以及顺序），如果仅仅是返回值不同则不能视为重载。然而，对应到字节码文件则范围则更大， 也就是说如果两个方法的名称和参数签名相同，但是返回值不同，同样可以共存于同一个字节码文件中。这也为一些其他运行在 JVM 上的语言实现有别于 java 语言的特性留出了发挥空间。</p>
 
         <h4 id="属性表集合">
-          <a href="#属性表集合" class="heading-link"><i class="fas fa-link"></i></a>属性表集合</h4>
+          <a href="#属性表集合" class="heading-link"><i class="fas fa-link"></i></a><a href="#属性表集合" class="headerlink" title="属性表集合"></a>属性表集合</h4>
       <p>在 Class 文件、字段表，以及方法表中都可以携带自己的属性表集合，各属性表不要求严格顺序，只要不与已有的属性名重复即可，JVM 针对不能识别的属性在运行时会选择忽略。截止 JDK 12，预定义的属性共有 29 项，如下表所示：</p>
 <div class="table-container"><table>
 <thead>
@@ -699,7 +700,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 <p>上述字节码中最后一行的 <strong>Exceptions</strong> 属性与 Code 属性平级（不要与 <code>exception_table</code> 混淆啦），其作用是列举出方法中可能抛出的受检异常，也就是 throws 关键字后面列举的异常列表。</p>
 
         <h3 id="字节码指令">
-          <a href="#字节码指令" class="heading-link"><i class="fas fa-link"></i></a>字节码指令</h3>
+          <a href="#字节码指令" class="heading-link"><i class="fas fa-link"></i></a><a href="#字节码指令" class="headerlink" title="字节码指令"></a>字节码指令</h3>
       <p>Java 字节码由一个操作码（Opcode）和零至多个紧随其后的操作数（Operand）构成，格式如下：</p>
 <figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">操作码 [操作数1] [操作数2] ...</span><br></pre></td></tr></tbody></table></div></figure>
 <p>其中操作码占用 1 个字节，因此最多只能有 256 个，由于 JVM 采用面向操作数栈而不是寄存器的架构，所以 <strong>大多数操作码不包含操作数</strong> 。</p>
@@ -707,7 +708,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 <p>由于 java 的操作码只占用 1 个字节，上限个数只有 256 个，秉承着节约主义，就不能为所有的数据类型和对应的操作设计独立的操作码，这样会导致 256 个操作码很快被用完。所以，大部分操作码都不支持直接操作 byte、char，以及 short 类型，甚至没有任何操作码支持操作 boolean 类型，但是编译器会在编译期或运行期将 byte 和 short 类型带符号扩展（Sign-Extend）为相应的 int 类型，将 boolean 和 char 类型零位扩展（Zero-Extend）为相应的 int 类型数据，所以大多数对于这些类型的操作，本质上是在操作 int 类型。</p>
 
         <h4 id="加载和存储指令">
-          <a href="#加载和存储指令" class="heading-link"><i class="fas fa-link"></i></a>加载和存储指令</h4>
+          <a href="#加载和存储指令" class="heading-link"><i class="fas fa-link"></i></a><a href="#加载和存储指令" class="headerlink" title="加载和存储指令"></a>加载和存储指令</h4>
       <p>加载和存储指令用于 <strong>将数据在栈帧中的局部变量表和操作数栈之间来回进行传输</strong> ，包括：</p>
 <ul>
 <li>将一个局部变量加载到操作数栈</li>
@@ -727,7 +728,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 <p><code>wide</code>。</p>
 
         <h4 id="运算指令">
-          <a href="#运算指令" class="heading-link"><i class="fas fa-link"></i></a>运算指令</h4>
+          <a href="#运算指令" class="heading-link"><i class="fas fa-link"></i></a><a href="#运算指令" class="headerlink" title="运算指令"></a>运算指令</h4>
       <p>运算指令用于对两个操作数栈上的数值进行某种特定的运算，并把结果重新存入到操作数栈顶。运算指令整体上可以分为两种：对整型数据进行运算的指令和对浮点型数据进行运算的指令。所有的运算指令包括：</p>
 <ul>
 <li>加法：<code>iadd</code>、<code>ladd</code>、<code>fadd</code>、<code>dadd</code>。</li>
@@ -748,7 +749,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 <p>在对 long 类型数据进行比较时，JVM 采用带符号的比较方式，而对于浮点型数据则采用 IEEE-754 规范所定义的无信号比较（Nonsignaling Comparison）方式。</p>
 
         <h4 id="类型转换指令">
-          <a href="#类型转换指令" class="heading-link"><i class="fas fa-link"></i></a>类型转换指令</h4>
+          <a href="#类型转换指令" class="heading-link"><i class="fas fa-link"></i></a><a href="#类型转换指令" class="headerlink" title="类型转换指令"></a>类型转换指令</h4>
       <p>类型转换指令用于将两种不同的数值类型进行相互转换，一般用于实现代码中的显式类型转换，或者处理数据类型相关指令无法与数据类型一一对应的问题。数据类型转换分为 <strong>宽化转换</strong> 和 <strong>窄化转换</strong> ，其中宽化转换是虚拟机直接支持的，无需依赖对应的转换指令。宽化转换包括：</p>
 <ol>
 <li>int 类型到 long、float 或 double 类型的转换。</li>
@@ -764,7 +765,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 <p>对于从 double 类型到 float 类型的转换，则使用 IEEE-754 向最接近数舍入模式舍入得到一个可以使用 float 类型表示的数字。如果转换结果的绝对值太小，无法使用 float 类型进行表示的话，则返回 float 类型的正负零；如果转换结果的绝对值太大，无法使用 float 类型进行表示的话，则返回 float 类型的正负无穷大。</p>
 
         <h4 id="对象创建和访问指令">
-          <a href="#对象创建和访问指令" class="heading-link"><i class="fas fa-link"></i></a>对象创建和访问指令</h4>
+          <a href="#对象创建和访问指令" class="heading-link"><i class="fas fa-link"></i></a><a href="#对象创建和访问指令" class="headerlink" title="对象创建和访问指令"></a>对象创建和访问指令</h4>
       <p>虽然类实例和数据都是对象，但是 JVM 对于类实例和数据的创建与操作分别定义了不同的指令，如下所示：</p>
 <ul>
 <li>创建类实例：<code>new</code>。</li>
@@ -777,7 +778,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 </ul>
 
         <h4 id="操作数栈管理指令">
-          <a href="#操作数栈管理指令" class="heading-link"><i class="fas fa-link"></i></a>操作数栈管理指令</h4>
+          <a href="#操作数栈管理指令" class="heading-link"><i class="fas fa-link"></i></a><a href="#操作数栈管理指令" class="headerlink" title="操作数栈管理指令"></a>操作数栈管理指令</h4>
       <ul>
 <li>将栈顶一个或两个元素出栈：<code>pop</code>、<code>pop2</code>。</li>
 <li>复制栈顶一个或两个数值，并将复制值或双份复制值重新压入栈顶：<code>dup</code>、<code>dup2</code>、<code>dup_x1</code>、<code>dup2_x1</code>、<code>dup_x2</code>、<code>dup2_x2</code>。</li>
@@ -785,7 +786,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 </ul>
 
         <h4 id="控制转移指令">
-          <a href="#控制转移指令" class="heading-link"><i class="fas fa-link"></i></a>控制转移指令</h4>
+          <a href="#控制转移指令" class="heading-link"><i class="fas fa-link"></i></a><a href="#控制转移指令" class="headerlink" title="控制转移指令"></a>控制转移指令</h4>
       <p>控制转移指令可以让 JVM 有条件或无条件的从指定位置指令的下一条指令继续执行。控制转移指令包括：</p>
 <ul>
 <li>条件分支：<code>ifeq</code>、<code>iflt</code>、<code>ifle</code>、<code>ifne</code>、<code>ifgt</code>、<code>ifge</code>、<code>ifnull</code>、<code>ifnonnull</code>、<code>if_icmpeq</code>、<code>if_icmpne</code>、<code>if_icmplt</code>、<code>if_icmpgt</code>、<code>if_icmple</code>、<code>if_icmpge</code>、<code>if_acmpeq</code>、<code>if_acmpne</code>。</li>
@@ -795,7 +796,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 <p>JVM 定义了专门的指令用于处理 int 和 reference 类型的条件分支比较操作，也有专门的指令用来检测 null。对于 long 、float 和 double 类型的条件分支比较，JVM 会先执行相应类型的比较运算指令，比较操作返回一个 int 型值到操作数栈，随后再执行 int 类型的条件分支比较操作。</p>
 
         <h4 id="方法调用和返回指令">
-          <a href="#方法调用和返回指令" class="heading-link"><i class="fas fa-link"></i></a>方法调用和返回指令</h4>
+          <a href="#方法调用和返回指令" class="heading-link"><i class="fas fa-link"></i></a><a href="#方法调用和返回指令" class="headerlink" title="方法调用和返回指令"></a>方法调用和返回指令</h4>
       <p>方法调用指令与数据类型无关，但是方法返回指令需要依据返回值区分数据类型。方法调用指令包括：</p>
 <ul>
 <li><code>invokevirtual</code>：用于调用对象的实例方法。</li>
@@ -807,18 +808,18 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 <p>返回指令与返回类型有关，包括 <code>ireturn</code>、<code>lreturn</code>、<code>freturn</code>、<code>dreturn</code>、<code>areturn</code>，以及供 void 方法、<code>&lt;init&gt;</code>、<code>&lt;clinit&gt;</code> 方法使用的 <code>return</code> 指令。</p>
 
         <h4 id="异常处理指令">
-          <a href="#异常处理指令" class="heading-link"><i class="fas fa-link"></i></a>异常处理指令</h4>
+          <a href="#异常处理指令" class="heading-link"><i class="fas fa-link"></i></a><a href="#异常处理指令" class="headerlink" title="异常处理指令"></a>异常处理指令</h4>
       <p>显式抛出异常的操作（throw 语句）都由 <code>athrow</code> 指令实现，而处理异常（catch 语句）却不是由字节码指令实现，而是采用异常表来完成。</p>
 
         <h4 id="同步指令">
-          <a href="#同步指令" class="heading-link"><i class="fas fa-link"></i></a>同步指令</h4>
+          <a href="#同步指令" class="heading-link"><i class="fas fa-link"></i></a><a href="#同步指令" class="headerlink" title="同步指令"></a>同步指令</h4>
       <p>同步（synchronized 关键字）分为方法级别的同步和代码块级别的同步，这两种同步在 JVM 中都是基于 <strong>管程（Monitor）</strong> 实现。</p>
 <p>方法级别的同步是隐式的，通过方法表中的 <code>ACC_SYNCHRONIZED</code> 访问标志来标记一个方法是同步方法，当指令调用该方法时，会先检查 <code>ACC_SYNCHRONIZED</code> 标志位是否被设置，如果被设置了则无法获取管程（锁），必须等待其它指令释放。</p>
 <p>同步代码段则基于指令 monitorenter 和 monitorexit 两条指令实现同步，对于异常情况需要中断同步，所以字节码在实现时会主动添加一个异常处理器，并在异常产生时执行 monitorexit 指令，保证不因为异常而导致持有的锁无法正确释放。</p>
 <p>关于 synchronized 关键字推荐进一步阅读 <a href="/2018/08/03/java/juc-synchronized/">深入理解 JUC：synchronized 关键字</a>。</p>
 
         <h3 id="参考">
-          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h3>
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a><a href="#参考" class="headerlink" title="参考"></a>参考</h3>
       <ol>
 <li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/26418340/">Java 虚拟机规范（Java SE 8 版）</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
 <li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/24722612/">深入理解 java 虚拟机（第 2 版）</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
@@ -843,7 +844,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
           方法调用和返回指令</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%BC%82%E5%B8%B8%E5%A4%84%E7%90%86%E6%8C%87%E4%BB%A4"><span class="toc-number">2.8.</span> <span class="toc-text">
           异常处理指令</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%90%8C%E6%AD%A5%E6%8C%87%E4%BB%A4"><span class="toc-number">2.9.</span> <span class="toc-text">
           同步指令</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">3.</span> <span class="toc-text">
-          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">98</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">15</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">31</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2026</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">98</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">15</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">31</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2026</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.8.0</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
   var isXML = true;
   var search_path = 'search.json';
 
@@ -1206,4 +1207,4 @@ if (true) {
   loadUtterances();
 } else {
   window.addEventListener('DOMContentLoaded', loadUtterances, false);
-}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>
+}</script><script src="/js/utils.js?v=2.8.0"></script><script src="/js/unsplash-bg.js?v=2.8.0"></script><script src="/js/stun-boot.js?v=2.8.0"></script><script src="/js/scroll.js?v=2.8.0"></script><script src="/js/header.js?v=2.8.0"></script><script src="/js/sidebar.js?v=2.8.0"></script><script type="application/json" src="/search.json"></script></body></html>

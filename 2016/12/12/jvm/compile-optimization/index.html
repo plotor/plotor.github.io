@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="以 java 语言为例，JVM 针对 java 程序的优化可以发生在编译期和运行期，相应的优化操作分别发生在 javac 编译器在将 java 源程序编译成字节码期间，以及运行时即时编译器（JIT: Just In Time Compiler）将字节码编译成本地机器码期间。此外，还有一类编译器可以将源程序直接编译成与目标机器指令集相关的二进制代码，此类编译器称为提前编译器。运行期依赖于 JIT 的">
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.8.0" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.8.0" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="以 java 语言为例，JVM 针对 java 程序的优化可以发生在编译期和运行期，相应的优化操作分别发生在 javac 编译器在将 java 源程序编译成字节码期间，以及运行时即时编译器（JIT: Just In Time Compiler）将字节码编译成本地机器码期间。此外，还有一类编译器可以将源程序直接编译成与目标机器指令集相关的二进制代码，此类编译器称为提前编译器。运行期依赖于 JIT 的">
 <meta property="og:type" content="article">
 <meta property="og:title" content="探秘 JVM：编译与优化">
 <meta property="og:url" content="https://plotor.github.io/2016/12/12/jvm/compile-optimization/index.html">
@@ -13,7 +13,7 @@
 <meta property="article:author" content="zhenchao">
 <meta property="article:tag" content="JVM">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="https://plotor.github.io/images/2016/jvm-javac-compiler.png"><title>探秘 JVM：编译与优化 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2016/12/12/jvm/compile-optimization/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+<meta name="twitter:image" content="https://plotor.github.io/images/2016/jvm-javac-compiler.png"><title>探秘 JVM：编译与优化 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2016/12/12/jvm/compile-optimization/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.8.0"><link rel="stylesheet" href="css/custom.css"><script>var Stun = window.Stun || {};
 var CONFIG = {
   root: '/',
   algolia: undefined,
@@ -35,6 +35,7 @@ var CONFIG = {
   shortcuts: undefined,
   prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
   sourcePath: {"js":"js","css":"css","images":"images"},
+  unsplash: {"enable":true,"apiKey":"BFQf5aNMWD8KYWj1H6efSZ0qVcsWzsuV_FVmeuhJYj4","collections":null,"orientation":"landscape","width":1280,"height":720,"cache_duration":1},
 };
 
 window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
@@ -42,11 +43,11 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 </head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">探秘 JVM：编译与优化</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2016-12-12</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">5.7k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">20分</span></span></div></header><div class="post-body"><p>以 java 语言为例，JVM 针对 java 程序的优化可以发生在编译期和运行期，相应的优化操作分别发生在 javac 编译器在将 java 源程序编译成字节码期间，以及运行时即时编译器（JIT: Just In Time Compiler）将字节码编译成本地机器码期间。此外，还有一类编译器可以将源程序直接编译成与目标机器指令集相关的二进制代码，此类编译器称为提前编译器。运行期依赖于 JIT 的编译优化的主要目的在于提升程序的执行效率，而编译期优化的主要目的在于支持 java 语法糖，提升语言的易用性和编码效率。如果以字节码所处的位置作为参考线，那么编译期的编译可以称为前端编译，而即时编译和提前编译合起来则可以称为后端编译。<a id="more"></a></p>
 
         <h3 id="前端编译与优化">
-          <a href="#前端编译与优化" class="heading-link"><i class="fas fa-link"></i></a>前端编译与优化</h3>
+          <a href="#前端编译与优化" class="heading-link"><i class="fas fa-link"></i></a><a href="#前端编译与优化" class="headerlink" title="前端编译与优化"></a>前端编译与优化</h3>
       <p>编译期优化主要发生在 javac 命令将 java 源码编译成字节码期间，其主要目的在于支撑 java 语法糖，提升语言的易用性和编码效率。</p>
 
         <h4 id="Javac-编译器">
-          <a href="#Javac-编译器" class="heading-link"><i class="fas fa-link"></i></a>Javac 编译器</h4>
+          <a href="#Javac-编译器" class="heading-link"><i class="fas fa-link"></i></a><a href="#Javac-编译器" class="headerlink" title="Javac 编译器"></a>Javac 编译器</h4>
       <p>Javac 编译器是 java 语言内置的编译器，采用 java 语言实现，其编译过程大致分为如下 4 个阶段：</p>
 <ol>
 <li>初始化插入式注解处理器；</li>
@@ -84,7 +85,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 <p>至此，整个编译过程宣告结束。</p>
 
         <h4 id="Java-语法糖">
-          <a href="#Java-语法糖" class="heading-link"><i class="fas fa-link"></i></a>Java 语法糖</h4>
+          <a href="#Java-语法糖" class="heading-link"><i class="fas fa-link"></i></a><a href="#Java-语法糖" class="headerlink" title="Java 语法糖"></a>Java 语法糖</h4>
       <p>语法糖是这样一类语法，它对语言的编译结果和功能没有实质性的影响，但却能够让开发人员更加方便的使用语言，提升编码效率和语言的严谨性，降低编码出错的机会。</p>
 <ul>
 <li><strong>泛型与类型的擦除</strong></li>
@@ -97,15 +98,15 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 <p>除了上述介绍的语法糖之外，java 中还有很多语法糖，包括条件编译、内部类、枚举类、断言语句、数值字面量、对枚举和字符串的 switch 语法支持、try-with-resources，以及 java 8 新增的 lambda 表达式等。</p>
 
         <h3 id="后端编译与优化">
-          <a href="#后端编译与优化" class="heading-link"><i class="fas fa-link"></i></a>后端编译与优化</h3>
+          <a href="#后端编译与优化" class="heading-link"><i class="fas fa-link"></i></a><a href="#后端编译与优化" class="headerlink" title="后端编译与优化"></a>后端编译与优化</h3>
       <p>后端编译主要包含即时编译和提前编译，其中即时编译会在程序运行期间依据环境和程序的运行状态选择性的将字节码编译生成机器码执行，而提前编译则是直接将源程序编译成平台相关的二进制指令。</p>
 
         <h4 id="即时编译器">
-          <a href="#即时编译器" class="heading-link"><i class="fas fa-link"></i></a>即时编译器</h4>
+          <a href="#即时编译器" class="heading-link"><i class="fas fa-link"></i></a><a href="#即时编译器" class="headerlink" title="即时编译器"></a>即时编译器</h4>
       <p>主流虚拟机（eg. HotSpot, J9）对于 java 程序一开始采用解释器解释执行，当发现某个方法或代码块被频繁调用时会将这些代码标记为热点代码，JIT 在运行时会将热点代码编译成机器相关的机器码，并执行各种层次的优化。运行期优化发生在将字节码编译成本地机器码期间，其主要目的在于提升程序的运行性能。</p>
 
         <h5 id="分层编译">
-          <a href="#分层编译" class="heading-link"><i class="fas fa-link"></i></a>分层编译</h5>
+          <a href="#分层编译" class="heading-link"><i class="fas fa-link"></i></a><a href="#分层编译" class="headerlink" title="分层编译"></a>分层编译</h5>
       <p>解释器和编译器各有优势，前者因为省去了编译的时间，程序可以具备较快的启动速度，同时占用更少的内存；后者因为将代码编译成本地机器码，所以具备更快的执行速度，但是需要额外的编译时间和内存开销。</p>
 <p>
         <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2016/jvm-interpreter-compiler-interaction.png" alt="image">
@@ -126,7 +127,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 <p>上述分层策略并不是固定不变的，可以依据运行参数和版本来调整分层数量。</p>
 
         <h5 id="热点探测">
-          <a href="#热点探测" class="heading-link"><i class="fas fa-link"></i></a>热点探测</h5>
+          <a href="#热点探测" class="heading-link"><i class="fas fa-link"></i></a><a href="#热点探测" class="headerlink" title="热点探测"></a>热点探测</h5>
       <p>JIT 会对热点代码执行即时编译，这里的热点代码主要包含 <strong>被多次调用的方法</strong> 和 <strong>被多次执行的循环体</strong> 两类，但不管是哪种类型的热点代码，即使编译的单位都是针对整个方法体，而不是单独的循环体。</p>
 <p>针对被多次执行的循环体进行优化的原因主要在于一些方法虽然被调用的次数不多，但是因为方法中存在较多的循环，导致循环部分代码被多次执行，这样的代码也是热点代码。对多次被调用的方法执行即时编译属于 JIT 的标准编译方式，而针对被多次执行的循环体的即时编译则发生在方法执行过程中，形象称之为 <strong>栈上替换（OSR: On Stack Replacement）</strong> 。</p>
 <p>判断一段代码是否属于热点代码称之为 <strong>热点探测（Hot Spot Code Detection）</strong> ，判断的方式主要分为两种：</p>
@@ -147,7 +148,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 <p>不同于方法调用计数器，回边计数器并没有热度衰减机制。</p>
 
         <h4 id="提前编译器">
-          <a href="#提前编译器" class="heading-link"><i class="fas fa-link"></i></a>提前编译器</h4>
+          <a href="#提前编译器" class="heading-link"><i class="fas fa-link"></i></a><a href="#提前编译器" class="headerlink" title="提前编译器"></a>提前编译器</h4>
       <p>即时编译虽然极大提升了 JVM 对于程序的执行效率，但是不能忽视其所带来的运行时资源消耗，所以就衍生出了一种想法，在程序启动之前先提前编译成平台相关的机器码，对应的编译器就是提前编译器。</p>
 <p>提前编译在 java 客户端和服务端应用领域一直不温不火，但却在 Android 领域大放异彩。Android 在 2013 年推出的基于提前编译器 ART(Android Runtime) 虚拟机，一经推出就马上干掉了之前基于即时编译的 Dalvik 虚拟机。</p>
 <p>目前，提前编译主要分为两种思路：</p>
@@ -157,15 +158,15 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 </ol>
 
         <h4 id="即时编译优化技术">
-          <a href="#即时编译优化技术" class="heading-link"><i class="fas fa-link"></i></a>即时编译优化技术</h4>
+          <a href="#即时编译优化技术" class="heading-link"><i class="fas fa-link"></i></a><a href="#即时编译优化技术" class="headerlink" title="即时编译优化技术"></a>即时编译优化技术</h4>
       
         <h5 id="方法内联">
-          <a href="#方法内联" class="heading-link"><i class="fas fa-link"></i></a>方法内联</h5>
+          <a href="#方法内联" class="heading-link"><i class="fas fa-link"></i></a><a href="#方法内联" class="headerlink" title="方法内联"></a>方法内联</h5>
       <p>方法内联优化机制的本质就是将目标方法的代码“复制”到发起调用的方法之中，避免产生真实的方法调用。方法内联是编译器最重要的优化手段，为其它优化手段建立了良好的基础。</p>
 <p>然而，java 语言中默认的实例方法都是虚方法，所以无法简单的进行内联，需要借助 <strong>类型继承关系分析（CHA: Class Hierarchy Analysis）</strong> 技术。CHA 是一种基于整个应用程序的类型分析技术，用于确定在目前已加载的类中，某个接口是否有多于一种的实现，某个类是否存在子类，子类是否覆盖实现了父类的某个虚方法等信息，从而为编译器执行方法内联提供分析依据。</p>
 
         <h5 id="逃逸分析">
-          <a href="#逃逸分析" class="heading-link"><i class="fas fa-link"></i></a>逃逸分析</h5>
+          <a href="#逃逸分析" class="heading-link"><i class="fas fa-link"></i></a><a href="#逃逸分析" class="headerlink" title="逃逸分析"></a>逃逸分析</h5>
       <p>逃逸分析（Escape Analysis）与 CHA 一样，同样是为其它优化策略提供分析依据，其基本原理是分析对象的动态作用域，从而判定一个对象是否发生逃逸，是方法逃逸还是线程逃逸。</p>
 <ul>
 <li><strong>方法逃逸</strong> ：当一个对象在方法中被定义后，它可能被外部方法所引用，例如通过参数传递给其它方法。</li>
@@ -180,17 +181,17 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 <p>逃逸分析从 JDK 7 开始默认开启，虽然目前技术成熟度一般，但却是 JIT 编译优化的一个重要方向。</p>
 
         <h5 id="公共子表达式消除">
-          <a href="#公共子表达式消除" class="heading-link"><i class="fas fa-link"></i></a>公共子表达式消除</h5>
+          <a href="#公共子表达式消除" class="heading-link"><i class="fas fa-link"></i></a><a href="#公共子表达式消除" class="headerlink" title="公共子表达式消除"></a>公共子表达式消除</h5>
       <p>如果一个表达式 E 已经计算过了，并且到目前为止 E 中的所有变量的值均未发生变化，那么 E 的这次出现就成了公共子表达式，没有再次计算的必要，直接用之前的计算结果替换即可。</p>
 <p>如果这种优化仅限于程序基本块内，称之为 <strong>局部公共子表达式消除</strong> ，如果涉及多个程序基本块，则称之为 <strong>全局公共子表达式消除</strong> 。</p>
 
         <h5 id="数组边界检查消除">
-          <a href="#数组边界检查消除" class="heading-link"><i class="fas fa-link"></i></a>数组边界检查消除</h5>
+          <a href="#数组边界检查消除" class="heading-link"><i class="fas fa-link"></i></a><a href="#数组边界检查消除" class="headerlink" title="数组边界检查消除"></a>数组边界检查消除</h5>
       <p>Java 是动态安全的语言，对数组的读写不会像 C/C++ 那样裸指针操作。Java 在执行数组访问时会去检查当前指针是否越界，这样在保证运行安全的同时也造成了一定的负担，但是这种机制是不能去除的。</p>
 <p>实际上我们不需要每次去访问元素都检查一下是否越界，一些数组的访问越界在编译期即可确定，对于另外一些无法确定的可以借助 <strong>隐式异常机制</strong> ，让原本边界判定操作变为在越界时主动触发异常，这样的优化措施可以在保证边界检查的前提下，又减少了非必要的边界判定。然而，异常处理过程是一个从用户态转到内核态，再转到用户态的过程，所以如果频繁发生异常的话，隐式异常处理机制也是一个比较耗时的过程，还不如边界检查，不过 JVM 会根据实际情况来选择是否采用隐式异常处理机制。</p>
 
         <h3 id="参考">
-          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h3>
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a><a href="#参考" class="headerlink" title="参考"></a>参考</h3>
       <ol>
 <li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/26418340/">Java 虚拟机规范（Java SE 8 版）</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
 <li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/24722612/">深入理解 java 虚拟机（第 2 版）</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
@@ -210,7 +211,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
           逃逸分析</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E5%85%AC%E5%85%B1%E5%AD%90%E8%A1%A8%E8%BE%BE%E5%BC%8F%E6%B6%88%E9%99%A4"><span class="toc-number">2.3.3.</span> <span class="toc-text">
           公共子表达式消除</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E6%95%B0%E7%BB%84%E8%BE%B9%E7%95%8C%E6%A3%80%E6%9F%A5%E6%B6%88%E9%99%A4"><span class="toc-number">2.3.4.</span> <span class="toc-text">
           数组边界检查消除</span></a></li></ol></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">3.</span> <span class="toc-text">
-          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">98</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">15</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">31</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2026</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">98</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">15</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">31</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2026</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.8.0</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
   var isXML = true;
   var search_path = 'search.json';
 
@@ -573,4 +574,4 @@ if (true) {
   loadUtterances();
 } else {
   window.addEventListener('DOMContentLoaded', loadUtterances, false);
-}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>
+}</script><script src="/js/utils.js?v=2.8.0"></script><script src="/js/unsplash-bg.js?v=2.8.0"></script><script src="/js/stun-boot.js?v=2.8.0"></script><script src="/js/scroll.js?v=2.8.0"></script><script src="/js/header.js?v=2.8.0"></script><script src="/js/sidebar.js?v=2.8.0"></script><script type="application/json" src="/search.json"></script></body></html>

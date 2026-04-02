@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.6.1" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.6.1" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="JVM 中的程序计数器、java 虚拟机栈、本地方法栈均属于线程私有，其生命周期控制在线程生命周期范围内，并且 java 虚拟机栈和本地方法栈中的的栈帧会随着对应方法的执行而出栈和入栈，由生到灭，所以这些区域的内存使用是确定性的（编译期已知）。然而，Java 堆和方法区是线程共享的，对象的创建也是动态的，所以垃圾收集的主战场集中在 java 堆和方法区。 相对于 java 堆而言，方法区的垃圾收集">
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.8.0" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.8.0" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="JVM 中的程序计数器、java 虚拟机栈、本地方法栈均属于线程私有，其生命周期控制在线程生命周期范围内，并且 java 虚拟机栈和本地方法栈中的的栈帧会随着对应方法的执行而出栈和入栈，由生到灭，所以这些区域的内存使用是确定性的（编译期已知）。然而，Java 堆和方法区是线程共享的，对象的创建也是动态的，所以垃圾收集的主战场集中在 java 堆和方法区。 相对于 java 堆而言，方法区的垃圾收集">
 <meta property="og:type" content="article">
 <meta property="og:title" content="探秘 JVM：垃圾收集机制">
 <meta property="og:url" content="https://plotor.github.io/2016/10/23/jvm/garbage-collection/index.html">
@@ -11,7 +11,7 @@
 <meta property="article:author" content="zhenchao">
 <meta property="article:tag" content="JVM">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="https://plotor.github.io/images/2016/jvm-object-allocation.png"><title>探秘 JVM：垃圾收集机制 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2016/10/23/jvm/garbage-collection/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.6.1"><script>var Stun = window.Stun || {};
+<meta name="twitter:image" content="https://plotor.github.io/images/2016/jvm-object-allocation.png"><title>探秘 JVM：垃圾收集机制 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2016/10/23/jvm/garbage-collection/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.8.0"><link rel="stylesheet" href="css/custom.css"><script>var Stun = window.Stun || {};
 var CONFIG = {
   root: '/',
   algolia: undefined,
@@ -33,6 +33,7 @@ var CONFIG = {
   shortcuts: undefined,
   prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
   sourcePath: {"js":"js","css":"css","images":"images"},
+  unsplash: {"enable":true,"apiKey":"BFQf5aNMWD8KYWj1H6efSZ0qVcsWzsuV_FVmeuhJYj4","collections":null,"orientation":"landscape","width":1280,"height":720,"cache_duration":1},
 };
 
 window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
@@ -48,10 +49,10 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 
 
         <h3 id="引用类型与可达性分析">
-          <a href="#引用类型与可达性分析" class="heading-link"><i class="fas fa-link"></i></a>引用类型与可达性分析</h3>
+          <a href="#引用类型与可达性分析" class="heading-link"><i class="fas fa-link"></i></a><a href="#引用类型与可达性分析" class="headerlink" title="引用类型与可达性分析"></a>引用类型与可达性分析</h3>
       
         <h4 id="Java-中的引用类型">
-          <a href="#Java-中的引用类型" class="heading-link"><i class="fas fa-link"></i></a>Java 中的引用类型</h4>
+          <a href="#Java-中的引用类型" class="heading-link"><i class="fas fa-link"></i></a><a href="#Java-中的引用类型" class="headerlink" title="Java 中的引用类型"></a>Java 中的引用类型</h4>
       <p>我们一般对于引用的定义是存放某个对象地址的对象，而 java 对于引用的定义则更加细化。自 JDK 1.2 起，Java 将引用细分为强引用（Strongly Reference）、软引用（Soft Reference）、弱引用（Weak Reference），以及虚引用（Phantom Reference） 4 种，强度逐级由强到弱。</p>
 <ul>
 <li><strong>强引用</strong> ：通常在程序中存在的引用都是强引用，比如 <code>Object ref = new Object();</code>，这类引用的特点是只要存在，垃圾收集器就不会对被引用的对象执行回收操作。</li>
@@ -62,15 +63,15 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 <p>所有的引用类型都继承自 <code>java.lang.ref.Reference</code> 抽象类，它定义了一个 <code>Reference#get</code> 方法用于获取当前引用指向的目标对象，但是虚引用除外，因为其 <code>PhantomReference#get</code> 方法始终返回 null。</p>
 
         <h4 id="对象可回收性判定策略">
-          <a href="#对象可回收性判定策略" class="heading-link"><i class="fas fa-link"></i></a>对象可回收性判定策略</h4>
+          <a href="#对象可回收性判定策略" class="heading-link"><i class="fas fa-link"></i></a><a href="#对象可回收性判定策略" class="headerlink" title="对象可回收性判定策略"></a>对象可回收性判定策略</h4>
       <p>一个对象只有在无效的情况下才可以被回收，如何判定一个对象是无效的，主要有两种思路：引用计数和可达性分析。</p>
 
         <h5 id="引用计数法">
-          <a href="#引用计数法" class="heading-link"><i class="fas fa-link"></i></a>引用计数法</h5>
+          <a href="#引用计数法" class="heading-link"><i class="fas fa-link"></i></a><a href="#引用计数法" class="headerlink" title="引用计数法"></a>引用计数法</h5>
       <p>引用计数法是比较简单的一种判定对象是否无效的策略。通过为每一个对象设置一个计数器，当一个对象被引用则计数加 1，反之则减 1，当一个对象的引用计数是 0 时，我们可以将其视为无效并回收。然而，该策略存在循环引用的问题，当两个对象互相引用时，即使没有被其它对象所引用，这两个对象的引用计数也至少是 1，无法被回收。</p>
 
         <h5 id="可达性分析">
-          <a href="#可达性分析" class="heading-link"><i class="fas fa-link"></i></a>可达性分析</h5>
+          <a href="#可达性分析" class="heading-link"><i class="fas fa-link"></i></a><a href="#可达性分析" class="headerlink" title="可达性分析"></a>可达性分析</h5>
       <p>可达性分析采用连通图的思想，我们可以把每个对象都看作是图上的一个结点，而引用则可以看作图上的边。在这个图中存在一些特殊的结点，被称为 GC Roots（可以简单将其理解为由堆外指向堆内的引用），如果某个对象不与任何一个 GC Roots 连通，则视为该对象无效，可以被回收。</p>
 <p>在 JVM 中，可以被视为 GC Roots 的结点包括下面几种：</p>
 <ol>
@@ -98,7 +99,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 <p>传统的 JVM 垃圾收集算法在解决这一问题方面采用的是一种简单粗暴的方式，即停止所有非垃圾收集线程的工作直到垃圾收集操作完成，这也就是臭名昭著的 Stop-The-World（简称 STW）。JVM 中的 STW 是通过安全点（safepoint）机制来实现的，当 JVM 收到 STW 请求，便会等待所有的线程都到达安全点，然后允许请求 STW 的线程进行独占的工作。</p>
 
         <h3 id="垃圾收集算法">
-          <a href="#垃圾收集算法" class="heading-link"><i class="fas fa-link"></i></a>垃圾收集算法</h3>
+          <a href="#垃圾收集算法" class="heading-link"><i class="fas fa-link"></i></a><a href="#垃圾收集算法" class="headerlink" title="垃圾收集算法"></a>垃圾收集算法</h3>
       <p>垃圾收集的过程会中断正常业务逻辑的执行来查找和回收垃圾对象，因为回收时机的不确定性，如果收集的过程耗时较长会引起系统的卡顿，影响用户体验，所以一般收集过程不会一次性彻底执行，而是采用渐进式回收策略，将一次收集过程分摊到多次执行，控制每次执行的时间长度，以尽量避免用户感觉到这一过程。</p>
 <p>在 JVM 实现中并没有采取单一的 GC 算法，而是采用了分代回收的策略。JVM 将 java 堆分为新生代和老年代（以 HotSpot 为例，默认大小比例为 1:2，可以通过 <code>-XX:NewRatio</code> 参数进行设置），并针对不同的区域（代）采取不同的 GC 算法，比如新生代中对象生命周期较短，适合采用标记复制算法，而老年代中对象大部分时间都是处于存活状态，而且很多都是大对象，所以比较适合采用标记清除和标记整理算法。</p>
 <p>分代回收理论建立在以下假说之上：</p>
@@ -165,7 +166,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 </tbody></table></div>
 
         <h4 id="标记清除算法">
-          <a href="#标记清除算法" class="heading-link"><i class="fas fa-link"></i></a>标记清除算法</h4>
+          <a href="#标记清除算法" class="heading-link"><i class="fas fa-link"></i></a><a href="#标记清除算法" class="headerlink" title="标记清除算法"></a>标记清除算法</h4>
       <p>标记清除算法是最基础的垃圾收集算法，其执行过程可以分为标记和清除 2 个阶段，算法在第 1 阶段先标记出所有可以回收的对象，然后在第 2 阶段对这些对象进行统一回收。</p>
 <p>标记清除算法的缺点主要分为 2 个方面：</p>
 <ol>
@@ -174,7 +175,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 </ol>
 
         <h4 id="标记复制算法">
-          <a href="#标记复制算法" class="heading-link"><i class="fas fa-link"></i></a>标记复制算法</h4>
+          <a href="#标记复制算法" class="heading-link"><i class="fas fa-link"></i></a><a href="#标记复制算法" class="headerlink" title="标记复制算法"></a>标记复制算法</h4>
       <p>标记复制算法解决了标记清除算法在面对大量可回收对象时效率不高的问题。常规的标记复制算法（也叫半区复制）将内存区域分为大小 1:1 的两块，每次仅在其中一块上进行分配，当需要 GC 时就将当前存活的对象全部复制到另外一块上去，然后对之前的那一块内存实施一次性清理。</p>
 <p>常规的标记复制算法主要有以下两个缺点：</p>
 <ol>
@@ -189,13 +190,13 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 <p>然而，参数 <code>-XX:HandlePromotionFailure</code> 在 JDK 6 Update 24 之后已经被废弃，此后只要老年代的连续空间大于新生代对象的总大小，或者大于历次晋升的平均大小，就会执行 Minor GC，否则执行 Full GC。</p>
 
         <h4 id="标记整理算法">
-          <a href="#标记整理算法" class="heading-link"><i class="fas fa-link"></i></a>标记整理算法</h4>
+          <a href="#标记整理算法" class="heading-link"><i class="fas fa-link"></i></a><a href="#标记整理算法" class="headerlink" title="标记整理算法"></a>标记整理算法</h4>
       <p>上面介绍的标记复制算法适用于新生代的垃圾收集，但是对于老年代来说，每次 GC 都可能存在大量存活的对象，使用标记复制不仅复制开销大，而且内存利用效率不高。老年代一般采用标记整理算法，相对于标记清除算法而言，标记整理算法会将所有存活的对象移动到内存的一端，然后对剩余的内存进行清理。</p>
 <p>标记整理算法仍然避免不了对象的复制操作，尤其是对于老年代这种每次 GC 之后仍然有大量对象存活的场景，复制存活对象并更新所有引用这些对象的地方将会是一件极其复杂且高开销的操作，为了保证线程安全必须全程在暂停用户程序的情况下执行，期间会 STW。</p>
 <p>如果不执行整理操作，仅标记清除，则会极大降低 GC 的时间，但是这样会导致内存空间碎片化，让内存分配变得更加复杂，同时影响内存访问的效率（内存访问是一个高频的操作）。因此这是一个矛盾的问题，需要结合场景去抉择，例如关注吞吐量的 Parallel Scavenge 收集器基于标记整理算法实现，而注重延迟的 CMS 收集器则基于标记清除算法实现。另外一种思路是平时多数时间都采用标记清除策略，暂时容忍内存碎片的存在，直到碎片化程度严重到影响内存分配时再执行一次标记整理，这也是 CMS 收集器所采用的策略。</p>
 
         <h3 id="垃圾收集器">
-          <a href="#垃圾收集器" class="heading-link"><i class="fas fa-link"></i></a>垃圾收集器</h3>
+          <a href="#垃圾收集器" class="heading-link"><i class="fas fa-link"></i></a><a href="#垃圾收集器" class="headerlink" title="垃圾收集器"></a>垃圾收集器</h3>
       <div class="table-container"><table>
 <thead>
 <tr>
@@ -313,7 +314,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 </tbody></table></div>
 
         <h4 id="Serial-Serial-Old">
-          <a href="#Serial-Serial-Old" class="heading-link"><i class="fas fa-link"></i></a>Serial / Serial Old</h4>
+          <a href="#Serial-Serial-Old" class="heading-link"><i class="fas fa-link"></i></a><a href="#Serial-Serial-Old" class="headerlink" title="Serial / Serial Old"></a>Serial / Serial Old</h4>
       <p>Serial 收集器是最基础，历史最悠久的垃圾收集器，也是 HotSpot 虚拟机迄今为止在客户端模式下的默认新生代垃圾收集器。Serial 收集器是一个以单线程工作的收集器，在执行垃圾收集时必须暂停其它所有的线程，直到垃圾收集过程结束。Serial 收集器的优点在于简单、高效，是所有收集器中额外内存消耗最小的垃圾收集器。对于单核处理器或处理器核心数较少的环境来说，Serial 收集器由于没有线程交互的开销，专心致力于垃圾收集，从而能够获得最高的单线程收集效率。</p>
 <p>Serial Old 收集器是 Serial 收集器针对老年代开发的版本，因此同样是单线程的工作模式，使用标记整理垃圾收集算法。Serial Old 收集器与 Serial 收集器一样适用于客户端模式，如果应用于服务端模式则主要用于：</p>
 <ol>
@@ -322,12 +323,12 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 </ol>
 
         <h4 id="ParNew">
-          <a href="#ParNew" class="heading-link"><i class="fas fa-link"></i></a>ParNew</h4>
+          <a href="#ParNew" class="heading-link"><i class="fas fa-link"></i></a><a href="#ParNew" class="headerlink" title="ParNew"></a>ParNew</h4>
       <p>ParNew 收集器本质上是 Serial 收集器的多线程版本，除了同时使用多个线程执行垃圾收集之外，与 Serial 在设计和实现上完全一致，包括控制参数（eg. <code>-XX:SurvivorRatio</code>, <code>-XX:PretenureSizeThreshold</code>, <code>-XX:HandlePromotionFailure</code>）、收集算法、STW、对象分配规则，以及回收策略等。</p>
 <p>ParNew 收集器在 JDK 7 之前，几乎是服务端模式下 HotSpot 虚拟机首选的新生代垃圾收集器，其中一个很重要的原因是除了 Serial 收集器之外，它是唯一能够与 CMS 收集器配合工作的。然而，随着 G1 收集器的出现，在 JDK 9 之后，“ParNew + CMS”组合不再是官方推荐的服务端模式下的解决方案了。</p>
 
         <h4 id="Parallel-Scavenge-Parallel-Old">
-          <a href="#Parallel-Scavenge-Parallel-Old" class="heading-link"><i class="fas fa-link"></i></a>Parallel Scavenge / Parallel Old</h4>
+          <a href="#Parallel-Scavenge-Parallel-Old" class="heading-link"><i class="fas fa-link"></i></a><a href="#Parallel-Scavenge-Parallel-Old" class="headerlink" title="Parallel Scavenge / Parallel Old"></a>Parallel Scavenge / Parallel Old</h4>
       <p>Parallel Scavenge 收集器同样致力于对新生代进行垃圾收集，其诸多特性从表面上看起来与 ParNew 收集器非常相似，但是 Parallel Scavenge 收集器的目标是达到一个可控的吞吐量。所谓吞吐量可以描述为：用户程序运行时间 / （用户程序运行时间 + GC 时间）。由此可以看出 GC 时间越短，则吞吐量越高，也就越适合需要与用户交互或需要保证服务质量的场景。</p>
 <p>Parallel Scavenge 收集器提供了两个参数用于对吞吐量进行精确的控制：</p>
 <ol>
@@ -338,7 +339,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 <p>Parallel Old 收集器是 Parallel Scavenge 收集器针对老年代开发的版本，基于标记整理算法，并于 JDK 6 开始提供，此前都是“Parallel Scavenge + Serial Old”的组合。</p>
 
         <h4 id="CMS">
-          <a href="#CMS" class="heading-link"><i class="fas fa-link"></i></a>CMS</h4>
+          <a href="#CMS" class="heading-link"><i class="fas fa-link"></i></a><a href="#CMS" class="headerlink" title="CMS"></a>CMS</h4>
       <p>CMS 收集器致力于最短的 GC 停顿时间，以给用户带来良好的交互体验，基于标记清除算法实现， <strong>首次实现了让 GC 线程与用户线程并发执行</strong> 。CMS 的标记清除过程分为 3 次标记和 1 次清除：</p>
 <ol>
 <li><strong>初始标记</strong> ：标记 GC Roots 能直接关联到的对象，速度很快；</li>
@@ -355,7 +356,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 </ol>
 
         <h4 id="G1">
-          <a href="#G1" class="heading-link"><i class="fas fa-link"></i></a>G1</h4>
+          <a href="#G1" class="heading-link"><i class="fas fa-link"></i></a><a href="#G1" class="headerlink" title="G1"></a>G1</h4>
       <p>Garbage First（简称 G1）收集器是一款主要面向于服务端应用的垃圾收集器，在 JDK 9 之后取代“Parallel Scavenge + Parallel Old”组合，成为服务端模式下默认的垃圾收集器，而 CMS 收集器自此开始沦落为不再推荐被使用的收集器。 <strong>G1 开创了收集器面向局部收集的设计思路和基于 Region 的内存布局形式</strong> 。</p>
 <p>在 G1 之前，其它垃圾收集器均将 JVM 内存区域划分为新生代和老年代，对应的收集范围要么是整个新生代（Minor GC），要么是整个老年代（Major GC），甚至是是整个 java 堆（Full GC）。G1 收集器不再坚持按照固定大小和固定数量的分代区域划分策略，而是将连续的 java 堆划分成多个大小相等且独立的区域，称为 Region。每个 Region 都可以依据需要扮演不同的角色，例如新生代的 Eden 空间、Survivor 空间，亦或是老年代空间。G1 收集器能够依据具体 Region 所扮演的角色采用不同的策略对其执行垃圾收集。虽然，G1 仍然保留新生代和老年代的概念，但是其大小已经不再像之前的垃圾收集器一样是固定的，而是一系列（可以不连续的） Region 的动态集合。Region 中还有一类特殊的称为 Humongous 的区域，专门用于存储大对象。G1 收集器在执行垃圾收集时不再像之前的垃圾收集器一样按照新生代或老年代进行划分，而是计算哪块 Region 中存放的垃圾数量最多，回收收益最大，就对该 Region 或多个 Region 集合执行回收，这也是 Garbage First 命名的由来。</p>
 <p>G1 收集器的运行机制大致可以分为四个步骤：</p>
@@ -368,7 +369,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 <p>从现阶段的表现来看，G1 相对于 CMS 而言并没有压倒性的优势，而是各自有属于自己的应用场景，但是从长期发展来说，G1 取代 CMS 是趋势。</p>
 
         <h4 id="Shenandoah">
-          <a href="#Shenandoah" class="heading-link"><i class="fas fa-link"></i></a>Shenandoah</h4>
+          <a href="#Shenandoah" class="heading-link"><i class="fas fa-link"></i></a><a href="#Shenandoah" class="headerlink" title="Shenandoah"></a>Shenandoah</h4>
       <p>Shenandoah 收集器是第一款由非 Oracle 官方虚拟机团队领导开发的 HotSpot 垃圾收集器，由于受 Oracle 官方排斥，所以只能包含在 OpenJDK 中。Shenandoah 收集器致力于在任何堆大小下都可以将 GC 停顿时间控制在 10ms 以内，在设计和实现层面更像是 G1 收集器的继承者，二者在堆内存布局、初始标记、并发标记等多方面都高度一致，甚至还共享了一部分代码。然后，在管理堆内存方面，Shenandoah 相对于 G1 存在以下 3 点不同：</p>
 <ol>
 <li>支持并发整理。</li>
@@ -378,18 +379,18 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
 <p>Shenandoah 收集器在工作流程上分为初始标记、并发标记、最终标记、并发清理、并发回收、初始引用更新、并发引用更新、最终引用更新，以及并发清理 9 个阶段。</p>
 
         <h4 id="ZGC">
-          <a href="#ZGC" class="heading-link"><i class="fas fa-link"></i></a>ZGC</h4>
+          <a href="#ZGC" class="heading-link"><i class="fas fa-link"></i></a><a href="#ZGC" class="headerlink" title="ZGC"></a>ZGC</h4>
       <p>ZGC 收集器与 Shenandoah 收集器一样致力于在尽可能对吞吐量影响不大的前提下，实现在任意堆对内大小下都可以将 GC 停顿时间控制在 10ms 以内，是一款基于 Region 内存布局的，（暂时）不设分代的，使用了读屏障、染色指针和内存多重映射等技术实现可并发的标记整理算法的，以低延迟为首要目标的垃圾收集器。</p>
 <p>ZGC 收集器在工作流程上可以并发标记、并发预备重分配、并发重分配，以及并发重映射 4 个阶段。</p>
 
         <h3 id="内存分配策略">
-          <a href="#内存分配策略" class="heading-link"><i class="fas fa-link"></i></a>内存分配策略</h3>
+          <a href="#内存分配策略" class="heading-link"><i class="fas fa-link"></i></a><a href="#内存分配策略" class="headerlink" title="内存分配策略"></a>内存分配策略</h3>
       <p>首先， <strong>对象优先在 Eden 区域进行分配</strong> 。一般情况下对象会首先在新生代 Eden 区域进行分配，当 Eden 空间不足时，JVM 将发起一次 Minor GC。</p>
 <p>其次， <strong>大对象直接进入老年代</strong> 。对于大对象（需要大量连续内存空间的对象），JVM 采取的策略是直接进入老年代（可以通过 <code>-XX:PretenureSizeThreshold</code> 参数设置，大于该阈值的对象直接进入老年代，但需要注意该参数只对 Serial 和 ParNew 两款收集器有效），因为新生代中的对象只有在一定的 GC 次数之后仍然存活才能进入老年代，而在此之前大对象会频繁在两个 Survivor 区域之间复制，这样会降低效率；然而，对于一个朝生夕灭的大对象，直接进入老年代也不是好事，实际上就算分配在新生代上也不是好事，所以编程中应该尽量避免这种朝生夕灭的大对象。</p>
 <p>最后， <strong>长期存活的对象进入老年代</strong> 。因为采用分代存储，所以 JVM 需要知道哪些对象应该放在新生代，哪些对象应该放在老年代。JVM 一般会根据对象熬过的 GC 次数作为判定依据，并且会为该对象设置一个对象年龄计数器。如果某个对象在第 1 次 Minor GC 后仍然存活，并且能够被 Survivor 区域所容纳则进入 Survivor 区域，同时设置对象年龄计数器为 1。以后每熬过 1 次 Minor GC 则对象年龄计数器加 1，当年龄达到一定值（默认为 15，可以通过 <code>-XX:+MaxTenuringThreshold</code> 参数设置）则进入老年代。但这也不是绝对的，如果单个 Survivor 区域使用率超过 50%（对应 <code>-XX:TargetSurvivorRatio</code> 配置），则复制次数较多的对象也会被移入老年代。此外，如果 Survivor 空间中相同年龄的所有对象大小之和大于 Survivor 空间的一半，则年龄大于或等于这些对象的对象可以直接进入老年代。</p>
 
         <h3 id="参考">
-          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a>参考</h3>
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a><a href="#参考" class="headerlink" title="参考"></a>参考</h3>
       <ol>
 <li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/26418340/">Java 虚拟机规范（Java SE 8 版）</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
 <li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://book.douban.com/subject/24722612/">深入理解 java 虚拟机（第 2 版）</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
@@ -415,7 +416,7 @@ window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
           Shenandoah</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#ZGC"><span class="toc-number">3.7.</span> <span class="toc-text">
           ZGC</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%86%85%E5%AD%98%E5%88%86%E9%85%8D%E7%AD%96%E7%95%A5"><span class="toc-number">4.</span> <span class="toc-text">
           内存分配策略</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">5.</span> <span class="toc-text">
-          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">98</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">15</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">31</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2026</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.6.1</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">98</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">15</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">31</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2026</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.8.0</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
   var isXML = true;
   var search_path = 'search.json';
 
@@ -778,4 +779,4 @@ if (true) {
   loadUtterances();
 } else {
   window.addEventListener('DOMContentLoaded', loadUtterances, false);
-}</script><script src="/js/utils.js?v=2.6.1"></script><script src="/js/stun-boot.js?v=2.6.1"></script><script src="/js/scroll.js?v=2.6.1"></script><script src="/js/header.js?v=2.6.1"></script><script src="/js/sidebar.js?v=2.6.1"></script><script type="application/json" src="/search.json"></script></body></html>
+}</script><script src="/js/utils.js?v=2.8.0"></script><script src="/js/unsplash-bg.js?v=2.8.0"></script><script src="/js/stun-boot.js?v=2.8.0"></script><script src="/js/scroll.js?v=2.8.0"></script><script src="/js/header.js?v=2.8.0"></script><script src="/js/sidebar.js?v=2.8.0"></script><script type="application/json" src="/search.json"></script></body></html>
