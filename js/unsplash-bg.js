@@ -6,6 +6,24 @@
   Stun.unsplash = {
     cacheKey: 'stun_unsplash_bg_cache',
     
+    topicIdMap: {
+      'wallpapers': 'bo8jQKTaE0Y',
+      '3d-renders': 'CDwuwXJCy5U',
+      'animals': 'Jpg6Kidl-Hk',
+      'architecture-interior': 'M8jVbLbTRws',
+      'experimental': '_WIuGnW1GvI',
+      'film': 'hmenvQv7e2Y',
+      'people': 'towJZF19eOQ',
+      'street-photography': 'xHxYTMHLgOc',
+      'travel': 'Fzo3zuOHN6w',
+      'nature': '6sMVjTLSkeQ',
+      'textures-patterns': 'iUIcnVXSjxQ',
+      'business-work': 'aeu6rL-j6ew',
+      'food-drink': 'xHxYTMHLgOc',
+      'health': '_WIuGnW1GvI',
+      'spirituality': 'Fzo3zuOHN6w'
+    },
+    
     getCache: function () {
       try {
         var cache = localStorage.getItem(this.cacheKey)
@@ -54,8 +72,31 @@
         h: config.height || 1080
       }
       
+      if (config.query) {
+        params.query = config.query
+      }
+      
       if (config.collections) {
         params.collections = config.collections
+      }
+      
+      if (config.topics) {
+        var topics = config.topics
+        var topicIds = topics.split(',').map(function (topic) {
+          topic = topic.trim()
+          var id = self.topicIdMap[topic]
+          return id ? id : topic
+        }).filter(function (id) {
+          return id
+        }).join(',')
+        
+        if (topicIds.length > 0) {
+          params.topics = topicIds
+        }
+      }
+      
+      if (config.featured) {
+        params.featured = true
       }
       
       var queryString = Object.keys(params)
