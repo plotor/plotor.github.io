@@ -928,15 +928,19 @@ kbd {
   animation: fadeIn 0.5s ease;
 }
 .header-banner-loading {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  z-index: -1;
-  -webkit-transform: translate(-50%, -50%);
-  -moz-transform: translate(-50%, -50%);
-  -o-transform: translate(-50%, -50%);
-  -ms-transform: translate(-50%, -50%);
-  transform: translate(-50%, -50%);
+  display: -webkit-box;
+  display: -moz-box;
+  display: -webkit-flex;
+  display: -ms-flexbox;
+  display: box;
+  display: flex;
+  -webkit-box-pack: center;
+  -moz-box-pack: center;
+  -o-box-pack: center;
+  -ms-flex-pack: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+  margin: 1.5rem 0;
   opacity: 1;
   -ms-filter: none;
   filter: none;
