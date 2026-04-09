@@ -143,6 +143,10 @@
       }
       img.onerror = function () {
         banner.classList.remove('unsplash-bg')
+        var loading = banner.querySelector('.header-banner-loading')
+        if (loading) {
+          loading.style.display = 'none'
+        }
       }
       img.src = imageUrl
     },
