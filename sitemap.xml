@@ -774,7 +774,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/tags/CGlib/</loc>
+    <loc>https://plotor.github.io/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/</loc>
     <lastmod>2026-04-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
@@ -788,7 +788,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/</loc>
+    <loc>https://plotor.github.io/tags/CGlib/</loc>
     <lastmod>2026-04-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
@@ -830,14 +830,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/tags/HTTP/</loc>
+    <loc>https://plotor.github.io/tags/OAuth/</loc>
     <lastmod>2026-04-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
   </url>
   
   <url>
-    <loc>https://plotor.github.io/tags/OAuth/</loc>
+    <loc>https://plotor.github.io/tags/HTTP/</loc>
     <lastmod>2026-04-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
@@ -865,6 +865,13 @@
   </url>
   
   <url>
+    <loc>https://plotor.github.io/tags/LLM/</loc>
+    <lastmod>2026-04-09</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
     <loc>https://plotor.github.io/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/</loc>
     <lastmod>2026-04-09</lastmod>
     <changefreq>daily</changefreq>
@@ -873,6 +880,13 @@
   
   <url>
     <loc>https://plotor.github.io/tags/Raft/</loc>
+    <lastmod>2026-04-09</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://plotor.github.io/tags/Scala/</loc>
     <lastmod>2026-04-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
@@ -893,14 +907,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/tags/LLM/</loc>
+    <loc>https://plotor.github.io/tags/%E9%99%90%E6%B5%81/</loc>
     <lastmod>2026-04-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
   </url>
   
   <url>
-    <loc>https://plotor.github.io/tags/Scala/</loc>
+    <loc>https://plotor.github.io/tags/Spring/</loc>
     <lastmod>2026-04-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
@@ -908,13 +922,6 @@
   
   <url>
     <loc>https://plotor.github.io/tags/SOFA-JRaft/</loc>
-    <lastmod>2026-04-09</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
-  
-  <url>
-    <loc>https://plotor.github.io/tags/%E9%99%90%E6%B5%81/</loc>
     <lastmod>2026-04-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
@@ -929,13 +936,6 @@
   
   <url>
     <loc>https://plotor.github.io/tags/JStorm/</loc>
-    <lastmod>2026-04-09</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
-  
-  <url>
-    <loc>https://plotor.github.io/tags/Spring/</loc>
     <lastmod>2026-04-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
@@ -986,13 +986,6 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/categories/web/</loc>
-    <lastmod>2026-04-09</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
-  
-  <url>
     <loc>https://plotor.github.io/categories/protocol/</loc>
     <lastmod>2026-04-09</lastmod>
     <changefreq>daily</changefreq>
@@ -1000,7 +993,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/categories/rpc/</loc>
+    <loc>https://plotor.github.io/categories/web/</loc>
     <lastmod>2026-04-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
@@ -1021,7 +1014,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/categories/sofa/</loc>
+    <loc>https://plotor.github.io/categories/rpc/</loc>
     <lastmod>2026-04-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
@@ -1035,14 +1028,21 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/categories/storm/</loc>
+    <loc>https://plotor.github.io/categories/spring/</loc>
     <lastmod>2026-04-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
   </url>
   
   <url>
-    <loc>https://plotor.github.io/categories/spring/</loc>
+    <loc>https://plotor.github.io/categories/sofa/</loc>
+    <lastmod>2026-04-09</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://plotor.github.io/categories/storm/</loc>
     <lastmod>2026-04-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
