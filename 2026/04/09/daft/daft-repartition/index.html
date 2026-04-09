@@ -1,0 +1,713 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.8.0" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.8.0" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="故事从某客户的一次吐槽 Daft 执行性能讲起。话说某一天，一个用户突然在群里吐槽说自己以分布式模式运行的 Daft 任务，只有一个 Worker 节点在参与计算，剩余节点都在旁边吃瓜围观。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Daft 数据分区和分批：repartition vs into_partitions vs into_batches">
+<meta property="og:url" content="https://plotor.github.io/2026/04/09/daft/daft-repartition/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="故事从某客户的一次吐槽 Daft 执行性能讲起。话说某一天，一个用户突然在群里吐槽说自己以分布式模式运行的 Daft 任务，只有一个 Worker 节点在参与计算，剩余节点都在旁边吃瓜围观。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://plotor.github.io/images/2026/onlookers.png?raw=false">
+<meta property="og:image" content="https://plotor.github.io/images/2026/daft-explain.png?raw=false">
+<meta property="og:image" content="https://plotor.github.io/images/2026/daft-repartition-map-reduce.jpg?raw=false">
+<meta property="og:image" content="https://plotor.github.io/images/2026/daft-repartition-pre-shuffle-merge.jpg?raw=false">
+<meta property="og:image" content="https://plotor.github.io/images/2026/daft-into-partitions-split.jpg?raw=false">
+<meta property="og:image" content="https://plotor.github.io/images/2026/daft-into-partitions-coalesce.jpg?raw=false">
+<meta property="og:image" content="https://plotor.github.io/images/2026/daft-into-batches-stage2.jpg?raw=false">
+<meta property="article:published_time" content="2026-04-09T04:56:00.000Z">
+<meta property="article:modified_time" content="2026-04-09T06:50:05.090Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Daft">
+<meta property="article:tag" content="Ray">
+<meta property="article:tag" content="AI">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://plotor.github.io/images/2026/onlookers.png?raw=false"><title>Daft 数据分区和分批：repartition vs into_partitions vs into_batches | 指  间</title><link ref="canonical" href="https://plotor.github.io/2026/04/09/daft/daft-repartition/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.8.0"><link rel="stylesheet" href="css/custom.css"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+  unsplash: {"enable":true,"apiKey":"BFQf5aNMWD8KYWj1H6efSZ0qVcsWzsuV_FVmeuhJYj4","query":null,"collections":null,"topics":"nature","featured":true,"orientation":"landscape","width":1280,"height":720,"cache_duration":1},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">Daft 数据分区和分批：repartition vs into_partitions vs into_batches</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2026-04-09</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">5.8k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">22分</span></span></div></header><div class="post-body"><p>故事从某客户的一次吐槽 Daft 执行性能讲起。话说某一天，一个用户突然在群里吐槽说自己以分布式模式运行的 Daft 任务，只有一个 Worker 节点在参与计算，剩余节点都在旁边吃瓜围观。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2026/onlookers.png?raw=false" style="" alt="image">
+      </p>
+<a id="more"></a>
+
+<p>于是乎让客户提供了一下任务的 explain 信息，发现是一个比较典型的图片分类打标程序，通过读取图片数据集，对图片进行基本的预处理之后，调用模型进行离线分类打标。这是一个 Daft 非常擅长的图片数据处理任务，并且能够充分发挥 Daft 引擎的优势，为何会被用户吐槽执行慢呢？进一步查看 explain 信息发现了端倪，如下图所示：</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2026/daft-explain.png?raw=false" style="" alt="image">
+      </p>
+<p>没错，<strong>只有 1 个 ScanTask！</strong> 由于数据集本身存储的只是图片的 URL 信息，所以即使是上百万张图片，也只对应一个不到 20M 的 parquet 文件。在没有开启 ScanTask 任务拆分与合并的前提下，Daft 针对这个数据集只创建了 1 个 ScanTask 进行扫描，并且后续操作没有需要切分 Stage 的算子，因此所有算子都在一个 Pipeline 中执行。这也解释了为什么整个集群只有一个 Worker 节点在工作的原因。</p>
+<blockquote>
+<p><strong>🤔 怎么解决呢？</strong></p>
+<p>其实我们只需在 read 操作之后增加 repartition 或 into_partitions 算子强行增加数据分区数即可，目标分区数的设置只要大于等于节点数即可，但通常建议设置为节点数的整数倍。</p>
+</blockquote>
+<p>经过上述调整后所有的 Worker 节点都开始工作起来了，但又遇到了新的问题：用户最终生成的 Lance 数据集包含大量的小文件！这其实是一个目前比较常见的问题，原因在于客户的 UDF 设置了较小的 batch_size 参数值，而早期版本在写 Lance 数据集时并没有攒批机制，导致 UDF 每次输出都会以 Lance Fragment 文件形式落盘，从而产生大量小文件。</p>
+<blockquote>
+<p><strong>🤔 怎么解决呢？</strong></p>
+<p>我们只需要在 write 操作之前增加 into_batches 算子强行按照行数对数据进行攒批即可，从而控制当数据行数达到一定量级后写 Lance Fragment 文件。</p>
+</blockquote>
+<p>关于 repartition 和 into_batches，官网文档也用专门的<span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://docs.daft.ai/en/stable/optimization/partitioning/">页面</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>进行说明：</p>
+<blockquote>
+<ul>
+<li><p>Use <code>df.repartition(...)</code> if you are running on a distributed runner and want to split your data into a fixed number of partitions (finite units of work) across workers.</p>
+</li>
+<li><p>Use <code>df.into_batches(...)</code> if you want to split your data so that each unit (batch) contains a similar number of rows, regardless of whether you are running distributed or on a single node.</p>
+</li>
+</ul>
+</blockquote>
+<p>似乎看起来很简单，如果你的需求是将数据切分成指定数目的分区，则使用 repartition；如果你的需求是希望将数据按指定的条数切分一个个批次，则使用 into_batches。然而，在实际使用中我们经常会面对客户的疑问，例如：</p>
+<ul>
+<li>为什么加了 repartition 之后任务运行好像卡住了？甚至 OOM 了？</li>
+<li>同样是分区，我应该选择 repartition 还是 into_partitions？二者的区别又是什么？</li>
+<li>都说 into_partitions 和 into_batches 是流式执行的，为什么还是会触发 spill 呢？</li>
+<li>…</li>
+</ul>
+<p>因此，本文打算深入剖析一下 repartition、into_partitions 和 into_batches 各自的特性、应用场景，以及背后的实现机制。希望阅读完本文之后，你能够游刃有余的选择合适的方法控制 Daft 的数据分区和分批。</p>
+
+        <h1 id="分区-amp-分批">
+          <a href="#分区-amp-分批" class="heading-link"><i class="fas fa-link"></i></a><a href="#分区-amp-分批" class="headerlink" title="分区 &amp; 分批"></a>分区 &amp; 分批</h1>
+      
+        <h2 id="使用-repartition-实现数据重分区">
+          <a href="#使用-repartition-实现数据重分区" class="heading-link"><i class="fas fa-link"></i></a><a href="#使用-repartition-实现数据重分区" class="headerlink" title="使用 repartition 实现数据重分区"></a>使用 repartition 实现数据重分区</h2>
+      <p>Daft 虽然是基于“morsel-driven”设计和实现的计算引擎，并刻意在弱化分区的概念，但在部分场景或 API 定义方面依然保留了分区的字样，典型的包括：读取数据时按分区规划 ScanTask；提供 repartition 算子以实现对数据的重新分区。这样的设计主要还是降低用户的理解成本，毕竟分区的概念已经深入人心。如下所示展示了 repartition API 的定义：</p>
+<figure class="highlight python"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@DataframePublicAPI</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">repartition</span>(<span class="params">self, num: <span class="built_in">int</span> | <span class="literal">None</span>, *partition_by: ColumnInputType</span>) -&gt; "DataFrame":</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>关于 repartition 的一些说明：</p>
+<ul>
+<li>参数 num 用于设置目标分区数，允许设置为 None 以保持分区数目不变。</li>
+<li>在实现层面支持 random、hash 和 range 三种分区策略，而在策略选择上完全由引擎控制，例如用户通过 <code>partition_by</code> 参数设置了分区列，则会采用 hash 分区策略。</li>
+<li>目前仅 Ray Runner 支持 repartition 操作，暂不支持 Native Runner。</li>
+<li>用户可以显式通过调用 repartition 算子触发重分区操作，一些算子在底层实现上也会复用 repartition 的能力，典型的包括 Join、GroupBy、Distinct 等。</li>
+</ul>
+<p>Daft 在 repartition 的实现层面提供了多种数据 Shuffle 策略，包括：</p>
+<ul>
+<li><strong>map_reduce</strong>：基础 Shuffle 策略实现，适用于分区相对较少的场景，该策略下 Daft 仅仅是将所有输入分区的数据先物化到内存，然后转置重组为输出分区。</li>
+<li><strong>pre_shuffle_merge</strong>：当分区几何平均数超过一定阈值时（默认为 200），Daft 会切换采用该策略，通过在 Worker 节点对需要 Shuffle 的数据分区进行预合并以减少输入分区数，从而降低分区数量过多导致到元数据管理、任务调度和数据传输开销。</li>
+<li><strong>flight_shuffle</strong>：基于 Arrow Flight 协议的 Shuffle 实现，该策略下会将需要 Shuffle 的数据先写入本地磁盘，再通过 Flight RPC  按需读取，适用于大表 Join 场景，能突破内存限制，避免 OOM。</li>
+</ul>
+<p>用户可以通过 <code>shuffle_algorithm</code> 参数手动选择数据 Shuffle 策略，该参数默认为 auto，即让 Daft 自行决策使用哪种 Shuffle 方式。现阶段，当 <code>shuffle_algorithm=auto</code> 时，Daft 会在 map_reduce 和 pre_shuffle_merge 两种策略之间进行选择，判断的依据取决于 Map 端和 Reduce 端分区数的几何平均数，如果该平均数值超过 200 则选择 pre_shuffle_merge 策略，否则使用 map_reduce 策略。</p>
+<p>本小节接下来的内容主要介绍 map_reduce 和 pre_shuffle_merge 两种策略的设计与实现，而对于新引入的 flight_shuffle 策略将留到以后通过专门的文章进行介绍。</p>
+
+        <h3 id="基于-map-reduce-策略的-repartition-实现">
+          <a href="#基于-map-reduce-策略的-repartition-实现" class="heading-link"><i class="fas fa-link"></i></a><a href="#基于-map-reduce-策略的-repartition-实现" class="headerlink" title="基于 map_reduce 策略的 repartition 实现"></a>基于 map_reduce 策略的 repartition 实现</h3>
+      <p>作为最基础的一种 Shuffle 实现策略，map_reduce 执行链路可以抽象成一个经典的“Map 端切分 + Reduce 端聚合” 的过程，其核心特点是：<strong>Map 端先把每个输入分区切分成 N 个数据分片（N 为目标分区数），然后在 Reduce 端从 <code>[0, N)</code> 按照索引将相同索引值对应的数据分片聚合作为同一个下游 Task 的输入，形成新的输出分区。</strong></p>
+<p>为了便于描述，假设上游 Task 一共有 3 个输入分区，目标分区数为 5。如下图所示，那么 Map 端的切分会产生近似 <code>3 × 5 = 15</code> 个“数据分片”，随后通过一次“矩阵转置”把这些碎片按目标分区重新分组。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2026/daft-repartition-map-reduce.jpg?raw=false" style="" alt="image">
+      </p>
+
+        <h4 id="Map-端本地将数据切分为-N-个桶">
+          <a href="#Map-端本地将数据切分为-N-个桶" class="heading-link"><i class="fas fa-link"></i></a><a href="#Map-端本地将数据切分为-N-个桶" class="headerlink" title="Map 端本地将数据切分为 N 个桶"></a>Map 端本地将数据切分为 N 个桶</h4>
+      <p>在每个 Worker 节点本地执行过程中，Daft 会将输入分区数据按目标分区数切成 N 份，此时需要考虑具体的分桶策略：</p>
+<ul>
+<li><strong>Hash</strong>：对 <code>partition_by</code> 表达式求值后做哈希取模，并将余数相同的行稳定映射到同一个桶中。</li>
+<li><strong>Random</strong>：按随机方式将行打散分布到不同的桶中，以实现数据随机均衡。</li>
+<li><strong>Range</strong>：内部算子分桶策略，目前主要应用于数据排序场景，根据分区边界定义将相同范围的行落到对应范围的桶中。</li>
+</ul>
+
+        <h4 id="Reduce-端按分区索引构建并执行下游-Task">
+          <a href="#Reduce-端按分区索引构建并执行下游-Task" class="heading-link"><i class="fas fa-link"></i></a><a href="#Reduce-端按分区索引构建并执行下游-Task" class="headerlink" title="Reduce 端按分区索引构建并执行下游 Task"></a>Reduce 端按分区索引构建并执行下游 Task</h4>
+      <p>Daft 会等待所有 Map 端输出的物化，即阻塞等待所有 Map 端 Task 的执行完成。Map 阶段物化产生的输出可以看成是一个 <code>M × N</code> 的矩阵，其中的每一行对应一个输入分区，每一列对应一个输出分区。因此，Daft 接下来需要做一次“矩阵转置” 将行和列调换，这样就得到一个 <code>N × M</code> 的矩阵，接下来只需要从 <code>[0, N)</code> 遍历即可获取到下游各个 Task 的输入分区数据。</p>
+<p>Daft 会基于各个输入分区创建下游 Task，并通过 InMemoryScan 充当下游 Task 的数据摄取节点。在 InMemoryScan 节点内部会持有派发给当前 Task 的分区引用集合（对应 <code>psets</code> 变量），并在执行时通过引用定位并加载数据。</p>
+
+        <h3 id="基于-pre-shuffle-merge-策略的-repartition-实现">
+          <a href="#基于-pre-shuffle-merge-策略的-repartition-实现" class="heading-link"><i class="fas fa-link"></i></a><a href="#基于-pre-shuffle-merge-策略的-repartition-实现" class="headerlink" title="基于 pre_shuffle_merge 策略的 repartition 实现"></a>基于 pre_shuffle_merge 策略的 repartition 实现</h3>
+      <p>对于 map_reduce 这类 Shuffle 策略，针对输入的每个分区都会将其切分成 N 份，因此当上游有 M 个输入分区时，中间产物规模接近 <code>M × N</code>，当 Shuffle 输入分区数和输出分区数都很大时会带来显著的元数据管理、调度，以及数据传输压力。</p>
+<blockquote>
+<p><strong>🤔 怎么解决呢？</strong></p>
+<p>这里的问题在于 <code>M × N</code> 得到的分区积数非常大，所以最容易想到的解法是减小 M 或 N 的值来降低乘积。由于 N 是用户指定的目标分区数，我们不能随意改变，所以只能减小 M 的值，这也是 pre_shuffle_merge 策略的设计目标。</p>
+</blockquote>
+<p>对于 pre_shuffle_merge Shuffle 策略，可以理解为在 map_reduce 策略之前额外插入了一个分区合并的过程。如下图所示，<strong>通过将由上游相同 Worker 上产出的大量小分区按照一定策略进行分组，然后再执行标准的 map_reduce 分区过程。</strong></p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2026/daft-repartition-pre-shuffle-merge.jpg?raw=false" style="" alt="image">
+      </p>
+<p>当 Shuffle 的输入分区与输出分区非常多时，直接采用 map_reduce 策略会产生大量碎片与任务调度压力，预合并能显著减少进入真正 Shuffle 的输入 Task 数量，从而降低中间分区碎片数量、RPC 连接数，以及集群的元数据管理和任务调度负担。</p>
+
+        <h4 id="触发条件与阈值设定">
+          <a href="#触发条件与阈值设定" class="heading-link"><i class="fas fa-link"></i></a><a href="#触发条件与阈值设定" class="headerlink" title="触发条件与阈值设定"></a>触发条件与阈值设定</h4>
+      <p>当 <code>shuffle_algorithm=auto</code> 时，Daft 会基于输入分区数 M 和目标分区数 N 计算 <code>sqrt(M × N)</code> 几何平均数。当该几何平均数默认超过 200 时，Daft 会切换为选择 pre_shuffle_merge 策略，否则走 map_reduce 策略。</p>
+<p>如果采用 pre_shuffle_merge 策略，Daft 会在预合并阶段使用基于 <code>pre_shuffle_merge_threshold</code> 参数设定的阈值来决定何时把一批分区数据输出合并成一个新 Task，该参数默认值为 1GB。</p>
+
+        <h4 id="按节点合并输入分区">
+          <a href="#按节点合并输入分区" class="heading-link"><i class="fas fa-link"></i></a><a href="#按节点合并输入分区" class="headerlink" title="按节点合并输入分区"></a>按节点合并输入分区</h4>
+      <p>预合并阶段会先将上游 Task 的输出分区按所属 Worker 进行分桶，并合并以作为下游 Task 的输入，核心流程包括：</p>
+<ol>
+<li><strong>按分区所属 Worker 分桶</strong>：每个桶收集来自同一 Worker 上产出的物化输出。</li>
+<li><strong>累计桶内数据大小</strong>：当桶内数据累计大小达到 <code>pre_shuffle_merge_threshold</code> 参数设定的阈值时，即将桶内这批数据以“InMemoryScan + psets”的形式打包作为下游 Task 的输入。</li>
+<li><strong>节点亲和性调度</strong>：合并后的 Task 输入带有 Worker 节点亲和性，因此 Daft 会尽量让下游 Task 在对应的 Worker 上执行，以减少跨 Worker 节点拉取分区数据的开销。</li>
+</ol>
+<p>后续过程与上一节完全一致，即按照 map_reduce 策略创建 N 个输出分区，并为每个分区生成下游 Task。</p>
+
+        <h2 id="使用-into-partitions-实现数据重分区">
+          <a href="#使用-into-partitions-实现数据重分区" class="heading-link"><i class="fas fa-link"></i></a><a href="#使用-into-partitions-实现数据重分区" class="headerlink" title="使用 into_partitions 实现数据重分区"></a>使用 into_partitions 实现数据重分区</h2>
+      <p>上面小节我们介绍并分析了 repartition 对数据进行重分区的特点和实现。通过对数据进行全局 Shuffle，使用 repartition 能够较好的实现数据分布的均衡性，同时也支持按列对数据进行重分布。不过因为要对全量数据进行物化，所以使用 repartition 对数据进行重分区是一个相对较重的操作，稍有不慎就会引发 OOM。</p>
+<p>如果不追求数据分布的绝对均衡，只是希望调整一下分区的数目，则 Daft 提供了 into_partitions 这一种更加轻量的数据重分区实现。如下所示展示了 <code>into_partitions</code> API 的定义：</p>
+<figure class="highlight python"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@DataframePublicAPI</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">into_partitions</span>(<span class="params">self, num: <span class="built_in">int</span></span>) -&gt; "DataFrame":</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>相对于 repartition 而言，into_partitions 在 API 层面要简单一些，只接收一个 <code>num</code> 参数，以允许用户设置目标分区数。Daft 在内部会判断上游 Task 的数目与目标分区数的大小关系，以决定在执行时是否需要对输入分区进行处理，如果需要处理的话是切分还是合并，具体细节我们下面展开来介绍。</p>
+
+        <h3 id="切分：上游-Task-数目小于目标分区数">
+          <a href="#切分：上游-Task-数目小于目标分区数" class="heading-link"><i class="fas fa-link"></i></a><a href="#切分：上游-Task-数目小于目标分区数" class="headerlink" title="切分：上游 Task 数目小于目标分区数"></a>切分：上游 Task 数目小于目标分区数</h3>
+      <p>如果上游 Task 数目小于用户指定的目标分区数，则需要对数据进行进一步切分以得到更多的分区。这里假设上游 Task 数目为 3，用户通过调用 <code>.into_partitions(10)</code> 希望将数据重新组织成 10 个分区，所以需要控制上游每个 Task 产出 3~4 个分区才能达到目的。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2026/daft-into-partitions-split.jpg?raw=false" style="" alt="image">
+      </p>
+<p>如上图所示，Daft 内部核心也是通过编排每个上游 Task 输出的分区数来实现的，具体执行过程：</p>
+<ol>
+<li>基于上游 Task 数目 3 和目标分区数 10 计算得到第 1 个 Task 需要产出 4 个分区，剩余 2 个 Task 需要各自产出 3 个分区，总共累计 10 个分区；</li>
+<li>为每个上游 Task 绑定一个 IntoPartitions 节点以实现节点内重分区操作，比如为第 1 个 Task 绑定 <code>IntoPartitions(4)</code>，剩余 2 个 Task 需要分别绑定 <code>IntoPartitions(3)</code>；</li>
+<li>将上述步骤构造好的 Task 提交执行，并按提交顺序阻塞等待第 1 个 Task 的执行完成；</li>
+<li>当第 1 个 Task 执行完成后会产出 4 个分区，Daft 会为每个分区绑定 1 个 InMemoryScan 节点作为下游 Task 的输入，并继续提交下游任务。</li>
+</ol>
+<p>从上述执行过程可以看出，<strong>into_partitions 并不会像 repartition 那样等待上游全部 Task 完成物化再构建并提交执行下游 Task，而是只要一个上游 Task 执行完成后即可开始构建下游 Task，所以更加流式。</strong> 这主要得益于总的分区数，以及一个目标分区数据由哪些上游 Task 产生是事先确定的，并且  into_partitions 并不像 repartition 那样追求数据分布的绝对均衡性。</p>
+<p>在单机节点上，IntoPartitionsSink 负责将输入的数据按照指定的分区数进行分区。IntoPartitionsSink 本身是一个 Block 节点，它会先收集当前 Pipeline 所有的产出数据，并最后按照设定的分区数按行实施重新切分（例如上述示例中第一个 Task 的分区数是 4，因此会在本地切分成 4 个分区）。如果数据行数不能填充所有分区，则会构造空的分区以保证输入的分区数满足要求。</p>
+
+        <h3 id="合并：上游-Task-数目大于目标分区数">
+          <a href="#合并：上游-Task-数目大于目标分区数" class="heading-link"><i class="fas fa-link"></i></a><a href="#合并：上游-Task-数目大于目标分区数" class="headerlink" title="合并：上游 Task 数目大于目标分区数"></a>合并：上游 Task 数目大于目标分区数</h3>
+      <p>如果上游 Task 数目大于用户指定的目标分区数，则需要对数据进行进一步合并以得到更少的分区。这里假设上游 Task 数目为 10，用户通过调用 <code>.into_partitions(3)</code> 希望将数据重新组织成 3 个分区，所以需要控制上游每 3~4 个 Task 产出 1 个分区才能达到目的。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2026/daft-into-partitions-coalesce.jpg?raw=false" style="" alt="image">
+      </p>
+<p>如上图所示，Daft 核心实现也是通过对上游 Task 进行编排分组，以保证多个 Task 产出 1 个分区来实现的，具体执行过程：</p>
+<ol>
+<li>基于上游 Task 数目 10 和目标分区数 3 计算得到第 1 个目标分区需要 4 个上游 Task 产出数据，剩余 2 个目标分区分别各自需要 3 个上游 Task 产出数据，以实现对这 10 个上游 Task 进行分组；</li>
+<li>将上述步骤构造好的 Task 按分组提交执行，并按提交顺序阻塞等待第 1 个分组 Task 的执行完成；</li>
+<li>为每个分组物化结果绑定 1 个 <code>InMemoryScan + IntoPartitions(1)</code> 以实现读取并合并分区，并作为下游的输入。</li>
+</ol>
+<p>上面曾提到 Daft 是以流式的方式执行 into_partitions，但我们在实际使用时体感并不是很强烈，仍然会大概率看到触发 Ray Object Store Spill，尤其是分区合并的场景。这是因为：</p>
+<ol>
+<li>单机节点上 IntoPartitionsSink 本身是一个 Block 节点，它会阻塞等待当前节点上 Task 所有的数据处理完成才会对外输出，而分区合并场景下单个 IntoPartitionsSink 需要等待处理完成的数据相对要多很多。</li>
+<li>虽然 into_partitions 并不需要等待所有上游 Task 执行完成才开始构造下游 Task，但仍然需要按顺序等待至少一个上游 Task 完成拿到物化执行结果。然而，Daft 每次会提交执行一批上游 Task，所以在 Daft 等待物化结果的期间，任何一个 Task 都可能已经执行完成并将结果存储到了 Ray Object Store，从而导致 Object Store 的使用率上涨，甚至触发 Spill。</li>
+</ol>
+
+        <h2 id="使用-into-batches-实现数据重分批">
+          <a href="#使用-into-batches-实现数据重分批" class="heading-link"><i class="fas fa-link"></i></a><a href="#使用-into-batches-实现数据重分批" class="headerlink" title="使用 into_batches 实现数据重分批"></a>使用 into_batches 实现数据重分批</h2>
+      <p>上面介绍的 repartition 和 into_partitions 都是对数据集重新分区，也就是说我们事先已经设定好了 N 个桶，然后让 Daft 将数据按策略均匀的分发到各个桶中。本小节我们要介绍的 into_batches 则是对数据进行重新分批，区别在于我们事先并不知道要设定多少个桶，但是我们知道每个桶最多能放多少行数据，然后让 Daft 按照这个上限值将数据封装打包，至于最后需要多少个桶才能容纳所有数据，取决于我们输入的数据量，也取决于我们设置的桶的大小（即 <code>batch_size</code>）。如下所示展示了 into_batches API 的定义：</p>
+<figure class="highlight python"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@DataframePublicAPI</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">into_batches</span>(<span class="params">self, batch_size: <span class="built_in">int</span></span>) -&gt; "DataFrame":</span></span><br></pre></td></tr></tbody></table></div></figure>
+<p>同 into_partitions 一样，into_batches 在 API 层面也非常简单，只接收一个 <code>batch_size</code> 参数以允许用户设置目标批次大小。Daft 在内部则会采用 Local 和 Global 两阶段执行，具体细节将在接下来展开介绍。</p>
+<ul>
+<li><strong>阶段一：在 Worker 节点本地进行攒批或切分</strong></li>
+</ul>
+<p>阶段一采用宽松模式（即 <code>strict=false</code>），在该模式下假设 <code>batch_size=100</code>，则只要接收到的数据总行数落在 <code>[80, 100]</code> 区间即可以对外输出，如果数据落在区间之外则会进行攒批或切分。例如：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">输入: [30,  60, 150, 20]</span><br><span class="line">输出: [90, 100, 70]</span><br></pre></td></tr></tbody></table></div></figure>
+<p>上述示例在 Worker 节点内部的处理过程如下表所示：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>序号</th>
+<th>输入</th>
+<th>输出</th>
+<th>缓冲</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>0</td>
+<td>30</td>
+<td>-</td>
+<td>30</td>
+<td>小于区间范围，继续攒批</td>
+</tr>
+<tr>
+<td>1</td>
+<td>60</td>
+<td>90</td>
+<td>-</td>
+<td>落在区间范围内，触发输出</td>
+</tr>
+<tr>
+<td>2</td>
+<td>150</td>
+<td>100</td>
+<td>50</td>
+<td>大于区间范围，按照区间上界进行切分输出，并将剩余数据暂存在缓冲区中</td>
+</tr>
+<tr>
+<td>3</td>
+<td>20</td>
+<td>-</td>
+<td>70</td>
+<td>小于区间范围，继续攒批</td>
+</tr>
+<tr>
+<td>4</td>
+<td>-</td>
+<td>70</td>
+<td>-</td>
+<td>末尾批次，直接输出</td>
+</tr>
+</tbody></table></div>
+<ul>
+<li><strong>阶段二：在协调节点上攒批来自所有 Worker 节点的批次</strong></li>
+</ul>
+<p>虽然阶段一已经对数据按照 <code>batch_size</code> 配置，在 Worker 节点本地实施攒批或切分处理，使得输出的数据批次大小大部分都落在区间范围内，但依然会有一些“尾巴数据”不能满足要求。因此，Daft 在设计上引入了阶段二的设计，让协调节点对来自所有 Worker 节点的数据进行进一步攒批。</p>
+<p>阶段二会提交阶段一的任务并等待至少一个任务执行完成，然后对任务执行结果进行攒批处理，以实现所有发往下游 Task 的数据批次长度都至少不小于 <code>batch_size</code> 的 80%。从这里也可以看出，into_batches 是流式执行的，无需等待所有的数据完成物化。不过需要说明的一点是，虽然大部分场景都可以将来自 Worker 节点的批次数据直接透传，但仍然避免不了对小批次数据进行合并的情况，<strong>甚至合并结果长度会超过 batch_size 设置的值。</strong> 此时 Daft 也只是简单的将其作为下游 Task 的输入进行透传，并不会做进一步的切分。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2026/daft-into-batches-stage2.jpg?raw=false" style="" alt="image">
+      </p>
+<p>如上图所示，我们依然以 <code>batch_size=100</code> 为例，假设有来自两个 Worker 节点的 Task 输出，分别为 <code>[90, 100, 70]</code> 和 <code>[100, 60]</code>，这些 Task 输出的数据经过阶段一的整合已经基本满足 <code>batch_size</code> 要求，但仍然存在一些尾巴数据。接下来阶段二会进一步整合，策略是：1）如果数据批次长度落在 <code>[80, 100]</code> 区间范围内则直接向下游透传；2）如果数据批次长度小于 80 则攒批。</p>
+<p>因此对于上述示例，长度为 90、100 的批次可以直接往下游透传，但是长度为 70 的批次则需要与后续长度为 100 的批次攒批成长度 170 的批次。虽然这个长度已经超过了 <code>batch_size</code> 设置的值，但考虑毕竟是少数情况，所以现阶段 Daft 也是允许的。</p>
+
+        <h1 id="总结">
+          <a href="#总结" class="heading-link"><i class="fas fa-link"></i></a><a href="#总结" class="headerlink" title="总结"></a>总结</h1>
+      <p>本文我们从一个实际案例切入，深入剖析了 Daft 的数据分区和分批机制，涉及 repartition、into_partitions 和 into_batches 三个算子。最后，我们以一张表格作为结语来总结这三个算子的特性差异和选型建议，助你更加高效的使用 Daft 进行多模态数据处理。</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>对比维度</th>
+<th>repartition</th>
+<th>into_partitions</th>
+<th>into_batches</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>切分类型</td>
+<td>分区</td>
+<td>分区</td>
+<td>分批</td>
+</tr>
+<tr>
+<td>切分策略</td>
+<td>支持 Random、Hash、Range 三种策略</td>
+<td>简单的分割/合并，不考虑数据大小或内容</td>
+<td>按目标行数进行分割</td>
+</tr>
+<tr>
+<td>Shuffle</td>
+<td>全局 Shuffle（昂贵操作）</td>
+<td>无 Shuffle，仅分割/合并相邻分区</td>
+<td>无 Shuffle，仅按行数分割</td>
+</tr>
+<tr>
+<td>顺序保证</td>
+<td>不保证顺序（会被打乱）</td>
+<td>保持数据顺序</td>
+<td>保持数据顺序</td>
+</tr>
+<tr>
+<td>性能开销</td>
+<td>高（需全局数据重组和物化）</td>
+<td>中（本地分割/合并，仅物化部分 Task 即可）</td>
+<td>低（仅物化部分 Task 即可）</td>
+</tr>
+<tr>
+<td>数据分布</td>
+<td>可按列值聚集或均匀分布</td>
+<td>不改变数据分布，仅调整分区边界</td>
+<td>不改变数据分布，仅按行数条数数据边界</td>
+</tr>
+<tr>
+<td>使用限制</td>
+<td>1) 仅支持 Ray Runner；2）需要全局数据重组和物化</td>
+<td>1）仅支持 Ray Runner；2）数据分布均衡性不及 repartition</td>
+<td>1）支持 Ray Runner 和 Native Runner；2）不能严格保证批次大小，尽力而为</td>
+</tr>
+<tr>
+<td>选型建议</td>
+<td>重量级分区操作，适用于需要改变数据分区数，且对数据的分布均衡性有要求或者希望将相同 key 分布到相同节点的场景</td>
+<td>轻量级分区操作，适用于简单调整分区数的场景，对数据分布情况不做要求</td>
+<td>轻量级分批操作，主要用于优化内存占用和任务运行并行度</td>
+</tr>
+</tbody></table></div>
+
+        <h1 id="参考">
+          <a href="#参考" class="heading-link"><i class="fas fa-link"></i></a><a href="#参考" class="headerlink" title="参考"></a>参考</h1>
+      <ul>
+<li><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://docs.daft.ai/en/stable/optimization/partitioning/">Partitioning and Batching</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></li>
+</ul>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2026/04/09/daft/daft-repartition/">https://plotor.github.io/2026/04/09/daft/daft-repartition/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Daft/">Daft</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Ray/">Ray</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/AI/">AI</a></span></div><nav class="post-paginator paginator"><div class="paginator-next"><a class="paginator-next__link" href="/2025/12/08/daft/daft-flotilla/"><span class="paginator-prev__text">通过图片分类任务探寻 Daft 运行机制之 Flotilla 引擎篇</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%88%86%E5%8C%BA-amp-%E5%88%86%E6%89%B9"><span class="toc-number">1.</span> <span class="toc-text">
+          分区 &amp; 分批</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8-repartition-%E5%AE%9E%E7%8E%B0%E6%95%B0%E6%8D%AE%E9%87%8D%E5%88%86%E5%8C%BA"><span class="toc-number">1.1.</span> <span class="toc-text">
+          使用 repartition 实现数据重分区</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9F%BA%E4%BA%8E-map-reduce-%E7%AD%96%E7%95%A5%E7%9A%84-repartition-%E5%AE%9E%E7%8E%B0"><span class="toc-number">1.1.1.</span> <span class="toc-text">
+          基于 map_reduce 策略的 repartition 实现</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#Map-%E7%AB%AF%E6%9C%AC%E5%9C%B0%E5%B0%86%E6%95%B0%E6%8D%AE%E5%88%87%E5%88%86%E4%B8%BA-N-%E4%B8%AA%E6%A1%B6"><span class="toc-number">1.1.1.1.</span> <span class="toc-text">
+          Map 端本地将数据切分为 N 个桶</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#Reduce-%E7%AB%AF%E6%8C%89%E5%88%86%E5%8C%BA%E7%B4%A2%E5%BC%95%E6%9E%84%E5%BB%BA%E5%B9%B6%E6%89%A7%E8%A1%8C%E4%B8%8B%E6%B8%B8-Task"><span class="toc-number">1.1.1.2.</span> <span class="toc-text">
+          Reduce 端按分区索引构建并执行下游 Task</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9F%BA%E4%BA%8E-pre-shuffle-merge-%E7%AD%96%E7%95%A5%E7%9A%84-repartition-%E5%AE%9E%E7%8E%B0"><span class="toc-number">1.1.2.</span> <span class="toc-text">
+          基于 pre_shuffle_merge 策略的 repartition 实现</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%A7%A6%E5%8F%91%E6%9D%A1%E4%BB%B6%E4%B8%8E%E9%98%88%E5%80%BC%E8%AE%BE%E5%AE%9A"><span class="toc-number">1.1.2.1.</span> <span class="toc-text">
+          触发条件与阈值设定</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%8C%89%E8%8A%82%E7%82%B9%E5%90%88%E5%B9%B6%E8%BE%93%E5%85%A5%E5%88%86%E5%8C%BA"><span class="toc-number">1.1.2.2.</span> <span class="toc-text">
+          按节点合并输入分区</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8-into-partitions-%E5%AE%9E%E7%8E%B0%E6%95%B0%E6%8D%AE%E9%87%8D%E5%88%86%E5%8C%BA"><span class="toc-number">1.2.</span> <span class="toc-text">
+          使用 into_partitions 实现数据重分区</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%87%E5%88%86%EF%BC%9A%E4%B8%8A%E6%B8%B8-Task-%E6%95%B0%E7%9B%AE%E5%B0%8F%E4%BA%8E%E7%9B%AE%E6%A0%87%E5%88%86%E5%8C%BA%E6%95%B0"><span class="toc-number">1.2.1.</span> <span class="toc-text">
+          切分：上游 Task 数目小于目标分区数</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%90%88%E5%B9%B6%EF%BC%9A%E4%B8%8A%E6%B8%B8-Task-%E6%95%B0%E7%9B%AE%E5%A4%A7%E4%BA%8E%E7%9B%AE%E6%A0%87%E5%88%86%E5%8C%BA%E6%95%B0"><span class="toc-number">1.2.2.</span> <span class="toc-text">
+          合并：上游 Task 数目大于目标分区数</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8-into-batches-%E5%AE%9E%E7%8E%B0%E6%95%B0%E6%8D%AE%E9%87%8D%E5%88%86%E6%89%B9"><span class="toc-number">1.3.</span> <span class="toc-text">
+          使用 into_batches 实现数据重分批</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">2.</span> <span class="toc-text">
+          总结</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">3.</span> <span class="toc-text">
+          参考</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">99</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">15</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">31</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2026</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.8.0</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.8.0"></script><script src="/js/unsplash-bg.js?v=2.8.0"></script><script src="/js/stun-boot.js?v=2.8.0"></script><script src="/js/scroll.js?v=2.8.0"></script><script src="/js/header.js?v=2.8.0"></script><script src="/js/sidebar.js?v=2.8.0"></script><script type="application/json" src="/search.json"></script></body></html>
