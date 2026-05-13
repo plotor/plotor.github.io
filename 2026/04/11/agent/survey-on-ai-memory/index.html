@@ -1,0 +1,1689 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="format-detection" content="telephone=no"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><link rel="icon" href="/images/favicon_16.png?v=2.8.0" type="image/png" sizes="16x16"><link rel="icon" href="/images/favicon_32.png?v=2.8.0" type="image/png" sizes="32x32"><meta name="google-site-verification" content="O5CNgi37yYXs3qQp7Xz61oL_AmGiwM28d7hRt5yh2to"><meta name="baidu-site-verification" content="pnKVynCWMP"><meta name="description" content="AI memory is not merely static storage, but a dynamic cognitive substrate critical for continuous learning and adaptation.  大语言模型（LLMs）正在重塑人工智能的边界，但一个根本性的限制始终存在：上下文窗口有限，且模型天然是无状态的，无法积累和复用历史经验。这意味着每一次">
+<meta property="og:type" content="article">
+<meta property="og:title" content="论文阅读《Survey on AI Memory: Theories, Taxonomies, Evaluations, and Emerging Trends》">
+<meta property="og:url" content="https://plotor.github.io/2026/04/11/agent/survey-on-ai-memory/index.html">
+<meta property="og:site_name" content="指  间">
+<meta property="og:description" content="AI memory is not merely static storage, but a dynamic cognitive substrate critical for continuous learning and adaptation.  大语言模型（LLMs）正在重塑人工智能的边界，但一个根本性的限制始终存在：上下文窗口有限，且模型天然是无状态的，无法积累和复用历史经验。这意味着每一次">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://plotor.github.io/images/2026/survey-on-ai-memory-fig1.png?raw=false">
+<meta property="og:image" content="https://plotor.github.io/images/2026/survey-on-ai-memory-fig2.png?raw=false">
+<meta property="og:image" content="https://plotor.github.io/images/2026/survey-on-ai-memory-fig3.png?raw=false">
+<meta property="og:image" content="https://plotor.github.io/images/2026/survey-on-ai-memory-fig4.png?raw=false">
+<meta property="article:published_time" content="2026-04-11T08:16:00.000Z">
+<meta property="article:modified_time" content="2026-05-13T11:33:44.950Z">
+<meta property="article:author" content="zhenchao">
+<meta property="article:tag" content="Agent">
+<meta property="article:tag" content="LLM">
+<meta property="article:tag" content="AI">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://plotor.github.io/images/2026/survey-on-ai-memory-fig1.png?raw=false"><title>论文阅读《Survey on AI Memory: Theories, Taxonomies, Evaluations, and Emerging Trends》 | 指  间</title><link ref="canonical" href="https://plotor.github.io/2026/04/11/agent/survey-on-ai-memory/"><link rel="alternate" href="/atom.xml" type="application/atom+xml"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.12.1/css/all.min.css" type="text/css"><link rel="stylesheet" href="/css/index.css?v=2.8.0"><script>var Stun = window.Stun || {};
+var CONFIG = {
+  root: '/',
+  algolia: undefined,
+  assistSearch: undefined,
+  fontIcon: {"prompt":{"success":"fas fa-check-circle","info":"fas fa-arrow-circle-right","warning":"fas fa-exclamation-circle","error":"fas fa-times-circle"},"copyBtn":"fas fa-copy"},
+  sidebar: {"offsetTop":"20px","tocMaxDepth":6},
+  header: {"enable":true,"showOnPost":false,"scrollDownIcon":true},
+  postWidget: {"endText":true},
+  nightMode: {"enable":true},
+  back2top: {"enable":true},
+  codeblock: {"style":"carbon","highlight":"light","wordWrap":false},
+  reward: false,
+  fancybox: false,
+  zoomImage: {"gapAside":"20px"},
+  galleryWaterfall: undefined,
+  lazyload: true,
+  pjax: {"avoidBanner":false},
+  externalLink: {"icon":{"enable":true,"name":"fas fa-external-link-alt"}},
+  shortcuts: undefined,
+  prompt: {"copyButton":"复制","copySuccess":"复制成功","copyError":"复制失败"},
+  sourcePath: {"js":"js","css":"css","images":"images"},
+  unsplash: {"enable":true,"apiKey":"BFQf5aNMWD8KYWj1H6efSZ0qVcsWzsuV_FVmeuhJYj4","query":null,"collections":null,"topics":"nature","featured":true,"orientation":"landscape","width":1280,"height":720,"cache_duration":1},
+};
+
+window.CONFIG = CONFIG;</script><meta name="generator" content="Hexo 5.3.0">
+<style>.github-emoji { position: relative; display: inline-block; width: 1.2em; min-height: 1.2em; overflow: hidden; vertical-align: top; color: transparent; }  .github-emoji > span { position: relative; z-index: 10; }  .github-emoji img, .github-emoji .fancybox { margin: 0 !important; padding: 0 !important; border: none !important; outline: none !important; text-decoration: none !important; user-select: none !important; cursor: auto !important; }  .github-emoji img { height: 1.2em !important; width: 1.2em !important; position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; user-select: none !important; cursor: auto !important; } .github-emoji-fallback { color: inherit; } .github-emoji-fallback img { opacity: 0 !important; }</style>
+</head><body><div class="container" id="container"><header class="header" id="header"><div class="header-inner header-inner--height header-inner--bgcolor"><nav class="header-nav header-nav--sticky"><div class="header-nav-inner"><div class="header-nav-menubtn"><i class="fas fa-bars"></i></div><div class="header-nav-menu"><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/"><span class="header-nav-menu-item__icon"><i class="fas fa-home"></i></span><span class="header-nav-menu-item__text">首页</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/archives/"><span class="header-nav-menu-item__icon"><i class="fas fa-folder-open"></i></span><span class="header-nav-menu-item__text">归档</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/categories/"><span class="header-nav-menu-item__icon"><i class="fas fa-layer-group"></i></span><span class="header-nav-menu-item__text">分类</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/tags/"><span class="header-nav-menu-item__icon"><i class="fas fa-tags"></i></span><span class="header-nav-menu-item__text">标签</span></a></div><div class="header-nav-menu-item"><a class="header-nav-menu-item__link" href="/about/"><span class="header-nav-menu-item__icon"><i class="fas fa-user-circle"></i></span><span class="header-nav-menu-item__text">关于</span></a></div></div><div class="header-nav-search"><span class="header-nav-search__icon"><i class="fas fa-search"></i></span><span class="header-nav-search__text">搜索</span></div><div class="header-nav-mode"><div class="mode"><div class="mode-track"><span class="mode-track-moon"></span><span class="mode-track-sun"></span></div><div class="mode-thumb"></div></div></div></div></nav></div></header><main class="main" id="main"><div class="main-inner"><div class="content-wrap" id="content-wrap"><div class="content" id="content"><!-- Just used to judge whether it is an article page--><div id="is-post"></div><div class="post"><header class="post-header"><h1 class="post-title">论文阅读《Survey on AI Memory: Theories, Taxonomies, Evaluations, and Emerging Trends》</h1><div class="post-meta"><span class="post-meta-item post-meta-item--createtime"><span class="post-meta-item__icon"><i class="far fa-calendar-plus"></i></span><span class="post-meta-item__info">发表于</span><span class="post-meta-item__value">2026-04-11</span></span><span class="post-meta-item post-meta-item--wordcount"><span class="post-meta-item__icon"><i class="far fa-file-word"></i></span><span class="post-meta-item__info">字数统计</span><span class="post-meta-item__value">12.4k</span></span><span class="post-meta-item post-meta-item--readtime"><span class="post-meta-item__icon"><i class="far fa-clock"></i></span><span class="post-meta-item__info">阅读时长</span><span class="post-meta-item__value">44分</span></span></div></header><div class="post-body"><blockquote>
+<p>AI memory is not merely static storage, but a dynamic cognitive substrate critical for continuous learning and adaptation.</p>
+</blockquote>
+<p>大语言模型（LLMs）正在重塑人工智能的边界，但一个根本性的限制始终存在：<strong>上下文窗口有限，且模型天然是无状态的，无法积累和复用历史经验</strong>。这意味着每一次对话都是从零开始，系统无法从过往交互中学习，也无法形成持久的用户理解。</p>
+<p>AI 记忆（AI Memory）正是为了解决这一结构性缺陷而生，其本质是让系统从被动响应转向主动智能，支撑持续学习和自我进化。本文基于综述《<span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://baijia.online/homepage/survey/Survey%20on%20AI%20Memory.pdf">Survey on AI Memory: Theories, Taxonomies, Evaluations, and Emerging Trends</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>》，系统梳理 AI 记忆机制的理论基础、分类框架、系统架构、评估方法和应用前景。<a id="more"></a></p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2026/survey-on-ai-memory-fig1.png?raw=false" style="" alt="image">
+      </p>
+
+        <h2 id="AI-领域三层-Memory-定义">
+          <a href="#AI-领域三层-Memory-定义" class="heading-link"><i class="fas fa-link"></i></a><a href="#AI-领域三层-Memory-定义" class="headerlink" title="AI 领域三层 Memory 定义"></a>AI 领域三层 Memory 定义</h2>
+      <p>在深入讨论 AI 记忆之前，有必要先厘清三个紧密关联却层级不同的概念：LLM Memory、Agent Memory 与 AI Memory。它们的关系并非简单的同义词替换，而是从底层计算到高层认知的递进抽象。</p>
+<ul>
+<li><strong>LLM Memory</strong>：大语言模型的底层记忆机制，包含静态的参数权重和运行时的上下文窗口。它是模型推理的基础，但缺乏跨会话的持续学习能力。</li>
+<li><strong>Agent Memory</strong>：围绕“感知-规划-执行”循环组织的功能性记忆系统，支持 Agent 完成复杂任务。它将 LLM 的记忆能力扩展为可操作的认知资源。</li>
+<li><strong>AI Memory</strong>：最宏观的记忆视角，强调 Agent 的终身演化、长期持久性和自适应能力。它是连接人类认知心理学与 AI 工程实现的统一框架。</li>
+</ul>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2026/survey-on-ai-memory-fig2.png?raw=false" style="" alt="image">
+      </p>
+<p>从多维度对 LLM Memory、Agent Memory 和 AI Memory 进行对比如下表所示：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>LLM Memory</th>
+<th>Agent Memory</th>
+<th>AI Memory</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>关注点</td>
+<td>文本生成</td>
+<td>任务执行</td>
+<td>长期智能演化</td>
+</tr>
+<tr>
+<td>所在层级</td>
+<td>模型层</td>
+<td>Agent 层</td>
+<td>AI 系统/认知层</td>
+</tr>
+<tr>
+<td>典型内容</td>
+<td>模型参数、上下文窗口</td>
+<td>任务状态、工具结果、用户偏好、执行轨迹</td>
+<td>长期知识、经验、技能、社会协作记忆</td>
+</tr>
+<tr>
+<td>主要问题</td>
+<td>如何利用已有知识生成回答</td>
+<td>如何记住任务过程并行动</td>
+<td>如何持续学习、适应和演化</td>
+</tr>
+<tr>
+<td>时间跨度</td>
+<td>当前上下文到模型训练周期</td>
+<td>一次任务到跨会话</td>
+<td>长期、跨任务、跨环境</td>
+</tr>
+<tr>
+<td>是否需要外部存储</td>
+<td>不一定</td>
+<td>通常需要</td>
+<td>通常需要复杂系统支持</td>
+</tr>
+</tbody></table></div>
+<p>相对于 LLM Memory 和 Agent Memory 而言，AI Memory 是最广义、最抽象的概念。它不局限于 LLM，也不局限于某个 Agent，它讨论的是一个 AI 系统如何像认知系统一样，长期保存、组织、更新、遗忘、迁移和利用经验；它关注持续学习、长期适应、自我进化、多 Agent 协作、人类对齐等更大范畴的问题。</p>
+
+        <h2 id="几个容易与-Memory-混淆的概念">
+          <a href="#几个容易与-Memory-混淆的概念" class="heading-link"><i class="fas fa-link"></i></a><a href="#几个容易与-Memory-混淆的概念" class="headerlink" title="几个容易与 Memory 混淆的概念"></a>几个容易与 Memory 混淆的概念</h2>
+      <p>Memory 与几个常见概念在实践中极易混用，包括知识（Knowledge）、上下文（Context）和经验（Experience）。准确区分它们，是理解 AI 记忆系统设计前提的关键。Memory 的核心是“曾经发生过、被记录下来、以后可能再用”，通常带有时间、来源、对象和场景等属性。它不一定是完全抽象的知识，也不一定永远正确，更像是“历史记录”或“个人档案”。</p>
+
+        <h3 id="Memory-vs-Knowledge">
+          <a href="#Memory-vs-Knowledge" class="heading-link"><i class="fas fa-link"></i></a><a href="#Memory-vs-Knowledge" class="headerlink" title="Memory vs Knowledge"></a>Memory vs Knowledge</h3>
+      <p>Knowledge 是从大量信息中沉淀后的稳定事实模式，可通过反复验证的 Memory 转化而来。Memory 通常更具体，且带有历史痕迹，而 Knowledge 更稳定，带有泛化和沉淀。前者偏“某次发生的事”，后者偏“通常成立的事实或规则”。例如：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>类型</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Memory</td>
+<td>患者 2026 年 5 月 1 日说自己对青霉素过敏</td>
+</tr>
+<tr>
+<td>Knowledge</td>
+<td>青霉素过敏患者应避免使用青霉素类药物</td>
+</tr>
+</tbody></table></div>
+<p>Memory 可以沉淀成 Knowledge，Knowledge 也会影响 Memory 的使用。</p>
+
+        <h3 id="Memory-vs-Context">
+          <a href="#Memory-vs-Context" class="heading-link"><i class="fas fa-link"></i></a><a href="#Memory-vs-Context" class="headerlink" title="Memory vs Context"></a>Memory vs Context</h3>
+      <p>Context 是推理窗口内的临时缓冲，是一次推理时模型眼前能看到的内容，使用后即丢弃，不具持久性；Memory 是系统保存的历史信息，不一定都在当前 Context 中。Context 通常短暂，受上下文窗口限制，而 Memory 可以很大、很久，通常需要被检索后放进 Context，模型才能使用。</p>
+<p>例如，用户新开一个对话说：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">帮我规划大阪三日游。</span><br></pre></td></tr></tbody></table></div></figure>
+<p>系统长期 Memory 中有：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">用户不吃生食。</span><br><span class="line">用户不喜欢早起。</span><br><span class="line">用户喜欢轻松行程。</span><br></pre></td></tr></tbody></table></div></figure>
+<p>模型当前 Context 可能是：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">系统提示词：你是旅行助手。</span><br><span class="line">用户问题：帮我规划大阪三日游。</span><br><span class="line">检索到的记忆：用户不吃生食；用户不喜欢早起。</span><br></pre></td></tr></tbody></table></div></figure>
+<p>这里：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>概念</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Memory</td>
+<td>长期保存的“用户不吃生食、不喜欢早起、喜欢轻松行程”</td>
+</tr>
+<tr>
+<td>Context</td>
+<td>这次生成回答时真正放进 prompt 里的系统提示、用户问题、检索到的两条记忆</td>
+</tr>
+</tbody></table></div>
+<p>如果“用户喜欢轻松行程”没有被检索进当前 prompt，它仍然是 Memory，但不是当前 Context。</p>
+
+        <h3 id="Memory-vs-Experience">
+          <a href="#Memory-vs-Experience" class="heading-link"><i class="fas fa-link"></i></a><a href="#Memory-vs-Experience" class="headerlink" title="Memory vs Experience"></a>Memory vs Experience</h3>
+      <p>Experience 是从 Memory 中总结出的可复用做事方法。Memory 像是原始素材，而 Experience 更像可复用策略。Memory 回答“发生过什么”，而 Experience 回答“下次遇到类似问题该怎么做”。例如：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>类型</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Memory</td>
+<td>上次修 bug 时，登录接口 500 是因为数据库返回 None，代码没有做空值处理</td>
+</tr>
+<tr>
+<td>Experience</td>
+<td>遇到接口 500 时，优先检查外部数据为空、异常处理和日志链路</td>
+</tr>
+</tbody></table></div>
+
+        <h2 id="4W-记忆分类法">
+          <a href="#4W-记忆分类法" class="heading-link"><i class="fas fa-link"></i></a><a href="#4W-记忆分类法" class="headerlink" title="4W 记忆分类法"></a>4W 记忆分类法</h2>
+      <p>论文提出了标准化的 4W 记忆分类法（即 When、What、How 和 Which），从四个维度统一定义记忆机制，便于对比不同方案和工程取舍。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2026/survey-on-ai-memory-fig3.png?raw=false" style="" alt="image">
+      </p>
+
+        <h3 id="When：按生命周期分类">
+          <a href="#When：按生命周期分类" class="heading-link"><i class="fas fa-link"></i></a><a href="#When：按生命周期分类" class="headerlink" title="When：按生命周期分类"></a>When：按生命周期分类</h3>
+      <p>按照 Memory 留存时长进行分类：</p>
+<ul>
+<li><strong>瞬时记忆（Transient）</strong>：即时处理阶段的输入缓冲，像“眼前一闪而过的感知”，刚看到、刚听到、刚输入，还没真正记住。</li>
+<li><strong>会话记忆（Session）</strong>：单次任务/会话中的工作记忆，像“这次谈话期间脑子里一直记着的上下文”，只在当前任务中有效。</li>
+<li><strong>持久记忆（Persistent）</strong>：跨会话、跨任务的长期可复用记忆，像“长期记忆本”，跨天、跨任务、跨会话还能被再次调用。</li>
+</ul>
+<p>三者的区别如下表所示：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>类型</th>
+<th>持续时间</th>
+<th>主要作用</th>
+<th>类比人类</th>
+<th>AI 系统示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>瞬时记忆</td>
+<td>毫秒到几秒</td>
+<td>临时接收输入</td>
+<td>眼睛刚看到的画面、耳朵刚听到的声音</td>
+<td>图像帧缓存、语音流缓冲、LLM 生成时的 KV Cache</td>
+</tr>
+<tr>
+<td>会话记忆</td>
+<td>一次对话或一次任务期间</td>
+<td>保持当前任务上下文</td>
+<td>这场会议中你记得刚才谁说了什么</td>
+<td>当前聊天上下文、Agent 当前任务状态</td>
+</tr>
+<tr>
+<td>持久记忆</td>
+<td>跨会话、跨任务、长期保存</td>
+<td>支持个性化、经验复用、长期学习</td>
+<td>你记得朋友喜好、工作经验、学过的知识</td>
+<td>用户画像、长期知识库、向量数据库、技能库</td>
+</tr>
+</tbody></table></div>
+<p><strong>瞬时记忆</strong> 是 AI 系统最“即时”的记忆，通常只存在于输入刚进入系统、还没被筛选和加工的阶段。它的特点是“来得快、走得也快”，如果系统判断这部分信息没必要继续处理，它很快就会被丢弃。瞬时记忆不是为了长期推理，而是为了让系统能连续感知世界，比如连续处理视频帧、语音片段、传感器数据，它更像“感知缓冲区”，而不是“真正记住”。</p>
+<p>例如，扫地机器人摄像头捕捉到一帧画面，系统先临时缓存这一帧，用于判断前面是不是障碍物；如果不是重要信息，马上丢弃。</p>
+<p><strong>会话记忆</strong> 比瞬时记忆更稳定，但仍然有边界，它通常只在“一次对话、一轮任务、一个工作流”中存在，目的是让 AI 知道“当前正在做什么”“刚才说过什么”“接下来该接着哪里做”。会话记忆的核心作用是维持当前任务的一致性，而不是长期保存用户或环境信息，它常常依赖上下文窗口、临时变量、任务状态、对话历史摘要等实现。</p>
+<p>例如，一个 Code Agent 正在修 bug，它会在当前任务中记住“已经读过哪些文件、发现哪个函数有问题、下一步要改哪里”，任务结束后，这些状态可能不会保留。</p>
+<p><strong>持久记忆</strong> 是最接近“真正长期记住”的记忆，能够跨会话、跨任务、跨时间保存，其价值在于让 AI 不再每次从零开始，而是能复用过去的用户偏好、历史经验、环境知识和成功策略。持久记忆通常需要外部存储，比如数据库、文件、向量库、知识图谱、用户画像系统，或者模型参数中的长期知识，也是最复杂的，因为涉及写入、检索、更新、遗忘、权限、隐私和过期信息处理。</p>
+<p>例如，用户长期喜欢“回答简洁、用中文、优先给代码示例”，系统把这些偏好保存下来，下次新会话也能自动适配。</p>
+
+        <h3 id="What：按内容类型分类">
+          <a href="#What：按内容类型分类" class="heading-link"><i class="fas fa-link"></i></a><a href="#What：按内容类型分类" class="headerlink" title="What：按内容类型分类"></a>What：按内容类型分类</h3>
+      <p>按照 Memory 内容类型进行分类：</p>
+<ul>
+<li><strong>程序性记忆（Procedural）</strong>：记住“怎么做”，包括技能、行动序列、工具调用方式等。</li>
+<li><strong>陈述性记忆（Declarative）</strong>：记住“是什么、发生了什么”，包括事实、事件、观察记录等。</li>
+<li><strong>自认知记忆（Metacognitive）</strong>：记住“我自己做得怎么样、哪里容易错”，包括反思、自我能力评估、表现跟踪等。</li>
+<li><strong>个性化记忆（Personalized）</strong>：记住“这个用户/这个人是谁、喜欢什么、需要什么”，包括用户偏好、关系、用户画像等。</li>
+</ul>
+<p>四者的区别如下表所示：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>记忆类型</th>
+<th>记住什么</th>
+<th>回答的问题</th>
+<th>人类类比</th>
+<th>Agent 示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Procedural</td>
+<td>动作、流程、技能、工具使用方法</td>
+<td>怎么做？</td>
+<td>怎么骑车、怎么做饭</td>
+<td>如何调用 API、如何修某类 bug</td>
+</tr>
+<tr>
+<td>Declarative</td>
+<td>事实、事件、观察、状态</td>
+<td>是什么？发生了什么？</td>
+<td>知道知识、记得经历</td>
+<td>用户说了什么、网页内容是什么</td>
+</tr>
+<tr>
+<td>Metacognitive</td>
+<td>自我反思、能力边界、失败原因</td>
+<td>我做得怎么样？</td>
+<td>知道自己哪里弱</td>
+<td>上次失败是因为没检查日志</td>
+</tr>
+<tr>
+<td>Personalized</td>
+<td>用户偏好、身份、关系、个体特征</td>
+<td>对谁做？怎么适配这个人？</td>
+<td>记得朋友喜好</td>
+<td>用户喜欢简洁回答、不吃生食</td>
+</tr>
+</tbody></table></div>
+<p><strong>程序性记忆</strong> 可以理解为“操作型记忆”或“技能记忆”，保存的是完成任务的方法、步骤、流程、工具调用方式和动作序列。对 Agent 来说它特别重要，因为 Agent 不只是回答问题，还要执行任务。</p>
+<p>例如，一个 Code Agent 以前多次修过接口报错，于是形成了这样的程序性记忆：</p>
+<figure class="highlight json"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">{</span><br><span class="line">  <span class="attr">"type"</span>: <span class="string">"ProceduralMemory"</span>,</span><br><span class="line">  <span class="attr">"content"</span>: <span class="string">"排查 HTTP 500 问题时，先查看错误日志，再定位异常栈，检查空值、数据库连接和外部服务返回，最后补充回归测试。"</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>当用户说“登录接口又报 500 了，帮我看看”时，Agent 不会再从零开始，而是按照这套流程行动：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">1. 读取报错日志</span><br><span class="line">2. 找到异常栈</span><br><span class="line">3. 检查登录相关代码</span><br><span class="line">4. 验证数据库返回</span><br><span class="line">5. 修改代码</span><br><span class="line">6. 运行测试</span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>陈述性记忆</strong> 用于保存事实、事件、观察、知识和状态，回答的是“是什么”、“发生过什么”、“当前环境是什么样”。</p>
+<p>例如“北京是中国的首都”、“我昨天晚上 8 点和朋友吃了饭”都是生活中常见的陈述性记忆示例。以 Code Agent 为例，可能会记录类似下面这样的陈述性记忆：</p>
+<figure class="highlight json"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">{</span><br><span class="line">  <span class="attr">"type"</span>: <span class="string">"DeclarativeMemory"</span>,</span><br><span class="line">  <span class="attr">"content"</span>: <span class="string">"项目的登录接口位于 auth_service.py，数据库表 users 中 email 字段允许为空。"</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>陈述性记忆就像“事实笔记本”，它主要保存“知道什么”和“发生了什么”。</p>
+<p><strong>自认知记忆</strong> 可以理解为“自我认知记忆”或“反思记忆”，保存的是 Agent 对自己表现的认识，包括哪里做得好、哪里失败、为什么失败、下次应该如何改进等。这类记忆让 Agent 不只是积累信息，而是能从错误中学习，回答的是“我自己是怎么想的？”、“我哪里容易出错？”、“下次该如何调整？”等问题。</p>
+<p>例如，一个 Code Agent 修 bug 失败后，形成如下记忆：</p>
+<figure class="highlight json"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">{</span><br><span class="line">  <span class="attr">"type"</span>: <span class="string">"MetacognitiveMemory"</span>,</span><br><span class="line">  <span class="attr">"content"</span>: <span class="string">"上次修改登录模块时没有运行完整测试，导致权限接口回归失败。以后修改认证相关代码后，必须运行 auth 和 permission 两组测试。"</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>自认知记忆是 Agent 自我进化的关键。</p>
+<p><strong>个性化记忆</strong> 保存的是关于用户、其他人、其他 Agent 的信息，关注的是目标对象有什么偏好、身份、习惯、关系和长期需求等，从而让 Agent 能提供因人而异的个性化服务。</p>
+<p>例如，Code Agent 中可能会保存如下记忆：</p>
+<figure class="highlight json"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">{</span><br><span class="line">  <span class="attr">"type"</span>: <span class="string">"PersonalizedMemory"</span>,</span><br><span class="line">  <span class="attr">"content"</span>: <span class="string">"用户写 Python 项目时偏好 pytest，提交前希望先看到测试结果。"</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="How：按存储形式分类">
+          <a href="#How：按存储形式分类" class="heading-link"><i class="fas fa-link"></i></a><a href="#How：按存储形式分类" class="headerlink" title="How：按存储形式分类"></a>How：按存储形式分类</h3>
+      <p>按照 Memory 存储形式进行分类：</p>
+<ul>
+<li><strong>隐式存储（Implicit）</strong>：参数化记忆、模型权重内的隐状态，通常不容易直接读出来。</li>
+<li><strong>显式存储（Explicit）</strong>：原始文本、向量数据库、结构化知识图谱，可以被检索、查看、编辑和删除。</li>
+</ul>
+<p>二者的区别如下表所示：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>隐式记忆</th>
+<th>显式记忆</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>存储位置</td>
+<td>模型参数、激活、latent space</td>
+<td>文本、日志、数据库、向量库、知识图谱</td>
+</tr>
+<tr>
+<td>是否可读</td>
+<td>通常不可直接读</td>
+<td>通常可读或可解释</td>
+</tr>
+<tr>
+<td>是否易修改</td>
+<td>修改成本高</td>
+<td>修改相对容易</td>
+</tr>
+<tr>
+<td>是否易删除</td>
+<td>难以精确删除</td>
+<td>可以按记录删除</td>
+</tr>
+<tr>
+<td>使用方式</td>
+<td>模型自然“体现”出来</td>
+<td>检索后放入上下文使用</td>
+</tr>
+<tr>
+<td>典型例子</td>
+<td>预训练知识、LoRA、KV Cache、embedding latent</td>
+<td>用户画像、对话记录、文档知识库、工具调用日志</td>
+</tr>
+<tr>
+<td>优点</td>
+<td>- 调用速度快，不一定需要额外检索<br>- 与模型生成过程深度融合<br>- 适合保存通用能力、语言模式、技能倾向、领域知识<br>- 对模型来说使用自然，不需要显式拼接 Prompt</td>
+<td>- 可解释：能看到系统到底记了什么<br>- 可编辑：错误记忆可以修改<br>- 可删除：用户要求遗忘时更容易处理<br>- 可溯源：可以记录来自哪次对话、哪个文件、哪个网页<br>- 可更新：用户偏好变化时，可以覆盖旧记录<br>- 可组合：可以和权限、标签、时间、用户 ID 结合</td>
+</tr>
+<tr>
+<td>缺点</td>
+<td>- 不透明：很难知道到底记住了什么<br>- 难编辑：想修改一个具体事实，可能需要微调或模型编辑<br>- 难删除：如果模型记住了敏感信息，很难保证彻底忘掉<br>- 易过时：参数中的知识可能停留在训练时间点<br>- 难溯源：模型说出某个信息时，很难知道来源是哪条数据</td>
+<td>- 需要检索：存了不代表每次都能找到<br>- 检索可能不准：相关记忆可能没召回，或者召回了无关内容<br>- 有上下文开销：检索出来后通常要放进 Prompt，占用 Token<br>- 需要维护：要去重、压缩、更新、遗忘、处理冲突<br>- 可能变脏：如果什么都存，会产生大量低质量记忆</td>
+</tr>
+</tbody></table></div>
+<p><strong>隐式记忆</strong> 是藏在模型内部或连续表示空间里的记忆（可以简单类比为人类的肌肉记忆），不一定以人类可读的文字存在。模型在使用时，通常不是先查一条记录，而是在生成、推理或预测过程中自然体现出来，更像一种“内化能力”。</p>
+<p>例如，对于 LLM 而言，它从训练中知道“中国的首都是北京”，这一知识大多存在模型参数里，但你不能打开模型权重直接看到这一行。</p>
+<p>对于 Code Agent 而言，经过微调或 LoRA 学会了某类代码风格：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">- 更倾向于写类型注解</span><br><span class="line">- 更倾向于使用 pytest</span><br><span class="line">- 更擅长生成 FastAPI 项目结构</span><br></pre></td></tr></tbody></table></div></figure>
+<p>这些偏好可能并不存在于某个 JSON 文件里，而是体现在模型参数或 Adapter 中。</p>
+<p><strong>显式记忆</strong> 是“写进去、存起来、能被系统查到的记忆”，通常以文本、结构化数据、向量、图谱、日志、文件等形式存在。它可以被检索、排序、更新、删除、审计，更像是 Agent 的“外部笔记本”或“数据库”。</p>
+<p>例如，对于 LLM/Agent 而言，用户说“我以后出差尽量住安静、离地铁近的酒店”，系统可能会把它保存成：</p>
+<figure class="highlight json"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">{</span><br><span class="line">  <span class="attr">"type"</span>: <span class="string">"PreferenceMemory"</span>,</span><br><span class="line">  <span class="attr">"content"</span>: <span class="string">"用户出差时偏好安静且靠近地铁的酒店"</span>,</span><br><span class="line">  <span class="attr">"source"</span>: <span class="string">"conversation"</span>,</span><br><span class="line">  <span class="attr">"created_at"</span>: <span class="string">"2026-05-11"</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>下次用户说“帮我订上海的酒店”，Agent 可以检索这条记忆，并生成：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">我会优先筛选靠近地铁、评价中安静程度较高的酒店。</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h3 id="Which：按模态维度分类">
+          <a href="#Which：按模态维度分类" class="heading-link"><i class="fas fa-link"></i></a><a href="#Which：按模态维度分类" class="headerlink" title="Which：按模态维度分类"></a>Which：按模态维度分类</h3>
+      <p>按照 Memory 模态进行分类：</p>
+<ul>
+<li><strong>单模态记忆（Single-modal）</strong>：只记一种信息形式，比如只记文本。</li>
+<li><strong>多模态记忆（Multimodal）</strong>：同时记多种信息形式，并能把它们关联起来，比如文本、图片、语音、视频、位置、动作一起记。</li>
+</ul>
+<p>二者的区别如下表所示：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>单模态记忆</th>
+<th>多模态记忆</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>常见形式</td>
+<td>文本、纯语音、纯图像</td>
+<td>文本 + 图像 + 音频 + 视频 + 传感器</td>
+</tr>
+<tr>
+<td>典型系统</td>
+<td>文本聊天助手、文档问答系统</td>
+<td>机器人、视频助手、智能眼镜、会议助手</td>
+</tr>
+<tr>
+<td>主要能力</td>
+<td>记住说过什么、写过什么</td>
+<td>记住看到了什么、听到了什么、发生在哪里、谁做了什么</td>
+</tr>
+<tr>
+<td>难点</td>
+<td>长文本组织和检索</td>
+<td>跨模态对齐、时间同步、实体绑定、空间定位</td>
+</tr>
+</tbody></table></div>
+<p><strong>单模态记忆</strong> 指系统只围绕一种信息形式建立记忆。在 LLM Agent 中，最常见的是“文本记忆”，它可以保存对话、文档、摘要、用户偏好、任务记录、网页内容等，优势在于简单、成熟、容易检索、容易展示和编辑。</p>
+<p><strong>多模态记忆</strong> 指系统能保存、组织和检索多种类型的信息，不仅记录文字，还记录图片、音频、视频、空间位置、时间戳、传感器数据、工具动作等，并把这些模态关联起来。多模态记忆不是简单把文件堆在一起，而是知道“谁在什么时间、什么地点、说了什么、做了什么、画面里有什么”。</p>
+
+        <h2 id="单-Agent-记忆系统">
+          <a href="#单-Agent-记忆系统" class="heading-link"><i class="fas fa-link"></i></a><a href="#单-Agent-记忆系统" class="headerlink" title="单 Agent 记忆系统"></a>单 Agent 记忆系统</h2>
+      <p>单 Agent 记忆系统是 AI 记忆工程化的核心战场。标准 LLM 的两大结构性缺陷“上下文窗口有限”与“天然无状态”促使研究者从人类认知架构中汲取灵感，设计出四类主流记忆架构范式。这些架构不仅解决存储问题，更试图赋予 Agent 持续学习、自我进化的能力。</p>
+
+        <h3 id="主流架构">
+          <a href="#主流架构" class="heading-link"><i class="fas fa-link"></i></a><a href="#主流架构" class="headerlink" title="主流架构"></a>主流架构</h3>
+      <p>当前单智能体记忆系统的架构设计可归纳为四种典型范式，它们在缓解上下文压力、管理记忆生命周期、支持高级认知能力方面各有侧重：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>架构类型</th>
+<th>核心思想</th>
+<th>关键特点</th>
+<th>解决的问题</th>
+<th>代表系统</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>分层架构</td>
+<td>像人类记忆一样，把记忆分层管理，例如短期记忆、中期记忆、长期记忆，或者摘要层、细节层、原始记录层</td>
+<td>分层存储、分层检索、从粗到细定位信息、避免无关记忆进入上下文</td>
+<td>1）LLM 上下文窗口有限，不能把所有历史都塞进去；2）记忆太多时，直接按相似性检索容易慢且噪声大</td>
+<td><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/OswaldHe/HMT-pytorch">HMT</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>、<span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://arxiv.org/abs/2507.22925">H-MEM</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>、<span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/BAI-LAB/MemoryOS">MemoryOS</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></td>
+</tr>
+<tr>
+<td>类 OS 架构</td>
+<td>把 LLM 的上下文窗口看成“内存”，把外部记忆库看成“硬盘”，由系统决定哪些记忆换入当前上下文，哪些暂时留在外部</td>
+<td>记忆分页、上下文换入换出、冷热数据管理、资源调度、统一读写接口</td>
+<td>LLM 上下文窗口像内存一样有限，需要一个“记忆管理器”来决定当前该加载哪些内容</td>
+<td><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/letta-ai/letta">MemGPT</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>、<span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/BAI-LAB/MemoryOS">MemoryOS</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>、 <span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/MemTensor/MemOS">MemOS</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></td>
+</tr>
+<tr>
+<td>认知演进架构</td>
+<td>模仿人类认知，把记忆用于反思、学习和自我进化</td>
+<td>经验蒸馏：将原始交互转化为可复用技能；反思机制：定期评估自身表现并更新策略；预测驱动：基于历史模式预判未来需求</td>
+<td>如果 Agent 只会存历史，它仍然不会变聪明，需要能够将记忆加工成经验和能力</td>
+<td><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/joonspk-research/generative_agents">Generative Agents</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>、<span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/noahshinn/reflexion">Reflexion</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>、<span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/MineDojo/Voyager">Voyager</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>、<span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://arxiv.org/abs/2510.15261">AUGUSTUS</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>、<span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/nemori-ai/nemori">Nemori</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></td>
+</tr>
+<tr>
+<td>图与时序架构</td>
+<td>用图结构和时间线组织记忆，强调关系和演化</td>
+<td>实体建模：节点表示实体，边表示关系；时序追踪：记录状态演变的时间线；多跳推理：支持跨实体的间接关系推导</td>
+<td>纯文本或纯向量记忆不擅长表达复杂关系和时序变化</td>
+<td><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/getzep/zep">Zep</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>、<span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/mem0ai/mem0">Mem0</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>、<span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://arxiv.org/abs/2410.14052">MemTree</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span>、<span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/AIRI-Institute/AriGraph">AriGraph</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></td>
+</tr>
+</tbody></table></div>
+
+        <h3 id="基本功能">
+          <a href="#基本功能" class="heading-link"><i class="fas fa-link"></i></a><a href="#基本功能" class="headerlink" title="基本功能"></a>基本功能</h3>
+      <p>单 Agent 记忆系统的基础能力，可以理解为一个 Agent 的记忆流水线，包括写入、存储、检索、更新和遗忘等环节，具体如下表所示：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>基础能力</th>
+<th>核心问题</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>写入</td>
+<td>什么应该记录？</td>
+<td>从对话中抽取“用户不吃生食”</td>
+</tr>
+<tr>
+<td>存储</td>
+<td>存在哪里、数据怎么组织？</td>
+<td>存入用户偏好库、任务库、技能库</td>
+</tr>
+<tr>
+<td>检索</td>
+<td>当前该想起什么？</td>
+<td>规划日本旅行时找出用户饮食偏好</td>
+</tr>
+<tr>
+<td>更新</td>
+<td>记忆变了怎么办？</td>
+<td>用户从“不喝咖啡”变成“偶尔喝拿铁”</td>
+</tr>
+<tr>
+<td>遗忘</td>
+<td>什么该删掉或淡化？</td>
+<td>删除敏感信息、忽略一次性临时约束</td>
+</tr>
+</tbody></table></div>
+
+        <h4 id="写入">
+          <a href="#写入" class="heading-link"><i class="fas fa-link"></i></a><a href="#写入" class="headerlink" title="写入"></a>写入</h4>
+      <p><strong>写入</strong> 是记忆系统的入口，解决的问题不是“把所有内容都存下来”，而是“判断什么值得保存”。一个好的 Agent 不应该把每一句话都当成长期记忆，否则记忆库会很快变脏。写入通常包含意图识别、信息抽取、重要性判断、类型分类、来源记录和权限判断等环节。</p>
+<p>例如，用户说：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">这次东京行程预算每天 1500 元以内。另外我以后旅行都尽量不吃生食。</span><br></pre></td></tr></tbody></table></div></figure>
+<p>Agent 不应该简单保存整句话，而应该拆分：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>信息</th>
+<th>是否写入</th>
+<th>记忆类型</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>这次东京行程预算每天 1500 元以内</td>
+<td>写入会话记忆</td>
+<td>当前任务约束</td>
+</tr>
+<tr>
+<td>以后旅行都尽量不吃生食</td>
+<td>写入长期记忆</td>
+<td>用户长期偏好</td>
+</tr>
+<tr>
+<td>用户说了“另外”这个词</td>
+<td>不写入</td>
+<td>无实际价值</td>
+</tr>
+</tbody></table></div>
+<p><strong>关键点</strong></p>
+<ul>
+<li>写入不是复制粘贴，而是“选择 + 提炼”。</li>
+<li>用户说“这次”、“今天”、“当前项目”，通常更适合会话记忆。</li>
+<li>用户说“以后”、“一直”、“通常”、“我偏好”，通常更适合长期记忆。</li>
+<li>敏感信息、一次性闲聊、无价值细节，不应该随便写入长期记忆。</li>
+</ul>
+
+        <h4 id="存储">
+          <a href="#存储" class="heading-link"><i class="fas fa-link"></i></a><a href="#存储" class="headerlink" title="存储"></a>存储</h4>
+      <p><strong>存储</strong> 解决的是“记忆以什么形式保存、保存在哪里、怎么组织”的问题。同一条记忆可以有不同存储方式，例如文本、向量、结构化表、知识图谱、时间线、文件、参数等，而存储不是简单将记忆放进数据库，还应该包括标签、时间、来源、用户 ID、置信度、权限、有效期等元数据。</p>
+<p>例如，用户说：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">我喜欢回答先给结论，再给解释。</span><br></pre></td></tr></tbody></table></div></figure>
+<p>一个粗糙系统可能只会存：</p>
+<figure class="highlight json"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">{</span><br><span class="line">  <span class="attr">"memory_id"</span>: <span class="string">"mem_001"</span>,</span><br><span class="line">  <span class="attr">"content"</span>: <span class="string">"user_123 偏好回答先给结论，再给解释。"</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>更好的系统会存：</p>
+<figure class="highlight json"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">{</span><br><span class="line">  <span class="attr">"memory_id"</span>: <span class="string">"mem_001"</span>,</span><br><span class="line">  <span class="attr">"type"</span>: <span class="string">"PreferenceMemory"</span>,</span><br><span class="line">  <span class="attr">"content"</span>: <span class="string">"用户偏好回答先给结论，再给解释。"</span>,</span><br><span class="line">  <span class="attr">"user_id"</span>: <span class="string">"user_123"</span>,</span><br><span class="line">  <span class="attr">"created_at"</span>: <span class="string">"2026-05-11"</span>,</span><br><span class="line">  <span class="attr">"source"</span>: <span class="string">"conversation"</span>,</span><br><span class="line">  <span class="attr">"confidence"</span>: <span class="number">0.95</span>,</span><br><span class="line">  <span class="attr">"status"</span>: <span class="string">"active"</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>不同存储方式的适合场景</strong></p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>存储方式</th>
+<th>适合内容</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>文本存储</td>
+<td>可读事实、偏好、摘要</td>
+<td>“用户不吃生食”</td>
+</tr>
+<tr>
+<td>向量存储</td>
+<td>语义检索</td>
+<td>查找和“旅行饮食偏好”相关的记忆</td>
+</tr>
+<tr>
+<td>结构化数据库</td>
+<td>用户画像、状态字段</td>
+<td><code>language=中文</code>，<code>budget=中等</code></td>
+</tr>
+<tr>
+<td>图数据库</td>
+<td>实体关系和时间变化</td>
+<td>用户 -&gt; 曾任职 -&gt; A 公司</td>
+</tr>
+<tr>
+<td>文件存储</td>
+<td>原始文档、日志、报告</td>
+<td>PDF、会议纪要、代码文件</td>
+</tr>
+<tr>
+<td>参数化存储</td>
+<td>内化技能或风格</td>
+<td>微调后模型更擅长某领域任务</td>
+</tr>
+</tbody></table></div>
+<p><strong>关键点</strong></p>
+<ul>
+<li>存储要服务于检索，不是只为了保存。</li>
+<li>如果没有标签、时间、来源，后续很难判断记忆是否可靠。</li>
+<li>对长期 Agent 来说，记忆元数据和记忆内容一样重要。</li>
+</ul>
+
+        <h4 id="检索">
+          <a href="#检索" class="heading-link"><i class="fas fa-link"></i></a><a href="#检索" class="headerlink" title="检索"></a>检索</h4>
+      <p><strong>检索</strong> 是让 Agent 在当前任务中“想起相关记忆”。记忆虽然被存下来了，但不代表能够被模型用到，只有被检索并放进当前上下文，才能够真正参与推理。因此检索要能够找得全、找得准，找不全会漏掉重要历史，找不准会把无关记忆塞进上下文，干扰模型推理。</p>
+<p>例如，用户新开会话：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">帮我规划大阪三日游。</span><br></pre></td></tr></tbody></table></div></figure>
+<p>Agent 需要从长期记忆里找出：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">用户不吃生食。</span><br><span class="line">用户不喜欢早起。</span><br><span class="line">用户喜欢轻松行程。</span><br><span class="line">用户上次京都旅行反馈行程太满。</span><br></pre></td></tr></tbody></table></div></figure>
+<p>但不应该检索出：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">用户上次让我帮他写 Python 单测。</span><br><span class="line">用户喜欢黑色键盘。</span><br><span class="line">用户曾经问过数据库索引优化。</span><br></pre></td></tr></tbody></table></div></figure>
+<p>因为这些和大阪旅行无关。</p>
+<p><strong>检索通常从多个维度开展</strong></p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>检索维度</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>语义相似度</td>
+<td>找语义相关内容</td>
+</tr>
+<tr>
+<td>时间新近性</td>
+<td>优先近期记忆</td>
+</tr>
+<tr>
+<td>重要性评分</td>
+<td>优先高价值记忆</td>
+</tr>
+<tr>
+<td>用户/会话范围</td>
+<td>避免发生串用户、串任务</td>
+</tr>
+<tr>
+<td>记忆类型</td>
+<td>当前需要偏好、事实，还是技能</td>
+</tr>
+<tr>
+<td>图关系</td>
+<td>找相关实体和关系</td>
+</tr>
+<tr>
+<td>任务目标</td>
+<td>找对完成当前任务真正有用的信息</td>
+</tr>
+</tbody></table></div>
+<p><strong>关键点</strong></p>
+<ul>
+<li>好的检索不是“最相似”就够了，而是“对当前任务最有帮助”，例如“大阪三日游”最需要旅行偏好，而不是所有包含“大阪”的历史闲聊。</li>
+<li>检索结果还需要压缩、排序和去重，避免撑爆上下文窗口。</li>
+</ul>
+
+        <h4 id="更新">
+          <a href="#更新" class="heading-link"><i class="fas fa-link"></i></a><a href="#更新" class="headerlink" title="更新"></a>更新</h4>
+      <p><strong>更新</strong> 解决的是“记忆不是静态的，用户和世界都会变化”的问题，涉及覆盖、合并、修正、版本化、升降级、冲突处理等。如果 Agent 只会新增，不会更新，长期记忆会越来越矛盾。</p>
+<p>例如，用户第一次说：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">这次别安排太早出门。</span><br></pre></td></tr></tbody></table></div></figure>
+<p>这只是当前任务约束，放入会话记忆。</p>
+<p>如果用户多次说：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">我旅行一直不喜欢早起。</span><br><span class="line">以后行程都别安排太早。</span><br></pre></td></tr></tbody></table></div></figure>
+<p>这时系统可以把它升级为长期偏好：</p>
+<figure class="highlight json"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">{</span><br><span class="line">  <span class="attr">"type"</span>: <span class="string">"PreferenceMemory"</span>,</span><br><span class="line">  <span class="attr">"content"</span>: <span class="string">"用户旅行时不喜欢早起。"</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>关键点</strong></p>
+<ul>
+<li>更新不是简单“覆盖”，因为旧记忆可能仍有历史价值。</li>
+<li>有些系统会保留版本：过去喜欢 A，现在喜欢 B。</li>
+<li>对时间敏感信息，最好记录有效期或更新时间。</li>
+<li>对冲突记忆，要判断是“长期变化”还是“当前例外”。</li>
+</ul>
+
+        <h4 id="遗忘">
+          <a href="#遗忘" class="heading-link"><i class="fas fa-link"></i></a><a href="#遗忘" class="headerlink" title="遗忘"></a>遗忘</h4>
+      <p><strong>遗忘</strong> 是记忆系统中很容易被低估但非常重要的能力。记忆不是越多越好，无用、过期、错误、重复、敏感、低置信度的信息，都可能降低 Agent 的表现，这些信息需要被遗忘。遗忘可以是彻底删除，也可以是降权、归档、过期、屏蔽或不再召回。</p>
+<p>例如，用户说：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">我这周住在上海静安区。</span><br></pre></td></tr></tbody></table></div></figure>
+<p>这条信息对本周有用，但半年后可能已经无效。系统可以设置有效期：</p>
+<figure class="highlight json"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">{</span><br><span class="line">  <span class="attr">"content"</span>: <span class="string">"用户本周住在上海静安区。"</span>,</span><br><span class="line">  <span class="attr">"ttl"</span>: <span class="string">"7 days"</span>,</span><br><span class="line">  <span class="attr">"status"</span>: <span class="string">"expired_after_ttl"</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>又例如，用户说：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">请忘记我刚才说的身份证号码。</span><br></pre></td></tr></tbody></table></div></figure>
+<p>系统应该删除或屏蔽相关记忆，而不是继续用于后续回答。</p>
+<figure class="highlight json"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">{</span><br><span class="line">  <span class="attr">"content"</span>: <span class="string">"身份证号码相关记录"</span>,</span><br><span class="line">  <span class="attr">"status"</span>: <span class="string">"deleted_by_user_request"</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p><strong>关键点</strong></p>
+<ul>
+<li>遗忘不是失败，而是健康记忆系统的一部分。</li>
+<li>长期 Agent 必须能清理记忆，否则会被噪声拖垮。</li>
+<li>对隐私和合规场景，遗忘能力尤其关键。</li>
+<li>遗忘不一定是物理删除，也可以是检索降权或归档，但用户明确要求删除时要更严格。</li>
+</ul>
+
+        <h3 id="高阶能力">
+          <a href="#高阶能力" class="heading-link"><i class="fas fa-link"></i></a><a href="#高阶能力" class="headerlink" title="高阶能力"></a>高阶能力</h3>
+      <p>基础能力解决的是记忆能否正常运转的问题，而高阶能力则是让 Agent <strong>从记忆中学习、总结经验、形成能力、理解多模态世界，并逐渐适应用户和环境</strong>。基础能力可以理解为让 Agent “记得住”，高阶能力则是让 Agent “更聪明”。</p>
+<p>核心高阶能力如下表所示：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>高阶能力</th>
+<th>核心问题</th>
+<th>通俗理解</th>
+<th>Agent 示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>自我进化</td>
+<td>Agent 能不能从过去经验中变得更好？</td>
+<td>不只是写日记，还会复盘和成长</td>
+<td>修 bug 失败后总结“下次先跑测试”</td>
+</tr>
+<tr>
+<td>经验抽象</td>
+<td>能不能把零散记忆变成可复用经验？</td>
+<td>从一堆经历中总结方法论</td>
+<td>多次旅行反馈后总结“用户适合低密度行程”</td>
+</tr>
+<tr>
+<td>技能沉淀</td>
+<td>能不能把成功做法保存成技能？</td>
+<td>把做过的流程变成操作手册</td>
+<td>把一次成功的数据分析流程保存成 playbook</td>
+</tr>
+<tr>
+<td>多模态关联</td>
+<td>能不能记住文字之外的图片、语音、视频、位置、动作？</td>
+<td>不只记“说了什么”，还记“看到什么、发生在哪里”</td>
+<td>机器人记住杯子在厨房桌子左侧</td>
+</tr>
+<tr>
+<td>个性化适应</td>
+<td>能不能长期适配特定用户？</td>
+<td>越用越懂你</td>
+<td>知道用户喜欢先结论后细节</td>
+</tr>
+<tr>
+<td>主动记忆管理</td>
+<td>能不能主动判断该记、该忘、该更新什么？</td>
+<td>像一个会整理笔记的助手</td>
+<td>主动合并重复偏好、淘汰过期信息</td>
+</tr>
+</tbody></table></div>
+
+        <h4 id="自我进化">
+          <a href="#自我进化" class="heading-link"><i class="fas fa-link"></i></a><a href="#自我进化" class="headerlink" title="自我进化"></a>自我进化</h4>
+      <p><strong>自我进化</strong> 是高阶记忆能力中最重要的一类，指的是 Agent 不只是保存历史，而且能从历史中反思自己的表现，并调整未来行为。基础记忆系统只会记住“发生过什么”，而自我进化系统会进一步问“我做得好不好？下次应该怎么改？”，这类能力通常依赖反思、反馈、错误分析、成功经验总结和策略更新。</p>
+<p>例如，一个 Code Agent 第一次修 bug：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">用户：帮我修登录接口 500。</span><br><span class="line">Agent：修改了 auth_service.py。</span><br><span class="line">结果：登录修好了，但权限接口挂了。</span><br></pre></td></tr></tbody></table></div></figure>
+<p>基础记忆只会保存：</p>
+<figure class="highlight json"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">{</span><br><span class="line">  <span class="attr">"content"</span>: <span class="string">"上次修登录接口时修改了 auth_service.py，导致权限接口回归失败。"</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>高阶记忆会进一步总结：</p>
+<figure class="highlight json"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">{</span><br><span class="line">  <span class="attr">"type"</span>: <span class="string">"MetacognitiveMemory"</span>,</span><br><span class="line">  <span class="attr">"content"</span>: <span class="string">"修改认证模块后，必须同时运行登录测试和权限测试，避免回归问题。"</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+
+        <h4 id="经验抽象">
+          <a href="#经验抽象" class="heading-link"><i class="fas fa-link"></i></a><a href="#经验抽象" class="headerlink" title="经验抽象"></a>经验抽象</h4>
+      <p><strong>经验抽象</strong> 指的是 Agent 能把多条具体记忆提炼成更一般的规律。这一步非常关键，因为长期记忆如果只是堆积原始记录会越来越乱，真正有价值的是从大量历史中抽象出可迁移的经验，解决的是“这些事情背后有什么共性？下次遇到类似情况应该怎么做？”的问题。</p>
+<p>例如，针对原始记忆：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">第 1 次京都旅行：用户反馈寺庙安排太密集。</span><br><span class="line">第 2 次东京旅行：用户说第二天太累。</span><br><span class="line">第 3 次大阪旅行：用户要求每天不要超过 2 个主要景点。</span><br></pre></td></tr></tbody></table></div></figure>
+<p>Agent 经过经验抽象后会记录：</p>
+<figure class="highlight json"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">{</span><br><span class="line">  <span class="attr">"type"</span>: <span class="string">"ExperienceMemory"</span>,</span><br><span class="line">  <span class="attr">"content"</span>: <span class="string">"为该用户规划日本旅行时，应采用低密度行程，每天安排 2 个左右主要景点，并预留休息时间。"</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>以后用户说“帮我规划一个福冈 4 天游”，Agent 不需要逐条翻历史，而是直接使用抽象经验：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">我会按轻松节奏安排，每天控制 2 个主要地点，中间加入咖啡馆或休息时间。</span><br></pre></td></tr></tbody></table></div></figure>
+<p>通俗来说，记忆是“上次京都太累了”，而经验是“这个用户不适合高密度旅行”。</p>
+
+        <h4 id="技能沉淀">
+          <a href="#技能沉淀" class="heading-link"><i class="fas fa-link"></i></a><a href="#技能沉淀" class="headerlink" title="技能沉淀"></a>技能沉淀</h4>
+      <p><strong>技能沉淀</strong> 指的是 Agent 能把成功完成任务的流程保存下来，变成下次可复用的技能，它比经验更偏操作流程。经验告诉 Agent 应该注意什么，而技能告诉 Agent 具体应该怎么做。</p>
+<p>例如，用户让 Code Agent 做一次数据分析，流程为“读取 CSV &gt; 清洗缺失值 &gt; 统计指标 &gt; 画图 &gt; 生成 Markdown 报告”，如果这次流程成功，Agent 可以沉淀成技能：</p>
+<figure class="highlight json"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">{</span><br><span class="line">  <span class="attr">"type"</span>: <span class="string">"SkillMemory"</span>,</span><br><span class="line">  <span class="attr">"name"</span>: <span class="string">"CSV 数据分析报告生成流程"</span>,</span><br><span class="line">  <span class="attr">"steps"</span>: [</span><br><span class="line">    <span class="string">"读取 CSV 并检查字段"</span>,</span><br><span class="line">    <span class="string">"统计缺失值和异常值"</span>,</span><br><span class="line">    <span class="string">"生成描述性统计"</span>,</span><br><span class="line">    <span class="string">"绘制关键图表"</span>,</span><br><span class="line">    <span class="string">"输出 Markdown 报告"</span></span><br><span class="line">  ],</span><br><span class="line">  <span class="attr">"applicable_when"</span>: <span class="string">"用户要求分析结构化表格数据并生成报告"</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>这样，当用户下次说“帮我分析一下这份销售数据”时，Agent 就可以复用这个技能，而不是重新规划。</p>
+
+        <h4 id="多模态关联">
+          <a href="#多模态关联" class="heading-link"><i class="fas fa-link"></i></a><a href="#多模态关联" class="headerlink" title="多模态关联"></a>多模态关联</h4>
+      <p><strong>多模态关联</strong> 指的是 Agent 不只记文本，还能记图片、语音、视频、位置、动作、传感器信息，并把它们关联起来，这对真实世界 Agent 很重要，因为真实世界不只有纯文本。人类记忆一件事时，往往会同时记得画面、声音、地点、动作和情绪，高阶 AI 记忆也需要从“文本笔记”升级到“事件记忆”。</p>
+
+        <h4 id="个性化适应">
+          <a href="#个性化适应" class="heading-link"><i class="fas fa-link"></i></a><a href="#个性化适应" class="headerlink" title="个性化适应"></a>个性化适应</h4>
+      <p><strong>个性化适应</strong> 指的是 Agent 能根据长期记忆逐渐适配某个用户，这不只是保存用户偏好，而是能在行动和表达上持续调整。基础个性化只是记住用户喜欢什么，而高阶个性化是自动把这些偏好融入到任务执行过程中。</p>
+<p>例如，对于用户偏好记忆：</p>
+<figure class="highlight json"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">{</span><br><span class="line">  <span class="attr">"user_preferences"</span>: [</span><br><span class="line">    <span class="string">"喜欢中文回答"</span>,</span><br><span class="line">    <span class="string">"喜欢先给结论再解释"</span>,</span><br><span class="line">    <span class="string">"不喜欢太长的背景铺垫"</span>,</span><br><span class="line">    <span class="string">"写代码时希望先说明修改原因"</span>,</span><br><span class="line">    <span class="string">"旅行时不喜欢早起"</span></span><br><span class="line">  ]</span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>当用户说“帮我看看这个报错”时，普通 Agent 可能直接给一大段解释，而高阶个性化 Agent 会自动调整：</p>
+<figure class="highlight text"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">结论：这个报错大概率是数据库连接超时导致的。</span><br><span class="line"></span><br><span class="line">原因有两个：</span><br><span class="line">1. 日志里显示 connection timeout。</span><br><span class="line">2. 失败发生在查询用户信息阶段。</span><br><span class="line"></span><br><span class="line">我建议先检查数据库连接配置和重试策略，然后再改代码。</span><br></pre></td></tr></tbody></table></div></figure>
+<p>这里 Agent 没有每次都问用户偏好，而是长期适配。</p>
+
+        <h4 id="主动记忆管理">
+          <a href="#主动记忆管理" class="heading-link"><i class="fas fa-link"></i></a><a href="#主动记忆管理" class="headerlink" title="主动记忆管理"></a>主动记忆管理</h4>
+      <p><strong>主动记忆管理</strong> 指的是 Agent 能主动维护自己的记忆质量，它不是等用户明确说“请更新记忆”，而是能判断哪些记忆应该合并、升级、降权、遗忘，这一能力决定长期记忆系统能否健康运行。</p>
+<p>例如，对于过期的记忆，系统应该具备主动遗忘的能力，例如用户说“本周住在上海静安区”，一个月后系统可以自动降权或过期：</p>
+<figure class="highlight json"><div class="table-container"><table><tbody><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">{</span><br><span class="line">  <span class="attr">"content"</span>: <span class="string">"用户本周住在上海静安区。"</span>,</span><br><span class="line">  <span class="attr">"status"</span>: <span class="string">"expired"</span></span><br><span class="line">}</span><br></pre></td></tr></tbody></table></div></figure>
+<p>基础记忆系统像一个仓库，只管放东西；高阶记忆系统则像一个图书管理员，会主动分类、合并、修正和淘汰。</p>
+
+        <h2 id="多-Agent-记忆系统">
+          <a href="#多-Agent-记忆系统" class="heading-link"><i class="fas fa-link"></i></a><a href="#多-Agent-记忆系统" class="headerlink" title="多 Agent 记忆系统"></a>多 Agent 记忆系统</h2>
+      <p>单 Agent 记忆系统主要解决“一个 Agent 如何记住、检索、更新和利用好自己经历”的问题，而多 Agent 记忆系统还要额外解决“多个 Agent 如何共享记忆、协调视角、避免冲突、控制权限、形成集体经验”。</p>
+<p>
+        <img class="lazyload lazyload-gif" src="/images/loading.svg" data-src="/images/2026/survey-on-ai-memory-fig4.png?raw=false" style="" alt="image">
+      </p>
+<p>简单来说，单 Agent 是个人记忆管理，多 Agent 是组织记忆管理，核心区别如下表所示：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>设计问题</th>
+<th>单 Agent 系统</th>
+<th>多 Agent 系统</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>记忆主体</td>
+<td>一个 Agent 的私有记忆</td>
+<td>多个 Agent 的私有记忆 + 共享记忆</td>
+</tr>
+<tr>
+<td>主要目标</td>
+<td>任务连续性和个体成长</td>
+<td>协作一致性、角色分工、集体学习</td>
+</tr>
+<tr>
+<td>记忆范围</td>
+<td>当前 Agent 的经历和用户偏好</td>
+<td>团队经验、跨 Agent 观察、共享任务状态</td>
+</tr>
+<tr>
+<td>检索方式</td>
+<td>按当前任务检索自己记忆</td>
+<td>按角色、权限、任务阶段路由记忆</td>
+</tr>
+<tr>
+<td>更新冲突</td>
+<td>新旧偏好冲突</td>
+<td>多个 Agent 同时写入、观点不一致</td>
+</tr>
+<tr>
+<td>权限控制</td>
+<td>用户级/会话级隔离</td>
+<td>Agent 级、角色级、任务级、团队级权限</td>
+</tr>
+<tr>
+<td>治理难点</td>
+<td>去重、遗忘、更新</td>
+<td>一致性、溯源、信任、共识、责任归属</td>
+</tr>
+</tbody></table></div>
+
+        <h2 id="记忆效果评估">
+          <a href="#记忆效果评估" class="heading-link"><i class="fas fa-link"></i></a><a href="#记忆效果评估" class="headerlink" title="记忆效果评估"></a>记忆效果评估</h2>
+      <p>Agent 记忆系统的评估，不只是看回答对不对，还要看它是否能 <strong>记得住、找得准、能更新、忘得掉、用得好、跑得快、成本低</strong>。可以将评估体系理解为测试一个 Agent 的记忆力、理解力、适应力和使用记忆的效率。具体的评估维度如下表所示：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>评估维度</th>
+<th>核心问题</th>
+<th>通俗理解</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>记忆检索能力</td>
+<td>需要用历史信息时，能不能找出来？</td>
+<td>该想起的时候能不能想起来</td>
+</tr>
+<tr>
+<td>记忆更新能力</td>
+<td>用户偏好、事实、环境变化后，能不能改旧记忆？</td>
+<td>不是死记硬背，而是能跟上变化</td>
+</tr>
+<tr>
+<td>长期推理能力</td>
+<td>能不能跨很多轮、很多天、多个事件做推理？</td>
+<td>能不能把分散线索串起来</td>
+</tr>
+<tr>
+<td>个性化能力</td>
+<td>能不能长期适配用户？</td>
+<td>越用越懂你</td>
+</tr>
+<tr>
+<td>抗幻觉能力</td>
+<td>没有相关记忆时，能不能承认不知道？</td>
+<td>不要编造不存在的历史</td>
+</tr>
+<tr>
+<td>遗忘能力</td>
+<td>过期、错误、敏感信息能不能删除或失效？</td>
+<td>该忘的要忘掉</td>
+</tr>
+<tr>
+<td>系统效率</td>
+<td>检索和生成是否足够快、足够省 Token？</td>
+<td>不能为了记忆把成本和延迟拉爆</td>
+</tr>
+<tr>
+<td>安全与隐私</td>
+<td>记忆是否泄露、串用户、越权使用？</td>
+<td>不该看的不能看，不该说的不能说</td>
+</tr>
+</tbody></table></div>
+
+        <h3 id="评估维度">
+          <a href="#评估维度" class="heading-link"><i class="fas fa-link"></i></a><a href="#评估维度" class="headerlink" title="评估维度"></a>评估维度</h3>
+      
+        <h4 id="记忆检索能力">
+          <a href="#记忆检索能力" class="heading-link"><i class="fas fa-link"></i></a><a href="#记忆检索能力" class="headerlink" title="记忆检索能力"></a>记忆检索能力</h4>
+      <p>记忆检索能力是最基础也最常见的评估，其目标是看系统能不能从大量历史记忆中找到和当前问题相关的信息。如果记忆系统找不到关键历史，即使 LLM 本身很强，也答不对。常见指标如下表所示：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>指标</th>
+<th>含义</th>
+<th>简单例子</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>Recall@k</code></td>
+<td>前 k 条检索结果里是否包含正确记忆</td>
+<td>取前 5 条，是否包含“用户不吃生食”</td>
+</tr>
+<tr>
+<td><code>Precision@k</code></td>
+<td>前 k 条结果中有多少是相关的</td>
+<td>前 5 条里 4 条相关，Precision@5 = 0.8</td>
+</tr>
+<tr>
+<td><code>NDCG@k</code></td>
+<td>相关记忆是否排在更靠前位置</td>
+<td>正确记忆排第 1 名比排第 5 名更高</td>
+</tr>
+<tr>
+<td><code>MRR</code></td>
+<td>第一个正确结果出现得越早越好</td>
+<td>正确记忆第 1 条出现比第 6 条出现好</td>
+</tr>
+<tr>
+<td><code>Hit Rate@k</code></td>
+<td>前 k 条里只要命中正确记忆就算成功</td>
+<td>类似“有没有想起来”</td>
+</tr>
+</tbody></table></div>
+
+        <h4 id="生成答案质量">
+          <a href="#生成答案质量" class="heading-link"><i class="fas fa-link"></i></a><a href="#生成答案质量" class="headerlink" title="生成答案质量"></a>生成答案质量</h4>
+      <p>记忆检索出来只是第一步，Agent 还要正确使用记忆生成答案。有时检索是对的，但模型用错了、忽略了、过度推断了，最终答案仍然不好，所以还要评估“基于记忆的回答质量”。常见指标如下表所示：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>指标</th>
+<th>含义</th>
+<th>适合场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>Accuracy</code></td>
+<td>答案是否正确</td>
+<td>问答、事实回忆</td>
+</tr>
+<tr>
+<td><code>F1</code></td>
+<td>精确率和召回率的综合</td>
+<td>信息抽取、多答案问题</td>
+</tr>
+<tr>
+<td><code>ROUGE</code></td>
+<td>生成文本和参考答案的重叠度</td>
+<td>摘要、长文本回答</td>
+</tr>
+<tr>
+<td><code>BLEU</code></td>
+<td>生成文本和参考答案的 n-gram 匹配</td>
+<td>翻译、固定表达生成</td>
+</tr>
+<tr>
+<td><code>LLM-as-a-Judge</code></td>
+<td>用强模型评估回答质量</td>
+<td>开放式回答、个性化任务</td>
+</tr>
+</tbody></table></div>
+
+        <h4 id="动态更新能力">
+          <a href="#动态更新能力" class="heading-link"><i class="fas fa-link"></i></a><a href="#动态更新能力" class="headerlink" title="动态更新能力"></a>动态更新能力</h4>
+      <p>Agent 记忆不是静态百科，用户和世界都会变化，所以评估时要看系统能不能处理新旧信息冲突、偏好变化、事实更新。这类评估尤其重要，因为长期记忆系统最容易被旧信息污染。典型测试类型如下表所示：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>测试类型</th>
+<th>示例</th>
+<th>期望行为</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>偏好更新</td>
+<td>用户以前不喝咖啡，现在偶尔喝拿铁</td>
+<td>旧偏好失效，新偏好生效</td>
+</tr>
+<tr>
+<td>事实更正</td>
+<td>用户说“我刚才说错了，不是大阪，是京都”</td>
+<td>更新当前任务目的地</td>
+</tr>
+<tr>
+<td>冲突处理</td>
+<td>一条记忆说预算 1000，另一条说预算 2000</td>
+<td>根据时间、范围、用户意图判断</td>
+</tr>
+<tr>
+<td>过期信息</td>
+<td>“我这周住上海”一个月后再问</td>
+<td>不应当作当前事实</td>
+</tr>
+<tr>
+<td>版本变化</td>
+<td>API v1 支持字段 X，v2 已废弃</td>
+<td>按版本区分有效性</td>
+</tr>
+</tbody></table></div>
+
+        <h4 id="时间感知能力">
+          <a href="#时间感知能力" class="heading-link"><i class="fas fa-link"></i></a><a href="#时间感知能力" class="headerlink" title="时间感知能力"></a>时间感知能力</h4>
+      <p>很多记忆任务不是检索单条信息就能回答，而是需要跨时间、跨会话、跨事件进行推理，这类能力更接近真正的长期记忆。典型问题类型如下表所示：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>问题类型</th>
+<th>示例</th>
+<th>需要能力</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>单跳记忆</td>
+<td>我上次说我不吃什么？</td>
+<td>找到一条历史记忆</td>
+</tr>
+<tr>
+<td>多跳推理</td>
+<td>我上次去东京住哪，为什么这次不推荐那里？</td>
+<td>关联住宿、反馈、当前决策</td>
+</tr>
+<tr>
+<td>时间推理</td>
+<td>我现在的工作单位是哪家？</td>
+<td>区分过去和当前事实</td>
+</tr>
+<tr>
+<td>事件排序</td>
+<td>我先去京都还是先去东京？</td>
+<td>理解时间顺序</td>
+</tr>
+<tr>
+<td>跨会话推理</td>
+<td>根据我过去几次反馈，给我规划这次行程</td>
+<td>总结多次历史经验</td>
+</tr>
+</tbody></table></div>
+
+        <h4 id="个性化能力">
+          <a href="#个性化能力" class="heading-link"><i class="fas fa-link"></i></a><a href="#个性化能力" class="headerlink" title="个性化能力"></a>个性化能力</h4>
+      <p>个性化评估关注 Agent 是否能利用长期用户记忆，给出更符合个人偏好的结果，这不仅是记住偏好，还包括在任务中自然体现偏好。典型评估点如下表所示：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>评估点</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>偏好遵循</td>
+<td>用户喜欢简洁回答，Agent 是否真的简洁</td>
+</tr>
+<tr>
+<td>风格适配</td>
+<td>用户偏好先结论后解释，Agent 是否按这个结构</td>
+</tr>
+<tr>
+<td>决策适配</td>
+<td>用户不吃生食，餐厅推荐是否避开生食</td>
+</tr>
+<tr>
+<td>长期一致性</td>
+<td>多次会话中是否保持同一用户偏好</td>
+</tr>
+<tr>
+<td>例外处理</td>
+<td>用户说“这次可以破例”，是否只影响当前任务</td>
+</tr>
+</tbody></table></div>
+
+        <h4 id="抗幻觉与记忆忠实性">
+          <a href="#抗幻觉与记忆忠实性" class="heading-link"><i class="fas fa-link"></i></a><a href="#抗幻觉与记忆忠实性" class="headerlink" title="抗幻觉与记忆忠实性"></a>抗幻觉与记忆忠实性</h4>
+      <p>记忆系统很容易出现一种问题，即模型把看起来合理的内容当成历史记忆，因此评估时要看 Agent 是否严格基于已有记忆回答，而不是编造不存在的历史。典型测试如下表所示：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>测试</th>
+<th>示例</th>
+<th>期望行为</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>无记忆问题</td>
+<td>我上次去巴黎住哪？但系统没有记录</td>
+<td>应回答“不确定/没有记录”</td>
+</tr>
+<tr>
+<td>干扰记忆</td>
+<td>有多个相似用户偏好</td>
+<td>不应串用户</td>
+</tr>
+<tr>
+<td>错误召回</td>
+<td>检索到无关内容</td>
+<td>不应强行使用</td>
+</tr>
+<tr>
+<td>过度推断</td>
+<td>用户说喜欢咖啡，不代表喜欢所有咖啡店</td>
+<td>不应扩展过头</td>
+</tr>
+</tbody></table></div>
+
+        <h4 id="动态遗忘能力">
+          <a href="#动态遗忘能力" class="heading-link"><i class="fas fa-link"></i></a><a href="#动态遗忘能力" class="headerlink" title="动态遗忘能力"></a>动态遗忘能力</h4>
+      <p>长期记忆系统必须能忘。遗忘评估是看系统是否能删除、屏蔽、过期或降权不该再使用的记忆，这既是性能问题，也是隐私和合规问题。典型测试如下表所示：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>类型</th>
+<th>示例</th>
+<th>期望行为</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>用户主动删除</td>
+<td>请忘记我的手机号</td>
+<td>后续不再检索或使用</td>
+</tr>
+<tr>
+<td>过期遗忘</td>
+<td>“我本周在北京”过期后</td>
+<td>不当作当前所在地</td>
+</tr>
+<tr>
+<td>错误记忆删除</td>
+<td>用户纠正“这条记错了”</td>
+<td>删除或标记无效</td>
+</tr>
+<tr>
+<td>敏感信息屏蔽</td>
+<td>身份证、银行卡</td>
+<td>不应长期明文保存或暴露</td>
+</tr>
+<tr>
+<td>检索降权</td>
+<td>低价值旧闲聊</td>
+<td>不应频繁进入上下文</td>
+</tr>
+</tbody></table></div>
+
+        <h4 id="系统执行效率">
+          <a href="#系统执行效率" class="heading-link"><i class="fas fa-link"></i></a><a href="#系统执行效率" class="headerlink" title="系统执行效率"></a>系统执行效率</h4>
+      <p>记忆系统不能只追求效果，还要考虑成本和延迟。如果每次回答都检索几千条记忆、塞进超长 Prompt，系统会变慢、变贵、还更容易出错。常见评估指标如下表所示：</p>
+<div class="table-container"><table>
+<thead>
+<tr>
+<th>指标</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>检索延迟</td>
+<td>从记忆库找相关记忆花多久</td>
+</tr>
+<tr>
+<td>端到端延迟</td>
+<td>用户提问到最终回答总耗时</td>
+</tr>
+<tr>
+<td>Token 开销</td>
+<td>检索记忆占用了多少上下文</td>
+</tr>
+<tr>
+<td>存储成本</td>
+<td>长期保存记忆的成本</td>
+</tr>
+<tr>
+<td>写入成本</td>
+<td>抽取、摘要、embedding、图更新成本</td>
+</tr>
+<tr>
+<td>吞吐量</td>
+<td>多用户、多 Agent 并发时能承载多少请求</td>
+</tr>
+<tr>
+<td>命中率/缓存率</td>
+<td>热记忆是否能被快速复用</td>
+</tr>
+</tbody></table></div>
+
+        <h3 id="评估基准">
+          <a href="#评估基准" class="heading-link"><i class="fas fa-link"></i></a><a href="#评估基准" class="headerlink" title="评估基准"></a>评估基准</h3>
+      <div class="table-container"><table>
+<thead>
+<tr>
+<th>Benchmark</th>
+<th>主要评估内容</th>
+<th>适合测试什么</th>
+<th>简单理解</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://longbench2.github.io/">LongBench</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></td>
+<td>长上下文理解与问答</td>
+<td>长文档、长对话中的信息定位和推理</td>
+<td>模型能不能在很长材料里找到答案</td>
+</tr>
+<tr>
+<td><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/NVIDIA/RULER">RULER</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></td>
+<td>长上下文鲁棒性</td>
+<td>Needle-in-a-haystack、多跳、变量追踪等</td>
+<td>信息藏得很深时还能不能找出来</td>
+</tr>
+<tr>
+<td><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://snap-research.github.io/locomo/">LoCoMo</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></td>
+<td>长期对话记忆</td>
+<td>跨会话、多轮长期用户交互记忆</td>
+<td>像测试一个聊天助手是否记得长期对话</td>
+</tr>
+<tr>
+<td><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/xiaowu0162/LongMemEval">LongMemEval</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></td>
+<td>长期记忆问答与更新</td>
+<td>单会话、多会话、偏好、知识更新、时间推理</td>
+<td>测 Agent 是否能处理长期记忆变化</td>
+</tr>
+<tr>
+<td><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/HUST-AI-HYZ/MemoryAgentBench">MemoryAgentBench</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></td>
+<td>Agent 记忆能力综合评估</td>
+<td>记忆写入、检索、更新、推理、任务执行</td>
+<td>更贴近 Agent 工作流的记忆测试</td>
+</tr>
+<tr>
+<td><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/MemTensor/HaluMem">HaluMem</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></td>
+<td>记忆幻觉检测</td>
+<td>是否编造不存在的历史记忆</td>
+<td>测 Agent 会不会“假装记得”</td>
+</tr>
+<tr>
+<td><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://webchorearena.github.io/">WebChoreArena</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></td>
+<td>Web Agent 长程任务记忆</td>
+<td>网页操作、多步骤任务、历史轨迹复用</td>
+<td>测 Web Agent 是否能记住操作过程</td>
+</tr>
+<tr>
+<td><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://video-mme.github.io/home_page.html">Video-MME</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></td>
+<td>视频多模态理解</td>
+<td>长视频、多模态事件记忆</td>
+<td>测系统能否记住视频里发生了什么</td>
+</tr>
+<tr>
+<td><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://m3-agent.github.io/">M3-Bench</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></td>
+<td>多模态、多记忆能力评估</td>
+<td>文本、图像、视频等多模态记忆</td>
+<td>测多模态 Agent 是否能跨模态记忆</td>
+</tr>
+<tr>
+<td><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://parl.ai/projects/msc/">MSC/Multi-Session Chat</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></td>
+<td>多会话对话理解</td>
+<td>多轮聊天中的个人信息和上下文延续</td>
+<td>测聊天机器人跨会话记忆</td>
+</tr>
+<tr>
+<td><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/GoodAI/goodai-ltm-benchmark">LTM Benchmark</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></td>
+<td>长期记忆系统评测</td>
+<td>长期事实、偏好和对话历史管理</td>
+<td>测长期记忆是否真的有用</td>
+</tr>
+<tr>
+<td><span class="exturl"><a class="exturl__link" target="_blank" rel="noopener" href="https://github.com/mohammadtavakoli78/BEAM">BEAM</a><span class="exturl__icon"><i class="fas fa-external-link-alt"></i></span></span></td>
+<td>超长对话/记忆压力测试</td>
+<td>大规模会话下的检索、推理、成本</td>
+<td>测记忆系统在长历史下是否还能稳定</td>
+</tr>
+</tbody></table></div>
+<p><strong>几个代表基准怎么理解</strong></p>
+<ul>
+<li>LoCoMo：可以理解为长期陪伴型聊天助手考试，它会看 Agent 是否记得用户之前说过的事实、偏好、时间变化，并能跨多轮对话回答问题。</li>
+<li>LongMemEval：更强调长期记忆中的更新和时间推理。例如用户之前喜欢 A，后来改成 B，系统应该知道当前偏好是 B。</li>
+<li>HaluMem：专门测记忆幻觉，比如系统没有记录用户生日，但模型不能编造一个生日。</li>
+<li>MemoryAgentBench：更贴近 Agent，而不是单纯问答，它会看记忆是否能帮助 Agent 完成任务。</li>
+<li>Video-MME 和 M3-Bench：偏多模态记忆，例如视频里某个人什么时候出现、说了什么、做了什么。</li>
+</ul>
+
+        <h2 id="总结">
+          <a href="#总结" class="heading-link"><i class="fas fa-link"></i></a><a href="#总结" class="headerlink" title="总结"></a>总结</h2>
+      <p>AI Memory 的核心价值，不只是让模型记住更多内容，而是让 AI 系统具备跨会话、跨任务、跨环境持续积累和复用经验的能力。它弥补了 LLM 上下文窗口有限、天然无状态的结构性不足，使 Agent 能从一次性问答走向长期协作、个性化适配和自我进化。</p>
+<p>从概念层次看，LLM Memory 更偏模型内部能力，Agent Memory 更偏任务执行过程中的状态管理，而 AI Memory 则进一步上升到长期智能系统的认知基础设施。理解这三层关系，有助于避免把上下文、知识、经验和记忆混为一谈，也能更清楚地判断一个系统到底是在“临时缓存信息”，还是在“长期积累经验”。</p>
+<p>从工程实现看，一个可靠的记忆系统至少需要处理写入、存储、检索、更新和遗忘五个环节。真正困难的地方并不只是“把信息存下来”，而是判断什么值得记、什么时候该更新、如何检索最有用的记忆，以及如何避免过期、错误、敏感或无关信息污染后续推理。</p>
+<p>从发展趋势看，AI Memory 正在从单 Agent 的长期记忆，走向多 Agent 的共享记忆、图与时序记忆、多模态事件记忆，以及具备反思和技能沉淀能力的认知型记忆系统。未来的关键问题，既包括效果和效率，也包括隐私、安全、可解释性、可控遗忘和长期评估。</p>
+<p>因此，AI Memory 可以被视为下一代 Agent 系统的关键基础能力：没有记忆，Agent 很难真正理解用户、复用经验和持续成长；有了高质量、可治理的记忆，Agent 才可能从“会回答问题的模型”演化为“能长期协作的智能伙伴”。</p>
+</div><footer class="post-footer"><div class="post-ending ending"><div class="ending__text">------ 本文结束，感谢您的阅读 ------</div></div><div class="post-copyright copyright"><div class="copyright-author"><span class="copyright-author__name">本文作者: </span><span class="copyright-author__value"><a href="https://plotor.github.io">zhenchao</a></span></div><div class="copyright-link"><span class="copyright-link__name">本文链接: </span><span class="copyright-link__value"><a href="https://plotor.github.io/2026/04/11/agent/survey-on-ai-memory/">https://plotor.github.io/2026/04/11/agent/survey-on-ai-memory/</a></span></div><div class="copyright-notice"><span class="copyright-notice__name">版权声明: </span><span class="copyright-notice__value">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" rel="external nofollow" target="_blank">BY-NC-SA</a> 许可协议。转载请注明出处！</span></div></div><div class="post-tags"><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/Agent/">Agent</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/LLM/">LLM</a></span><span class="post-tags-item"><span class="post-tags-item__icon"><i class="fas fa-tag"></i></span><a class="post-tags-item__link" href="https://plotor.github.io/tags/AI/">AI</a></span></div><nav class="post-paginator paginator"><div class="paginator-next"><a class="paginator-next__link" href="/2026/04/09/daft/daft-repartition/"><span class="paginator-prev__text">解读 Daft 数据分区和分批：repartition vs into_partitions vs into_batches</span><span class="paginator-next__icon"><i class="fas fa-angle-right"></i></span></a></div></nav></footer></div></div><div class="comments" id="comments"><div id="utterances-container"></div></div></div><div class="sidebar-wrap" id="sidebar-wrap"><aside class="sidebar" id="sidebar"><div class="sidebar-nav"><span class="sidebar-nav-toc current">文章目录</span><span class="sidebar-nav-ov">站点概览</span></div><section class="sidebar-toc"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#AI-%E9%A2%86%E5%9F%9F%E4%B8%89%E5%B1%82-Memory-%E5%AE%9A%E4%B9%89"><span class="toc-number">1.</span> <span class="toc-text">
+          AI 领域三层 Memory 定义</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%87%A0%E4%B8%AA%E5%AE%B9%E6%98%93%E4%B8%8E-Memory-%E6%B7%B7%E6%B7%86%E7%9A%84%E6%A6%82%E5%BF%B5"><span class="toc-number">2.</span> <span class="toc-text">
+          几个容易与 Memory 混淆的概念</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Memory-vs-Knowledge"><span class="toc-number">2.1.</span> <span class="toc-text">
+          Memory vs Knowledge</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Memory-vs-Context"><span class="toc-number">2.2.</span> <span class="toc-text">
+          Memory vs Context</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Memory-vs-Experience"><span class="toc-number">2.3.</span> <span class="toc-text">
+          Memory vs Experience</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#4W-%E8%AE%B0%E5%BF%86%E5%88%86%E7%B1%BB%E6%B3%95"><span class="toc-number">3.</span> <span class="toc-text">
+          4W 记忆分类法</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#When%EF%BC%9A%E6%8C%89%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F%E5%88%86%E7%B1%BB"><span class="toc-number">3.1.</span> <span class="toc-text">
+          When：按生命周期分类</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#What%EF%BC%9A%E6%8C%89%E5%86%85%E5%AE%B9%E7%B1%BB%E5%9E%8B%E5%88%86%E7%B1%BB"><span class="toc-number">3.2.</span> <span class="toc-text">
+          What：按内容类型分类</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#How%EF%BC%9A%E6%8C%89%E5%AD%98%E5%82%A8%E5%BD%A2%E5%BC%8F%E5%88%86%E7%B1%BB"><span class="toc-number">3.3.</span> <span class="toc-text">
+          How：按存储形式分类</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Which%EF%BC%9A%E6%8C%89%E6%A8%A1%E6%80%81%E7%BB%B4%E5%BA%A6%E5%88%86%E7%B1%BB"><span class="toc-number">3.4.</span> <span class="toc-text">
+          Which：按模态维度分类</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%95-Agent-%E8%AE%B0%E5%BF%86%E7%B3%BB%E7%BB%9F"><span class="toc-number">4.</span> <span class="toc-text">
+          单 Agent 记忆系统</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%BB%E6%B5%81%E6%9E%B6%E6%9E%84"><span class="toc-number">4.1.</span> <span class="toc-text">
+          主流架构</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9F%BA%E6%9C%AC%E5%8A%9F%E8%83%BD"><span class="toc-number">4.2.</span> <span class="toc-text">
+          基本功能</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%86%99%E5%85%A5"><span class="toc-number">4.2.1.</span> <span class="toc-text">
+          写入</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%AD%98%E5%82%A8"><span class="toc-number">4.2.2.</span> <span class="toc-text">
+          存储</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%A3%80%E7%B4%A2"><span class="toc-number">4.2.3.</span> <span class="toc-text">
+          检索</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%9B%B4%E6%96%B0"><span class="toc-number">4.2.4.</span> <span class="toc-text">
+          更新</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E9%81%97%E5%BF%98"><span class="toc-number">4.2.5.</span> <span class="toc-text">
+          遗忘</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%AB%98%E9%98%B6%E8%83%BD%E5%8A%9B"><span class="toc-number">4.3.</span> <span class="toc-text">
+          高阶能力</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%87%AA%E6%88%91%E8%BF%9B%E5%8C%96"><span class="toc-number">4.3.1.</span> <span class="toc-text">
+          自我进化</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%BB%8F%E9%AA%8C%E6%8A%BD%E8%B1%A1"><span class="toc-number">4.3.2.</span> <span class="toc-text">
+          经验抽象</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%8A%80%E8%83%BD%E6%B2%89%E6%B7%80"><span class="toc-number">4.3.3.</span> <span class="toc-text">
+          技能沉淀</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%A4%9A%E6%A8%A1%E6%80%81%E5%85%B3%E8%81%94"><span class="toc-number">4.3.4.</span> <span class="toc-text">
+          多模态关联</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%AA%E6%80%A7%E5%8C%96%E9%80%82%E5%BA%94"><span class="toc-number">4.3.5.</span> <span class="toc-text">
+          个性化适应</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%BB%E5%8A%A8%E8%AE%B0%E5%BF%86%E7%AE%A1%E7%90%86"><span class="toc-number">4.3.6.</span> <span class="toc-text">
+          主动记忆管理</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A4%9A-Agent-%E8%AE%B0%E5%BF%86%E7%B3%BB%E7%BB%9F"><span class="toc-number">5.</span> <span class="toc-text">
+          多 Agent 记忆系统</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AE%B0%E5%BF%86%E6%95%88%E6%9E%9C%E8%AF%84%E4%BC%B0"><span class="toc-number">6.</span> <span class="toc-text">
+          记忆效果评估</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%84%E4%BC%B0%E7%BB%B4%E5%BA%A6"><span class="toc-number">6.1.</span> <span class="toc-text">
+          评估维度</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%AE%B0%E5%BF%86%E6%A3%80%E7%B4%A2%E8%83%BD%E5%8A%9B"><span class="toc-number">6.1.1.</span> <span class="toc-text">
+          记忆检索能力</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%94%9F%E6%88%90%E7%AD%94%E6%A1%88%E8%B4%A8%E9%87%8F"><span class="toc-number">6.1.2.</span> <span class="toc-text">
+          生成答案质量</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%8A%A8%E6%80%81%E6%9B%B4%E6%96%B0%E8%83%BD%E5%8A%9B"><span class="toc-number">6.1.3.</span> <span class="toc-text">
+          动态更新能力</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%97%B6%E9%97%B4%E6%84%9F%E7%9F%A5%E8%83%BD%E5%8A%9B"><span class="toc-number">6.1.4.</span> <span class="toc-text">
+          时间感知能力</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%AA%E6%80%A7%E5%8C%96%E8%83%BD%E5%8A%9B"><span class="toc-number">6.1.5.</span> <span class="toc-text">
+          个性化能力</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%8A%97%E5%B9%BB%E8%A7%89%E4%B8%8E%E8%AE%B0%E5%BF%86%E5%BF%A0%E5%AE%9E%E6%80%A7"><span class="toc-number">6.1.6.</span> <span class="toc-text">
+          抗幻觉与记忆忠实性</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%8A%A8%E6%80%81%E9%81%97%E5%BF%98%E8%83%BD%E5%8A%9B"><span class="toc-number">6.1.7.</span> <span class="toc-text">
+          动态遗忘能力</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%B3%BB%E7%BB%9F%E6%89%A7%E8%A1%8C%E6%95%88%E7%8E%87"><span class="toc-number">6.1.8.</span> <span class="toc-text">
+          系统执行效率</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%84%E4%BC%B0%E5%9F%BA%E5%87%86"><span class="toc-number">6.2.</span> <span class="toc-text">
+          评估基准</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">7.</span> <span class="toc-text">
+          总结</span></a></li></ol></section><!-- ov = overview--><section class="sidebar-ov hide"><div class="sidebar-ov-author"><div class="sidebar-ov-author__avatar"><img class="sidebar-ov-author__avatar_img" src="/images/author.jpg" alt="avatar"></div><p class="sidebar-ov-author__text">追求技术深度，注重文章质量</p></div><div class="sidebar-ov-social"><a class="sidebar-ov-social-item" href="https://github.com/plotor" target="_blank" rel="noopener" data-popover="Github" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-github"></i></span></a><a class="sidebar-ov-social-item" href="https://weibo.com/" target="_blank" rel="noopener" data-popover="微博" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weibo"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="微信" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-weixin"></i></span></a><a class="sidebar-ov-social-item" href="null" target="_blank" rel="noopener" data-popover="QQ" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-qq"></i></span></a><a class="sidebar-ov-social-item" href="https://twitter.com/" target="_blank" rel="noopener" data-popover="Twitter" data-popover-pos="up"><span class="sidebar-ov-social-item__icon"><i class="fab fa-twitter"></i></span></a></div><div class="sidebar-ov-feed"><span class="sidebar-ov-feed-rss"><a class="sidebar-ov-feed-rss__link" href="/atom.xml" target="_blank" rel="noopener"><span class="sidebar-ov-feed-rss__icon"><i class="fas fa-rss"></i></span><span>RSS 订阅</span></a></span></div><div class="sidebar-ov-state"><a class="sidebar-ov-state-item sidebar-ov-state-item--posts" href="/archives/"><div class="sidebar-ov-state-item__count">100</div><div class="sidebar-ov-state-item__name">归档</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--categories" href="/categories/"><div class="sidebar-ov-state-item__count">16</div><div class="sidebar-ov-state-item__name">分类</div></a><a class="sidebar-ov-state-item sidebar-ov-state-item--tags" href="/tags/"><div class="sidebar-ov-state-item__count">32</div><div class="sidebar-ov-state-item__name">标签</div></a></div><div class="sidebar-ov-cc"><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en" target="_blank" rel="noopener" data-popover="知识共享许可协议" data-popover-pos="up"><img src="/images/cc-by-nc-sa.svg"></a></div></section><div class="sidebar-reading"><div class="sidebar-reading-info"><span class="sidebar-reading-info__text">你已阅读了 </span><span class="sidebar-reading-info__num">0</span><span class="sidebar-reading-info__perc">%</span></div><div class="sidebar-reading-line"></div></div></aside></div><div class="clearfix"></div></div></main><footer class="footer" id="footer"><div class="footer-inner"><div><span>Copyright © 2015~2026</span><span class="footer__devider"></span><span>Zhenchao All Rights Reserved</span><span class="footer__devider">|</span><span>浙ICP备 16010916 号</span></div><div><span>由 <a href="http://hexo.io/" title="Hexo" target="_blank" rel="noopener">Hexo</a> 强力驱动</span><span> v5.3.0</span><span class="footer__devider">|</span><span>主题 - <a href="https://github.com/liuyib/hexo-theme-stun/" title="Stun" target="_blank" rel="noopener">Stun</a></span><span> v2.8.0</span></div></div></footer><div class="loading-bar" id="loading-bar"><div class="loading-bar__progress"></div></div><div class="back2top" id="back2top"><span class="back2top__icon"><i class="fas fa-rocket"></i></span></div></div><div class="search-mask"></div><div class="search-popup"><span class="search-close"></span><div class="search-input"><input placeholder="搜索文章（支持多关键词，请用空格分隔）"></div><div class="search-results"></div></div><script src="https://cdn.jsdelivr.net/npm/jquery@v3.4.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@1.5.2/velocity.ui.min.js"></script><script src="https://cdn.jsdelivr.net/npm/ribbon.js@latest/dist/ribbon.min.js" size="120" alpha="0.6" zIndex="-1"></script><script src="https://cdn.jsdelivr.net/npm/lazyload@2.0.0-rc.2/lazyload.min.js"></script><script>function initSearch() {
+  var isXML = true;
+  var search_path = 'search.json';
+
+  if (!search_path) {
+    search_path = 'search.xml';
+  } else if (/json$/i.test(search_path)) {
+    isXML = false;
+  }
+
+  var path = '/' + search_path;
+  $.ajax({
+    url: path,
+    dataType: isXML ? 'xml' : 'json',
+    async: true,
+    success: function (res) {
+      var datas = isXML ? $('entry', res).map(function () {
+        // 将 XML 转为 JSON
+        return {
+          title: $('title', this).text(),
+          content: $('content', this).text(),
+          url: $('url', this).text()
+        };
+      }).get() : res;
+      var $input = $('.search-input input');
+      var $result = $('.search-results');
+      // 搜索对象（标题、内容）的权重，影响显示顺序
+      var WEIGHT = { title: 100, content: 1 };
+      var searchPost = function () {
+        var searchText = $input.val().toLowerCase().trim();
+        // 根据空白字符分隔关键字
+        var keywords = searchText.split(/[\s]+/);
+        // 搜索结果
+        var matchPosts = [];
+
+        // 有多个关键字时，将原文字整个保存下来
+        if (keywords.length > 1) {
+          keywords.push(searchText);
+        }
+        // 防止未输入字符时搜索
+        if (searchText.length > 0) {
+          datas.forEach(function (data) {
+            var isMatch  = false;
+            // 没有标题的文章使用预设的 i18n 变量代替
+            var title = (data.title && data.title.trim()) || '[ 文章无标题 ]';
+            var titleLower = title && title.toLowerCase();
+            // 删除 HTML 标签 和 所有空白字符
+            var content = data.content && data.content.replace(/<[^>]+>/g, '');
+            var contentLower = content && content.toLowerCase();
+            // 删除重复的 /
+            var postURL = data.url && decodeURI(data.url).replace(/\/{2,}/g, '/');
+            // 标题中匹配到的关键词
+            var titleHitSlice = [];
+            // 内容中匹配到的关键词
+            var contentHitSlice = [];
+
+            keywords.forEach(function (keyword) {
+              /**
+              * 获取匹配的关键词的索引
+              * @param {String} keyword 要匹配的关键字
+              * @param {String} text 原文字
+              * @param {Boolean} caseSensitive 是否区分大小写
+              * @param {Number} weight 匹配对象的权重。权重大的优先显示
+              * @return {Array}
+              */
+              function getIndexByword (word, text, caseSensitive, weight) {
+                if (!word || !text) {
+                  return [];
+                };
+
+                var startIndex = 0; // 每次匹配的开始索引
+                var index = -1;     // 匹配到的索引值
+                var result = [];    // 匹配结果
+
+                if (!caseSensitive) {
+                  word = word.toLowerCase();
+                  text = text.toLowerCase();
+                }
+
+                while((index = text.indexOf(word, startIndex)) !== -1) {
+                  var hasMatch = false;
+                  // 索引位置相同的关键词，保留长度较长的
+                  titleHitSlice.forEach(function (hit) {
+                    if (hit.index === index && hit.word.length < word.length) {
+                      hit.word = word;
+                      hasMatch = true;
+                    }
+                  });
+                  startIndex = index + word.length;
+                  !hasMatch && result.push({ index: index, word: word, weight: weight });
+                }
+                return result;
+              }
+              titleHitSlice = titleHitSlice.concat(getIndexByword(keyword, titleLower, false, WEIGHT.title));
+              contentHitSlice = contentHitSlice.concat(getIndexByword(keyword, contentLower, false, WEIGHT.content));
+            });
+
+            var hitTitle = titleHitSlice.length;
+            var hitContent = contentHitSlice.length;
+
+            if (hitTitle > 0 || hitContent > 0) {
+              isMatch = true;
+            }
+            if (isMatch) {
+              ;[titleHitSlice, contentHitSlice].forEach(function (hit) {
+                // 按照匹配文字的索引的递增顺序排序
+                hit.sort(function (left, right) {
+                  return left.index - right.index;
+                });
+              });
+              /**
+              * 给文本中匹配到的关键词添加标记，从而进行高亮显示
+              * @param {String} text 原文本
+              * @param {Array} hitSlice 匹配项的索引信息
+              * @param {Number} start 开始索引
+              * @param {Number} end 结束索引
+              * @return {String}
+              */
+              function highlightKeyword (text, hitSlice, start, end) {
+                if (!text || !hitSlice || !hitSlice.length) {
+                  return;
+                }
+
+                var result = '';
+                var startIndex = start;
+                var endIndex = end;
+                hitSlice.forEach(function (hit) {
+                  if (hit.index < startIndex) {
+                    return;
+                  }
+
+                  var hitWordEnd = hit.index + hit.word.length;
+                  result += text.slice(startIndex, hit.index);
+                  result += '<b>' + text.slice(hit.index, hitWordEnd) + '</b>';
+                  startIndex = hitWordEnd;
+                });
+                result += text.slice(startIndex, endIndex);
+                return result;
+              }
+
+              var postData = {};
+              // 文章总的搜索权重
+              var postWeight = titleHitSlice.length * WEIGHT.title + contentHitSlice.length * WEIGHT.content;
+              // 标记匹配关键词后的标题
+              var postTitle = highlightKeyword(title, titleHitSlice, 0, title.length) || title;
+              // 标记匹配关键词后的内容
+              var postContent;
+              // 显示内容的长度
+              var SHOW_WORD_LENGTH = 200;
+              // 命中关键词前的字符显示长度
+              var SHOW_WORD_FRONT_LENGTH = 20;
+              var SHOW_WORD_END_LENGTH = SHOW_WORD_LENGTH - SHOW_WORD_FRONT_LENGTH;
+
+              // 截取匹配的第一个字符，前后共 200 个字符来显示
+              if (contentHitSlice.length > 0) {
+                var firstIndex = contentHitSlice[0].index;
+                var start = firstIndex > SHOW_WORD_FRONT_LENGTH ? firstIndex - SHOW_WORD_FRONT_LENGTH : 0;
+                var end = firstIndex + SHOW_WORD_END_LENGTH;
+                postContent = highlightKeyword(content, contentHitSlice, start, end);
+              } else { // 未匹配到内容，直接截取前 200 个字符来显示
+                postContent = content.slice(0, SHOW_WORD_LENGTH);
+              }
+              postData.title = postTitle;
+              postData.content = postContent;
+              postData.url = postURL;
+              postData.weight = postWeight;
+              matchPosts.push(postData);
+            }
+          });
+        }
+
+        var resultInnerHtml = '';
+        if (matchPosts.length) {
+          // 按权重递增的顺序排序，使权重大的优先显示
+          matchPosts.sort(function (left, right) {
+            return right.weight - left.weight;
+          });
+          resultInnerHtml += '<ul>';
+          matchPosts.forEach(function (post) {
+            resultInnerHtml += '<li><a class="search-results-title" href="' + post.url + '">';
+            resultInnerHtml += post.title;
+            resultInnerHtml += '</a><div class="search-results-content">';
+            resultInnerHtml += post.content;
+            resultInnerHtml += '</div></li>';
+          });
+          resultInnerHtml += '</ul>';
+        } else {
+          resultInnerHtml += '<div class="search-results-none"><i class="far fa-meh"></i></div>';
+        }
+        $result.html(resultInnerHtml);
+      };
+      $input.on('input', searchPost);
+      $input.on('keyup', function (e) {
+        if (e.keyCode === Stun.utils.codeToKeyCode('Enter')) {
+          searchPost();
+        }
+      });
+    }
+  });
+}
+
+function closeSearch () {
+  $('body').css({ overflow: 'auto' });
+  $('.search-popup').css({ display: 'none' });
+  $('.search-mask').css({ display: 'none' });
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+  Stun.utils.pjaxReloadLocalSearch = function () {
+    $('.header-nav-search').on('click', function (e) {
+      e.stopPropagation();
+      $('body').css('overflow', 'hidden');
+      $('.search-popup')
+        .velocity('stop')
+        .velocity('transition.expandIn', {
+          duration: 300,
+          complete: function () {
+            $('.search-popup input').focus();
+          }
+        });
+      $('.search-mask')
+        .velocity('stop')
+        .velocity('transition.fadeIn', {
+          duration: 300
+        });
+
+      initSearch();
+    });
+    $('.search-mask, .search-close').on('click', function () {
+      closeSearch();
+    });
+    $(document).on('keydown', function (e) {
+      // Escape <=> 27
+      if (e.keyCode === Stun.utils.codeToKeyCode('Escape')) {
+        closeSearch();
+      }
+    });
+  };
+
+  Stun.utils.pjaxReloadLocalSearch();
+}, false);
+
+function safeOpenUrl(url) {
+  var newTab = window.open();
+  newTab.opener = null;
+  newTab.location = url;
+}
+
+function extSearch(engine) {
+  var engines = {
+    google: 'https://www.google.com/search?q=',
+    bing: 'https://cn.bing.com/search?q=',
+    baidu: 'https://www.baidu.com/s?ie=UTF-8&wd=',
+  };
+  var host = window.location.host;
+  var query = $('.search-input input').val().toLowerCase().trim();
+  var uri = engines[engine] + query + ' site:' + host;
+
+  if (query) {
+    safeOpenUrl(uri);
+  } else {
+    Stun.utils.popAlert('warning', '请输入字符');
+  }
+}
+
+var assistSearchList = window.CONFIG.assistSearch;
+
+if (Array.isArray(assistSearchList)) {
+  assistSearchList.forEach(function (name) {
+    document.querySelector('.search-btns-item--' + name).addEventListener('click', function () {
+      extSearch(name);
+    }, false);
+  });
+}</script><script src="https://cdn.jsdelivr.net/npm/pjax@latest/pjax.min.js"></script><script>window.addEventListener('DOMContentLoaded', function () {
+  var pjax = new Pjax({"selectors":["head title","#main",".pjax-reload",".header-inner"],"history":true,"scrollTo":false,"scrollRestoration":false,"cacheBust":false,"debug":false,"currentUrlFullReload":false,"timeout":0});
+  // 加载进度条的计时器
+  var loadingTimer = null;
+
+  // 重置页面 Y 方向上的滚动偏移量
+  document.addEventListener('pjax:send', function () {
+    $('.header-nav-menu').removeClass('show');
+    if (CONFIG.pjax && CONFIG.pjax.avoidBanner) {
+      $('html').velocity('scroll', {
+        duration: 500,
+        offset: $('#header').height(),
+        easing: 'easeInOutCubic'
+      });
+    }
+
+    var loadingBarWidth = 20;
+    var MAX_LOADING_WIDTH = 95;
+
+    $('.loading-bar').addClass('loading');
+    $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    clearInterval(loadingTimer);
+    loadingTimer = setInterval(function () {
+      loadingBarWidth += 3;
+      if (loadingBarWidth > MAX_LOADING_WIDTH) {
+        loadingBarWidth = MAX_LOADING_WIDTH;
+      }
+      $('.loading-bar__progress').css('width', loadingBarWidth + '%');
+    }, 500);
+  }, false);
+
+  window.addEventListener('pjax:complete', function () {
+    clearInterval(loadingTimer);
+    $('.loading-bar__progress').css('width', '100%');
+    $('.loading-bar').removeClass('loading');
+    setTimeout(function () {
+      $('.loading-bar__progress').css('width', '0');
+    }, 400);
+    $('link[rel=prefetch], script[data-pjax-rm]').each(function () {
+      $(this).remove();
+    });
+    $('script[data-pjax], #pjax-reload script').each(function () {
+      $(this).parent().append($(this).remove());
+    });
+
+    if (Stun.utils.pjaxReloadBoot) {
+      Stun.utils.pjaxReloadBoot();
+    }
+    if (Stun.utils.pjaxReloadScroll) {
+      Stun.utils.pjaxReloadScroll();
+    }
+    if (Stun.utils.pjaxReloadSidebar) {
+      Stun.utils.pjaxReloadSidebar();
+    }
+    if (true) {
+      if (Stun.utils.pjaxReloadHeader) {
+        Stun.utils.pjaxReloadHeader();
+      }
+      if (Stun.utils.pjaxReloadScrollIcon) {
+        Stun.utils.pjaxReloadScrollIcon();
+      }
+      if (Stun.utils.pjaxReloadLocalSearch) {
+        Stun.utils.pjaxReloadLocalSearch();
+      }
+    }
+  }, false);
+}, false);</script><div id="pjax-reload"></div><script data-pjax="">function loadUtterances() {
+  var d = document, s = d.createElement('script');
+  var container = d.getElementById('utterances-container');
+
+  if (!container) {
+    return;
+  }
+  s.src = 'https://utteranc.es/client.js';
+  s.setAttribute('repo', 'plotor/hexo-comments');
+  s.setAttribute('issue-term', 'title');
+  s.setAttribute('label', 'utterances');
+  s.setAttribute('theme', 'github-light');
+  s.setAttribute('crossorigin', 'anonymous');
+  s.setAttribute('async', '');
+  if (true) {
+    s.setAttribute('data-pjax-rm', '');
+  }
+  container.append(s);
+}
+
+if (true) {
+  loadUtterances();
+} else {
+  window.addEventListener('DOMContentLoaded', loadUtterances, false);
+}</script><script src="/js/utils.js?v=2.8.0"></script><script src="/js/unsplash-bg.js?v=2.8.0"></script><script src="/js/stun-boot.js?v=2.8.0"></script><script src="/js/scroll.js?v=2.8.0"></script><script src="/js/header.js?v=2.8.0"></script><script src="/js/sidebar.js?v=2.8.0"></script><script type="application/json" src="/search.json"></script></body></html>
