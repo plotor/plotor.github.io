@@ -30,14 +30,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2017/07/08/spring/spring-ioc-circular-reference/</loc>
+    <loc>https://plotor.github.io/2017/05/28/spring/spring-ioc-get-bean/</loc>
     
     <lastmod>2026-05-19</lastmod>
     
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2017/05/28/spring/spring-ioc-get-bean/</loc>
+    <loc>https://plotor.github.io/2017/07/08/spring/spring-ioc-circular-reference/</loc>
     
     <lastmod>2026-05-19</lastmod>
     
@@ -100,14 +100,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2017/04/15/design-pattern/principle/</loc>
+    <loc>https://plotor.github.io/2017/10/23/design-pattern/reactor/</loc>
     
     <lastmod>2026-05-19</lastmod>
     
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2017/10/23/design-pattern/reactor/</loc>
+    <loc>https://plotor.github.io/2017/04/15/design-pattern/principle/</loc>
     
     <lastmod>2026-05-19</lastmod>
     
@@ -149,14 +149,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/11/15/storm/storm-topology-build/</loc>
+    <loc>https://plotor.github.io/2018/11/13/storm/storm-architecture/</loc>
     
     <lastmod>2026-05-19</lastmod>
     
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/11/13/storm/storm-architecture/</loc>
+    <loc>https://plotor.github.io/2018/11/15/storm/storm-topology-build/</loc>
     
     <lastmod>2026-05-19</lastmod>
     
@@ -219,14 +219,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2019/06/22/kafka/kafka-log-manage/</loc>
+    <loc>https://plotor.github.io/2019/06/19/kafka/kafka-consumer/</loc>
     
     <lastmod>2026-05-19</lastmod>
     
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2019/06/19/kafka/kafka-consumer/</loc>
+    <loc>https://plotor.github.io/2019/06/22/kafka/kafka-log-manage/</loc>
     
     <lastmod>2026-05-19</lastmod>
     
@@ -275,13 +275,6 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2019/06/20/kafka/kafka-broker/</loc>
-    
-    <lastmod>2026-05-19</lastmod>
-    
-  </url>
-  
-  <url>
     <loc>https://plotor.github.io/2019/06/18/kafka/kafka-producer/</loc>
     
     <lastmod>2026-05-19</lastmod>
@@ -289,7 +282,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/05/17/scala/scala-collection-seq/</loc>
+    <loc>https://plotor.github.io/2019/06/20/kafka/kafka-broker/</loc>
     
     <lastmod>2026-05-19</lastmod>
     
@@ -297,6 +290,13 @@
   
   <url>
     <loc>https://plotor.github.io/2018/05/16/scala/scala-collection-common/</loc>
+    
+    <lastmod>2026-05-19</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>https://plotor.github.io/2018/05/17/scala/scala-collection-seq/</loc>
     
     <lastmod>2026-05-19</lastmod>
     
@@ -331,14 +331,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2020/06/01/sofa/sofa-jraft-node-startup/</loc>
+    <loc>https://plotor.github.io/2020/06/29/sofa/sofa-jraft-linearizable-read/</loc>
     
     <lastmod>2026-05-19</lastmod>
     
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2020/06/29/sofa/sofa-jraft-linearizable-read/</loc>
+    <loc>https://plotor.github.io/2020/06/01/sofa/sofa-jraft-node-startup/</loc>
     
     <lastmod>2026-05-19</lastmod>
     
@@ -380,14 +380,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2017/03/04/protocol/oauth-v2-principle/</loc>
+    <loc>https://plotor.github.io/2020/01/01/protocol/raft/</loc>
     
     <lastmod>2026-05-19</lastmod>
     
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2020/01/01/protocol/raft/</loc>
+    <loc>https://plotor.github.io/2017/03/04/protocol/oauth-v2-principle/</loc>
     
     <lastmod>2026-05-19</lastmod>
     
@@ -408,14 +408,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/03/04/protocol/oauth-v2-protocol/</loc>
+    <loc>https://plotor.github.io/2015/10/04/protocol/http-cookies/</loc>
     
     <lastmod>2026-05-19</lastmod>
     
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2015/10/04/protocol/http-cookies/</loc>
+    <loc>https://plotor.github.io/2018/03/04/protocol/oauth-v2-protocol/</loc>
     
     <lastmod>2026-05-19</lastmod>
     
@@ -450,6 +450,13 @@
   </url>
   
   <url>
+    <loc>https://plotor.github.io/2018/08/31/java/juc-count-down-latch/</loc>
+    
+    <lastmod>2026-05-19</lastmod>
+    
+  </url>
+  
+  <url>
     <loc>https://plotor.github.io/2018/09/30/java/juc-thread-pool-executor/</loc>
     
     <lastmod>2026-05-19</lastmod>
@@ -457,7 +464,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/08/31/java/juc-count-down-latch/</loc>
+    <loc>https://plotor.github.io/2018/09/04/java/juc-semaphore/</loc>
     
     <lastmod>2026-05-19</lastmod>
     
@@ -472,13 +479,6 @@
   
   <url>
     <loc>https://plotor.github.io/2020/04/23/java/theia/</loc>
-    
-    <lastmod>2026-05-19</lastmod>
-    
-  </url>
-  
-  <url>
-    <loc>https://plotor.github.io/2018/09/04/java/juc-semaphore/</loc>
     
     <lastmod>2026-05-19</lastmod>
     
@@ -520,6 +520,13 @@
   </url>
   
   <url>
+    <loc>https://plotor.github.io/2018/09/03/java/juc-cyclic-barrier/</loc>
+    
+    <lastmod>2026-05-19</lastmod>
+    
+  </url>
+  
+  <url>
     <loc>https://plotor.github.io/2016/08/13/java/java-exception/</loc>
     
     <lastmod>2026-05-19</lastmod>
@@ -528,13 +535,6 @@
   
   <url>
     <loc>https://plotor.github.io/2018/09/14/java/juc-delay-queue/</loc>
-    
-    <lastmod>2026-05-19</lastmod>
-    
-  </url>
-  
-  <url>
-    <loc>https://plotor.github.io/2018/09/03/java/juc-cyclic-barrier/</loc>
     
     <lastmod>2026-05-19</lastmod>
     
@@ -583,14 +583,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/09/10/java/juc-concurrent-linked-queue/</loc>
+    <loc>https://plotor.github.io/2018/08/03/java/juc-synchronized/</loc>
     
     <lastmod>2026-05-19</lastmod>
     
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2018/08/03/java/juc-synchronized/</loc>
+    <loc>https://plotor.github.io/2018/09/10/java/juc-concurrent-linked-queue/</loc>
     
     <lastmod>2026-05-19</lastmod>
     
@@ -611,14 +611,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2016/09/24/java/java8-optional/</loc>
+    <loc>https://plotor.github.io/2015/11/05/java/latch-and-barrier/</loc>
     
     <lastmod>2026-05-19</lastmod>
     
   </url>
   
   <url>
-    <loc>https://plotor.github.io/2015/11/05/java/latch-and-barrier/</loc>
+    <loc>https://plotor.github.io/2016/09/24/java/java8-optional/</loc>
     
     <lastmod>2026-05-19</lastmod>
     
@@ -695,6 +695,13 @@
   </url>
   
   <url>
+    <loc>https://plotor.github.io/2017/10/12/mybatis/mybatis-config/</loc>
+    
+    <lastmod>2026-05-19</lastmod>
+    
+  </url>
+  
+  <url>
     <loc>https://plotor.github.io/2017/10/10/mybatis/mybatis-overview/</loc>
     
     <lastmod>2026-05-19</lastmod>
@@ -703,13 +710,6 @@
   
   <url>
     <loc>https://plotor.github.io/2017/10/15/mybatis/mybatis-execute-sql/</loc>
-    
-    <lastmod>2026-05-19</lastmod>
-    
-  </url>
-  
-  <url>
-    <loc>https://plotor.github.io/2017/10/12/mybatis/mybatis-config/</loc>
     
     <lastmod>2026-05-19</lastmod>
     
@@ -732,27 +732,6 @@
 
   
   <url>
-    <loc>https://plotor.github.io/tags/Daft/</loc>
-    <lastmod>2026-05-19</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
-  
-  <url>
-    <loc>https://plotor.github.io/tags/Ray/</loc>
-    <lastmod>2026-05-19</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
-  
-  <url>
-    <loc>https://plotor.github.io/tags/AI/</loc>
-    <lastmod>2026-05-19</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
-  
-  <url>
     <loc>https://plotor.github.io/tags/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/</loc>
     <lastmod>2026-05-19</lastmod>
     <changefreq>daily</changefreq>
@@ -761,41 +740,6 @@
   
   <url>
     <loc>https://plotor.github.io/tags/%E7%AE%97%E6%B3%95/</loc>
-    <lastmod>2026-05-19</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
-  
-  <url>
-    <loc>https://plotor.github.io/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/</loc>
-    <lastmod>2026-05-19</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
-  
-  <url>
-    <loc>https://plotor.github.io/tags/Java/</loc>
-    <lastmod>2026-05-19</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
-  
-  <url>
-    <loc>https://plotor.github.io/tags/CGlib/</loc>
-    <lastmod>2026-05-19</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
-  
-  <url>
-    <loc>https://plotor.github.io/tags/JMockit/</loc>
-    <lastmod>2026-05-19</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
-  
-  <url>
-    <loc>https://plotor.github.io/tags/Theia/</loc>
     <lastmod>2026-05-19</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
@@ -816,7 +760,49 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/</loc>
+    <loc>https://plotor.github.io/tags/AI/</loc>
+    <lastmod>2026-05-19</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://plotor.github.io/tags/Daft/</loc>
+    <lastmod>2026-05-19</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://plotor.github.io/tags/Ray/</loc>
+    <lastmod>2026-05-19</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://plotor.github.io/tags/CGlib/</loc>
+    <lastmod>2026-05-19</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://plotor.github.io/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/</loc>
+    <lastmod>2026-05-19</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://plotor.github.io/tags/Java/</loc>
+    <lastmod>2026-05-19</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://plotor.github.io/tags/JMockit/</loc>
     <lastmod>2026-05-19</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
@@ -830,7 +816,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/tags/Kafka/</loc>
+    <loc>https://plotor.github.io/tags/Theia/</loc>
+    <lastmod>2026-05-19</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://plotor.github.io/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/</loc>
     <lastmod>2026-05-19</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
@@ -838,6 +831,20 @@
   
   <url>
     <loc>https://plotor.github.io/tags/JVM/</loc>
+    <lastmod>2026-05-19</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://plotor.github.io/tags/Kafka/</loc>
+    <lastmod>2026-05-19</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://plotor.github.io/tags/MyBatis/</loc>
     <lastmod>2026-05-19</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
@@ -893,20 +900,6 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/tags/MyBatis/</loc>
-    <lastmod>2026-05-19</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
-  
-  <url>
-    <loc>https://plotor.github.io/tags/Scala/</loc>
-    <lastmod>2026-05-19</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
-  
-  <url>
     <loc>https://plotor.github.io/tags/RPC/</loc>
     <lastmod>2026-05-19</lastmod>
     <changefreq>daily</changefreq>
@@ -928,14 +921,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/tags/Storm/</loc>
+    <loc>https://plotor.github.io/tags/SOFA-JRaft/</loc>
     <lastmod>2026-05-19</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
   </url>
   
   <url>
-    <loc>https://plotor.github.io/tags/JStorm/</loc>
+    <loc>https://plotor.github.io/tags/Scala/</loc>
     <lastmod>2026-05-19</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
@@ -949,20 +942,20 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/tags/SOFA-JRaft/</loc>
+    <loc>https://plotor.github.io/tags/Storm/</loc>
+    <lastmod>2026-05-19</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://plotor.github.io/tags/JStorm/</loc>
     <lastmod>2026-05-19</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
   </url>
   
 
-  
-  <url>
-    <loc>https://plotor.github.io/categories/daft/</loc>
-    <lastmod>2026-05-19</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
   
   <url>
     <loc>https://plotor.github.io/categories/algorithm/</loc>
@@ -972,14 +965,21 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/categories/java/</loc>
+    <loc>https://plotor.github.io/categories/agent/</loc>
     <lastmod>2026-05-19</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
   </url>
   
   <url>
-    <loc>https://plotor.github.io/categories/agent/</loc>
+    <loc>https://plotor.github.io/categories/daft/</loc>
+    <lastmod>2026-05-19</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://plotor.github.io/categories/java/</loc>
     <lastmod>2026-05-19</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
@@ -1000,6 +1000,13 @@
   </url>
   
   <url>
+    <loc>https://plotor.github.io/categories/mybatis/</loc>
+    <lastmod>2026-05-19</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
     <loc>https://plotor.github.io/categories/web/</loc>
     <lastmod>2026-05-19</lastmod>
     <changefreq>daily</changefreq>
@@ -1014,21 +1021,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/categories/mybatis/</loc>
-    <lastmod>2026-05-19</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
-  
-  <url>
     <loc>https://plotor.github.io/categories/ray/</loc>
-    <lastmod>2026-05-19</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
-  </url>
-  
-  <url>
-    <loc>https://plotor.github.io/categories/scala/</loc>
     <lastmod>2026-05-19</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
@@ -1049,7 +1042,14 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/categories/storm/</loc>
+    <loc>https://plotor.github.io/categories/sofa/</loc>
+    <lastmod>2026-05-19</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://plotor.github.io/categories/scala/</loc>
     <lastmod>2026-05-19</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
@@ -1063,7 +1063,7 @@
   </url>
   
   <url>
-    <loc>https://plotor.github.io/categories/sofa/</loc>
+    <loc>https://plotor.github.io/categories/storm/</loc>
     <lastmod>2026-05-19</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
